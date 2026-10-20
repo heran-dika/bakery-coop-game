@@ -88,8 +88,9 @@
     .joy-knob { position:absolute; width:48px; height:48px; left:50%; top:50%; transform:translate(-50%,-50%); border-radius:50%; border:2px solid #ffffff; background:#1f4172df; box-shadow:0 3px 9px #182c4730; pointer-events:none; }
     .joy-label { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:8px; font-weight:900; letter-spacing:.08em; color:#1f417278; pointer-events:none; }
     .action-zone { position:absolute; right:max(16px,env(safe-area-inset-right)); bottom:max(19px,env(safe-area-inset-bottom)); pointer-events:auto; touch-action:none; }
-    .action-button { min-width:82px; min-height:82px; border:2px solid #ffffff; border-radius:50%; background:#1f4172f2; color:#fff; box-shadow:0 5px 16px #182c4735; padding:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:11px; font-weight:900; text-align:center; touch-action:none; }
+    .action-button { width:82px; height:82px; white-space:nowrap; letter-spacing:-.01em; border:2px solid #ffffff; border-radius:50%; background:#1f4172f2; color:#fff; box-shadow:0 5px 16px #182c4735; padding:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:10px; font-weight:900; text-align:center; touch-action:none; }
     .action-button span:first-child { font-size:22px; line-height:1; }
+    .action-button.idle { opacity:.5; }
     .overlay { padding:10px; }
     .modal { padding:17px; }
     .modal-icon { font-size:34px; }
@@ -111,7 +112,30 @@
     .joystick-zone { width:100px; height:100px; bottom:5px; }
     .joy-knob { width:42px; height:42px; }
     .action-zone { bottom:7px; }
-    .action-button { min-width:70px; min-height:70px; }
+    .action-button { width:70px; height:70px; }
+  }
+  /* Layar sentuh: pill status disembunyikan (label tombol sudah cukup), halaman tidak ikut ter-scroll saat main */
+  @media (pointer:coarse) {
+    .station-prompt { display:none; }
+    body.playing { touch-action:none; overscroll-behavior:none; -webkit-user-select:none; user-select:none; }
+    .toast { top:auto; bottom:150px; }
+  }
+  /* HP landscape: HUD diringkas supaya map dapat tinggi layar */
+  @media (orientation:landscape) and (max-height:520px) {
+    .app { height:100dvh; display:flex; flex-direction:column; padding:4px 8px; }
+    .topline { margin-bottom:3px; }
+    .brand-mark,.subtitle,.footer-note,.help-line { display:none; }
+    h1 { font-size:15px; }
+    .top-actions .btn { padding:5px 9px; font-size:11px; }
+    .hud { grid-template-columns:76px 76px 1fr; gap:4px; margin-bottom:3px; }
+    .stat,.orders-panel { min-height:0; padding:3px 7px; }
+    .stat-label,.panel-label { font-size:7px; margin-bottom:1px; }
+    .stat-value { font-size:16px; }
+    .order-card { padding:3px 6px 7px; min-height:0; }
+    .game-frame { flex:1; min-height:0; }
+    canvas { height:100%; min-height:0; }
+    .inventory-bar { padding-top:2px; font-size:10px; }
+    .toast { top:46px; left:10px; bottom:auto; transform:none; max-width:34%; text-align:left; }
   }
 </style>
 </head>
@@ -217,6 +241,39 @@
   const ctx = canvas.getContext('2d');
   const els = Object.fromEntries(['timerText','scoreText','orderList','stationPrompt','inventoryText','toast','startScreen','helpScreen','resultsScreen','startBtn','restartBtn','helpBtn','closeHelpBtn','playAgainBtn','resultSummary','resultScore','resultServed','resultExpired','resultBurnt','starsText','actionBtn','actionLabel','joyKnob','joystickZone'].map(id => [id, document.getElementById(id)]));
 
+  let dpr = 1;
+  // Aset SVG (assets/*.svg, lihat ASSET_PLAN §6). Gagal dimuat = pakai gambar prosedural.
+  const ART = { raw:{}, cache:new Map() };
+  const ART_KEYS = ['station_oven_empty','station_oven_cooking','station_oven_ready','station_oven_burnt','station_prep_empty','station_prep_dough','station_prep_prepared','station_counter_idle','station_dough_idle','station_butter_idle','station_salt_idle','station_serve_idle','station_trash_idle','char_baker_dr_idle_0','char_baker_dr_idle_1','char_baker_dr_walk_0','char_baker_dr_walk_1','char_baker_dr_walk_2','char_baker_dr_walk_3'];
+  const CHAR_SCALE = 1; // viewBox 40x64 = satuan peta; 1 = sama skala dengan stasiun [Menebak, uji di HP]
+  function loadArt(keys) {
+    for (const k of keys) {
+      const img = new Image(); img.decoding = 'async';
+      img.onload = () => { ART.raw[k] = img; ART.cache.clear(); };
+      img.src = `assets/${k}.svg`;
+    }
+  }
+  function artFor(key, wUnits, hUnits, sc) {
+    const img = ART.raw[key]; if (!img) return null;
+    const id = `${key}@${sc.toFixed(2)}x${dpr}`; let c = ART.cache.get(id);
+    if (!c) {
+      const cw = Math.ceil(wUnits*sc*dpr), ch = Math.ceil(hUnits*sc*dpr);
+      if (!(cw >= 1 && ch >= 1)) return null;   // layout belum siap (skala 0): pakai gambar prosedural
+      c = document.createElement('canvas'); c.width = cw; c.height = ch;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); ART.cache.set(id, c);
+    }
+    return c;
+  }
+  function charKey(moving) {
+    return moving ? `char_baker_dr_walk_${Math.floor(player.walkCycle/1.68)%4}`   // 1.68 = 12 rad/s x 0.14 s per frame
+                  : `char_baker_dr_idle_${Math.floor(elapsed/0.42)%2}`;
+  }
+  function artKey(s) {
+    if (s.id === 'oven') return `station_oven_${s.status}`;
+    if (s.id === 'prep') return `station_prep_${!s.item ? 'empty' : s.item.type === 'dough' ? 'dough' : 'prepared'}`;
+    if (s.type === 'counter') return 'station_counter_idle';
+    return `station_${s.id}_idle`;
+  }
   const paused = () => !els.helpScreen.classList.contains('hidden');
   let canvasW = 1000, canvasH = 500, mapScale = 1, tileW = 88, tileH = 44, originX = 500, originY = 70;
   let mode = 'menu';
@@ -429,6 +486,7 @@
     });
     return valid[0];
   }
+  const VERBS = [[/^Ambil/,'AMBIL'],[/^(Letakkan|Taruh)/,'TARUH'],[/^Mulai uleni/,'ULENI'],[/^Tambahkan/,'TAMBAH'],[/^Masukkan/,'PANGGANG'],[/^Sajikan/,'SAJIKAN'],[/^Buang/,'BUANG']];
   function actionText(s) {
     if (!s) return 'Dekati stasiun lalu tekan Aksi';
     if (s.type === 'crate') return heldItem ? 'Tangan penuh — kosongkan tangan dulu' : `Ambil ${s.label.toLowerCase()}`;
@@ -527,6 +585,7 @@
     }
   }
   function renderUI() {
+    document.body.classList.toggle('playing', mode === 'running');
     els.timerText.textContent = formatTime(roundLeft);
     els.timerText.classList.toggle('warning',roundLeft <= 30);
     els.scoreText.textContent = Math.round(score).toLocaleString('id-ID');
@@ -534,11 +593,11 @@
     renderOrders();
     const target = getTargetStation();
     els.stationPrompt.textContent = mode === 'running' ? actionText(target) : mode === 'results' ? 'Shift selesai — lihat hasil ronde' : 'Mulai shift untuk bermain';
-    if (target) {
-      const text = actionText(target);
-      els.actionLabel.textContent = text.length > 18 ? 'AKSI' : text.toUpperCase();
-      els.actionBtn.setAttribute('aria-label',text);
-    } else { els.actionLabel.textContent = 'AKSI'; els.actionBtn.setAttribute('aria-label','Aksi'); }
+    const text = actionText(target);
+    const verb = mode === 'running' && target ? VERBS.find(([re]) => re.test(text)) : null;
+    els.actionLabel.textContent = verb ? verb[1] : 'AKSI';
+    els.actionBtn.classList.toggle('idle', !verb);
+    els.actionBtn.setAttribute('aria-label', text);
   }
   function renderOrders() {
     if (!orders.length) { els.orderList.innerHTML = '<span class="order-empty">Tidak ada order aktif. Siapkan stasiun!</span>'; return; }
@@ -573,7 +632,7 @@
     joystick.x=nx; joystick.y=ny;
   }
   function resizeCanvas() {
-    const r=canvas.getBoundingClientRect(); const dpr=Math.min(window.devicePixelRatio||1,2);
+    const r=canvas.getBoundingClientRect(); dpr=Math.min(window.devicePixelRatio||1,2); ART.cache.clear();
     canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr));
     ctx.setTransform(dpr,0,0,dpr,0,0); canvasW=r.width; canvasH=r.height;
     mapScale=Math.min(1.18,canvasW/700,canvasH/340);
@@ -613,13 +672,18 @@
     const p=project(s.x,s.y), sc=mapScale;
     const w=tileW*.82, h=tileH*.70, lift=29*sc, depth=22*sc;
     ctx.fillStyle='#3d30251b';ctx.beginPath();ctx.ellipse(p.x,p.y+5*sc,w*.62,h*.57,0,0,Math.PI*2);ctx.fill();
+    const art=artFor(artKey(s),80,80,sc);
+    if(art){ctx.drawImage(art,p.x-40*sc,p.y+22*sc-72*sc,80*sc,80*sc);if(target===s)poly([[p.x,p.y-lift-h/2],[p.x+w/2,p.y-lift],[p.x,p.y-lift+h/2],[p.x-w/2,p.y-lift]],null,'#238b69',2.8*sc);}
+    else {
     // Solid cabinet sides + bevelled top. Geometry remains in the original isometric grid.
     poly([[p.x-w/2,p.y-lift],[p.x,p.y-lift+h/2],[p.x,p.y+depth],[p.x-w/2,p.y+depth-h/2]],shade(s.color,-32),'#6b4c3540',.9*sc);
     poly([[p.x+w/2,p.y-lift],[p.x,p.y-lift+h/2],[p.x,p.y+depth],[p.x+w/2,p.y+depth-h/2]],shade(s.color,-17),'#6b4c3540',.9*sc);
     poly([[p.x,p.y-lift-h/2],[p.x+w/2,p.y-lift],[p.x,p.y-lift+h/2],[p.x-w/2,p.y-lift]],s.color,target===s?'#238b69':'#fff7e9',target===s?2.8*sc:1.2*sc);
+    }
     if(target===s){ctx.strokeStyle='#238b69';ctx.lineWidth=1.5*sc;ctx.setLineDash([4*sc,3*sc]);poly([[p.x,p.y-lift-h/2-4*sc],[p.x+w/2+4*sc,p.y-lift],[p.x,p.y-lift+h/2+4*sc],[p.x-w/2-4*sc,p.y-lift]],null,'#238b69',1.5*sc);ctx.setLineDash([]);}
     const topY=p.y-lift;
-    if(s.id==='oven'){
+    if(art){ if(s.type==='counter'&&s.item)drawHeldItem(p.x,topY-2*sc,s.item,sc); }
+    else if(s.id==='oven'){
       // Oven face and glass door, with state-specific glow/steam.
       poly([[p.x-w*.36,topY-h*.1],[p.x,topY+h*.12],[p.x,topY+depth*.72],[p.x-w*.36,topY+depth*.52]],'#8b6256','#70483d',.8*sc);
       poly([[p.x-w*.30,topY+h*.02],[p.x-w*.04,topY+h*.16],[p.x-w*.04,topY+depth*.39],[p.x-w*.30,topY+depth*.25]],s.status==='ready'?'#ffd36e':s.status==='burnt'?'#4c3532':'#34465b','#f8ddad',.8*sc);
@@ -699,6 +763,14 @@
     const p=project(player.x,player.y),sc=mapScale;
     const input=getScreenInput(),moving=Math.abs(input.sx)+Math.abs(input.sy)>.01;
     const bounce=moving?Math.sin(player.walkCycle)*1.7*sc:0;
+    const k=sc*CHAR_SCALE, ca=artFor(charKey(moving),40,64,k);
+    if(ca){
+      ctx.fillStyle='#3d30252b';ctx.beginPath();ctx.ellipse(p.x,p.y+3*sc,10*sc,5*sc,0,0,Math.PI*2);ctx.fill();
+      ctx.save();ctx.translate(p.x,p.y+2*sc);if(player.facingX<-0.05)ctx.scale(-1,1);   // anchor kaki (20,62)
+      ctx.drawImage(ca,-20*k,-62*k,40*k,64*k);ctx.restore();
+      if(heldItem){const ty=p.y+2*sc-62*k-6*sc;ctx.fillStyle='#fffaf2';ctx.beginPath();ctx.ellipse(p.x,ty,10*sc,6*sc,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#d6c5ae';ctx.lineWidth=1*sc;ctx.stroke();drawHeldItem(p.x,ty-1*sc,heldItem,sc);}
+      return;
+    }
     ctx.fillStyle='#3d30252b';ctx.beginPath();ctx.ellipse(p.x,p.y+3*sc,11*sc,5.5*sc,0,0,Math.PI*2);ctx.fill();
     // Shoes + animated legs.
     ctx.strokeStyle='#34465b';ctx.lineWidth=3.6*sc;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(p.x-3.5*sc,p.y-5*sc+bounce);ctx.lineTo(p.x-5*sc,p.y+1*sc);ctx.moveTo(p.x+3.5*sc,p.y-5*sc-bounce);ctx.lineTo(p.x+5*sc,p.y+1*sc);ctx.stroke();
@@ -738,12 +810,12 @@
     for(const a of actors){if(a.kind==='station')drawStation(a.s,a.s===target);else drawPlayer();}
     drawFeedback();
     // On-screen fallback hint for desktop.
-    if(mode==='running' && canvasW>760){ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle='#536982';ctx.font=`700 ${Math.max(10,11*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillText('WASD / ↑↓←→ bergerak  •  SPACE interaksi',canvasW-14,12);}
+    if(mode==='running' && canvasW>760 && !matchMedia('(pointer:coarse)').matches){ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle='#536982';ctx.font=`700 ${Math.max(10,11*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillText('WASD / ↑↓←→ bergerak  •  SPACE interaksi',canvasW-14,12);}
   }
   function frame(now) {
     const dt=Math.min(.05,(now-lastFrame)/1000);lastFrame=now;
     if(mode==='running' && !paused()) update(dt);
-    render();requestAnimationFrame(frame);
+    requestAnimationFrame(frame);render();
   }
   function isTypingTarget(target) { return target && (target.tagName==='INPUT' || target.tagName==='TEXTAREA' || target.isContentEditable); }
   window.addEventListener('keydown', ev => {
@@ -771,6 +843,7 @@
   setupJoystick();
   const ro = new ResizeObserver(() => resizeCanvas()); ro.observe(canvas);
   window.addEventListener('orientationchange',() => { keys.clear(); resetJoystick(); setTimeout(resizeCanvas,120); });
+  loadArt(ART_KEYS);
   resetGame(true); resizeCanvas(); renderUI(); requestAnimationFrame(frame);
 })();
 </script>

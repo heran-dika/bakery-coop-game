@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bakery Co-op Multiplayer Game</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- SCREEN 1: CUSTOMIZATION & LOBBY -->
+    <div id="lobby-screen" class="screen active">
+      <h1>🥐 Bakery Co-op Game</h1>
+      
+      <div class="lobby-container">
+        <!-- Panel Customization -->
+        <div class="panel customization-panel">
+          <h2>Customization Karakter</h2>
+          
+          <div class="preview-box">
+            <canvas id="avatar-preview" width="120" height="120"></canvas>
+          </div>
+
+          <div class="control-group">
+            <label for="player-name">Nama Pemain:</label>
+            <input type="text" id="player-name" value="Chef Roti" maxlength="12" />
+          </div>
+
+          <div class="control-group">
+            <label for="skin-color">Warna Kulit:</label>
+            <input type="color" id="skin-color" value="#ffdbac" />
+          </div>
+
+          <div class="control-group">
+            <label for="shirt-color">Warna Baju/Celemek:</label>
+            <input type="color" id="shirt-color" value="#e74c3c" />
+          </div>
+
+          <div class="control-group">
+            <label for="hat-style">Topi Koki:</label>
+            <select id="hat-style">
+              <option value="standard">Topi Koki Standard</option>
+              <option value="tall">Topi Koki Tinggi</option>
+              <option value="bandana">Bandana Dapur</option>
+              <option value="none">Tanpa Topi</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Panel Room & Chat -->
+        <div class="panel room-panel">
+          <h2>Waiting Room & Chat</h2>
+          
+          <div class="room-controls">
+            <input type="text" id="room-code-input" placeholder="Kode Room (Contoh: ROTI-123)" />
+            <button id="btn-join" class="btn">Join Room</button>
+            <button id="btn-create" class="btn btn-primary">Create Room</button>
+          </div>
+
+          <div class="players-list-box">
+            <h3>Pemain di Room:</h3>
+            <ul id="players-list">
+              <li>👩‍🍳 <span id="local-player-label">Chef Roti (Host/You)</span></li>
+            </ul>
+          </div>
+
+          <!-- Chat Box -->
+          <div class="chat-box">
+            <div id="chat-messages" class="chat-messages">
+              <div class="system-msg">Sistem: Selamat datang di Waiting Room!</div>
+            </div>
+            <div class="chat-input-group">
+              <input type="text" id="chat-input" placeholder="Ketik pesan..." />
+              <button id="btn-send-chat" class="btn">Kirim</button>
+            </div>
+          </div>
+
+          <button id="btn-start-game" class="btn btn-success btn-large">Mulai Game! (Start)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: GAMEPLAY CANVAS -->
+    <div id="game-screen" class="screen">
+      <div class="game-header">
+        <div id="game-status">Dapur Roti - Tekan WASD / Panah untuk bergerak</div>
+        <button id="btn-back-lobby" class="btn">Kembali ke Lobby</button>
+      </div>
+      <canvas id="game-canvas" width="800" height="600"></canvas>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>

@@ -284,7 +284,8 @@
   let dpr = 1, compact = false;   // compact = HUD melayang (landscape pendek): teks canvas di pojok kiri atas disembunyikan
   // Aset SVG (assets/*.svg, lihat ASSET_PLAN §6). Gagal dimuat = pakai gambar prosedural.
   const ART = { raw:{}, cache:new Map() };
-  const ART_KEYS = ['station_oven_empty','station_oven_cooking','station_oven_ready','station_oven_burnt','station_prep_empty','station_prep_dough','station_prep_prepared','station_counter_idle','station_dough_idle','station_butter_idle','station_salt_idle','station_serve_idle','station_trash_idle','char_baker_dr_idle_0','char_baker_dr_idle_1','char_baker_dr_walk_0','char_baker_dr_walk_1','char_baker_dr_walk_2','char_baker_dr_walk_3'];
+  const ART_KEYS = ['station_oven_empty','station_oven_cooking','station_oven_ready','station_oven_burnt','station_prep_empty','station_prep_dough','station_prep_prepared','station_counter_idle','station_dough_idle','station_butter_idle','station_salt_idle','station_serve_idle','station_trash_idle','char_baker_dr_idle_0','char_baker_dr_idle_1','char_baker_dr_walk_0','char_baker_dr_walk_1','char_baker_dr_walk_2','char_baker_dr_walk_3','char_baker_dr_carry_idle_0','char_baker_dr_carry_idle_1','char_baker_dr_carry_walk_0','char_baker_dr_carry_walk_1','char_baker_dr_carry_walk_2','char_baker_dr_carry_walk_3','item_dough','item_prepared_dough','item_prepared_salt','item_butter','item_salt','item_plain_bread','item_salt_bread','item_burnt_bread','item_failed_bread'];
+  const ITEM_SCALE = 1; // item viewBox 32x24 = satuan peta; di HP mapScale ~0.78 -> ±25x19 px [Menebak, uji di HP]
   const CHAR_SCALE = 1; // viewBox 40x64 = satuan peta; 1 = sama skala dengan stasiun [Menebak, uji di HP]
   function loadArt(keys) {
     for (const k of keys) {
@@ -305,8 +306,13 @@
     return c;
   }
   function charKey(moving) {
-    return moving ? `char_baker_dr_walk_${Math.floor(player.walkCycle/1.68)%4}`   // 1.68 = 12 rad/s x 0.14 s per frame
-                  : `char_baker_dr_idle_${Math.floor(elapsed/0.42)%2}`;
+    const pre = heldItem ? 'carry_' : '';
+    return moving ? `char_baker_dr_${pre}walk_${Math.floor(player.walkCycle/1.68)%4}`   // 1.68 = 12 rad/s x 0.14 s per frame
+                  : `char_baker_dr_${pre}idle_${Math.floor(elapsed/0.42)%2}`;
+  }
+  function itemKey(it) {
+    if (it.type === 'prepared_dough') return it.mods && it.mods.includes('salt') ? 'item_prepared_salt' : 'item_prepared_dough';
+    return `item_${it.type}`;
   }
   function artKey(s) {
     if (s.id === 'oven') return `station_oven_${s.status}`;
@@ -814,7 +820,7 @@
       ctx.fillStyle='#3d30252b';ctx.beginPath();ctx.ellipse(p.x,p.y+3*sc,10*sc,5*sc,0,0,Math.PI*2);ctx.fill();
       ctx.save();ctx.translate(p.x,p.y+2*sc);if(player.facingX<-0.05)ctx.scale(-1,1);   // anchor kaki (20,62)
       ctx.drawImage(ca,-20*k,-62*k,40*k,64*k);ctx.restore();
-      if(heldItem){const ty=p.y+2*sc-62*k-6*sc;ctx.fillStyle='#fffaf2';ctx.beginPath();ctx.ellipse(p.x,ty,10*sc,6*sc,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#d6c5ae';ctx.lineWidth=1*sc;ctx.stroke();drawHeldItem(p.x,ty-1*sc,heldItem,sc);}
+      if(heldItem){const ty=p.y+2*sc-59*k-(12*ITEM_SCALE+2)*sc;drawHeldItem(p.x,ty,heldItem,sc);}
       return;
     }
     ctx.fillStyle='#3d30252b';ctx.beginPath();ctx.ellipse(p.x,p.y+3*sc,11*sc,5.5*sc,0,0,Math.PI*2);ctx.fill();
@@ -833,6 +839,8 @@
     if(heldItem){ctx.fillStyle='#fffaf2';ctx.beginPath();ctx.ellipse(p.x,p.y-50*sc+bounce,10*sc,6*sc,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#d6c5ae';ctx.lineWidth=1*sc;ctx.stroke();drawHeldItem(p.x,p.y-51*sc+bounce,heldItem,sc);}
   }
   function drawHeldItem(x,y,item,sc){
+    const ik=sc*ITEM_SCALE, ia=artFor(itemKey(item),32,24,ik);
+    if(ia){ctx.drawImage(ia,x-16*ik,y-12*ik,32*ik,24*ik);return;}
     if(['dough','prepared_dough'].includes(item.type)){ctx.fillStyle='#f1d5a2';ctx.beginPath();ctx.ellipse(x,y,7*sc,4.5*sc,-.2,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#c18d55';ctx.lineWidth=.8*sc;ctx.stroke();}
     else if(item.type==='butter'){ctx.fillStyle='#f4c84e';roundRect(ctx,x-5*sc,y-4*sc,10*sc,7*sc,1.5*sc);ctx.fill();ctx.strokeStyle='#d7a62c';ctx.stroke();}
     else if(item.type==='salt'){ctx.fillStyle='#fffdf5';ctx.beginPath();ctx.moveTo(x-5*sc,y+3*sc);ctx.lineTo(x-3*sc,y-4*sc);ctx.lineTo(x+3*sc,y-4*sc);ctx.lineTo(x+5*sc,y+3*sc);ctx.closePath();ctx.fill();ctx.strokeStyle='#aebac3';ctx.stroke();}

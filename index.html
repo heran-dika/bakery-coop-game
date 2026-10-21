@@ -18,7 +18,11 @@
   .brand-mark { width:44px; height:44px; display:grid; place-items:center; border-radius:15px; background:#fff; border:1px solid var(--line); font-size:24px; box-shadow:0 4px 12px #1f41720d; }
   h1 { font-size:clamp(18px,2.4vw,26px); line-height:1.1; margin:0; color:var(--blue); letter-spacing:-.04em; }
   .subtitle { margin-top:3px; font-size:12px; color:var(--muted); }
-  .top-actions { display:flex; gap:8px; align-items:center; }
+  .top-actions { position:relative; display:flex; gap:8px; align-items:center; }
+  #menuBtn { min-width:44px; min-height:44px; padding:0; font-size:22px; line-height:1; }
+  .menu-panel { position:absolute; right:0; top:calc(100% + 6px); z-index:20; display:flex; flex-direction:column; gap:6px; padding:6px; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 24px #182c4726; }
+  .menu-panel[hidden] { display:none; }
+  .menu-panel .btn { white-space:nowrap; padding:10px 14px; font-size:13px; }
   .btn { border:1px solid #d8e0ec; background:#fff; color:var(--blue); border-radius:12px; padding:10px 13px; font-weight:750; box-shadow:0 3px 9px #1f41720a; }
   .btn.primary { color:white; background:var(--blue); border-color:var(--blue); }
   .btn:disabled { opacity:.45; cursor:not-allowed; }
@@ -114,28 +118,61 @@
     .action-zone { bottom:7px; }
     .action-button { width:70px; height:70px; }
   }
+  /* HUD stabil: 3 slot order tetap, modal tidak boleh keluar dari frame */
+  .order-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; min-height:46px; align-items:stretch; }
+  .order-card { min-width:0; min-height:46px; flex:none; }
+  .order-slot { min-height:46px; border:1px dashed var(--line); border-radius:10px; background:#ffffff55; }
+  .modal { max-height:100%; overflow-y:auto; }
+  .action-button:active { transform:scale(.94); }
+  @media (orientation:portrait) { .hud { grid-template-columns:1fr 1fr; } .orders-panel { grid-column:1 / -1; } }
   /* Layar sentuh: pill status disembunyikan (label tombol sudah cukup), halaman tidak ikut ter-scroll saat main */
   @media (pointer:coarse) {
     .station-prompt { display:none; }
     body.playing { touch-action:none; overscroll-behavior:none; -webkit-user-select:none; user-select:none; }
     .toast { top:auto; bottom:150px; }
   }
-  /* HP landscape: HUD diringkas supaya map dapat tinggi layar */
+  /* HP landscape: HUD melayang di sudut kiri atas canvas (area dinding/lantai kosong di luar belah ketupat map), map memakai seluruh tinggi layar */
   @media (orientation:landscape) and (max-height:520px) {
-    .app { height:100dvh; display:flex; flex-direction:column; padding:4px 8px; }
-    .topline { margin-bottom:3px; }
-    .brand-mark,.subtitle,.footer-note,.help-line { display:none; }
-    h1 { font-size:15px; }
-    .top-actions .btn { padding:5px 9px; font-size:11px; }
-    .hud { grid-template-columns:76px 76px 1fr; gap:4px; margin-bottom:3px; }
-    .stat,.orders-panel { min-height:0; padding:3px 7px; }
-    .stat-label,.panel-label { font-size:7px; margin-bottom:1px; }
-    .stat-value { font-size:16px; }
-    .order-card { padding:3px 6px 7px; min-height:0; }
-    .game-frame { flex:1; min-height:0; }
+    .app { position:relative; height:100dvh; padding:0; display:flex; flex-direction:column; }
+    .game-frame { flex:1; min-height:0; border:0; border-radius:0; box-shadow:none; }
     canvas { height:100%; min-height:0; }
-    .inventory-bar { padding-top:2px; font-size:10px; }
-    .toast { top:46px; left:10px; bottom:auto; transform:none; max-width:34%; text-align:left; }
+    .brand, .footer-note, .help-line { display:none; }
+    .topline { position:absolute; top:max(8px,env(safe-area-inset-top)); right:max(8px,env(safe-area-inset-right)); margin:0; z-index:3; }
+    .hud { position:absolute; top:max(8px,env(safe-area-inset-top)); left:max(8px,env(safe-area-inset-left)); width:150px; margin:0; z-index:3; grid-template-columns:1fr 1fr; gap:4px; pointer-events:none; }
+    .orders-panel { grid-column:1 / -1; }
+    .stat, .orders-panel { background:#ffffffe0; min-height:0; padding:3px 7px; }
+    .stat-label, .panel-label { font-size:7px; margin-bottom:1px; }
+    .stat-value { font-size:16px; }
+    .order-list { grid-template-columns:1fr; gap:4px; min-height:0; }
+    .order-card, .order-slot { min-height:32px; }
+    .order-card { padding:3px 6px 7px; }
+    .inventory-bar { position:absolute; top:max(8px,env(safe-area-inset-top)); right:calc(max(8px,env(safe-area-inset-right)) + 52px); padding:0; z-index:3; pointer-events:none; }
+    .inventory-bar > div:first-child { background:#ffffffe0; border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:11px; }
+    .toast { top:58px; right:10px; left:auto; bottom:auto; transform:none; max-width:34%; text-align:left; }
+    .overlay { padding:6px; }
+    .modal { padding:10px 16px; }
+    .modal-icon, #startControls { display:none; }
+    .modal h2 { font-size:20px; margin:0 0 4px; }
+    .modal p { font-size:11px; line-height:1.4; margin:0 auto 6px; }
+    .recipe-chips { margin:6px 0 8px; }
+    .modal .btn { padding:9px !important; }
+    .result-grid { grid-template-columns:repeat(4,1fr); margin:8px 0; }
+    .result-item { padding:6px; }
+    .result-item strong { font-size:17px; }
+    .stars { font-size:19px; margin-bottom:2px; }
+  }
+  /* Layar sempit (mis. 640x~300): HUD lebih rapat supaya tidak menutupi stasiun kiri */
+  @media (orientation:landscape) and (max-height:520px) and (max-width:720px) {
+    .hud { width:118px; gap:3px; }
+    .stat, .orders-panel { padding:2px 6px; }
+    .stat-value { font-size:14px; }
+    .order-card, .order-slot { min-height:28px; }
+    .order-card { padding:2px 5px 6px; gap:4px; }
+    .order-emoji { font-size:15px; }
+    .order-name { font-size:9px; }
+    .order-time { font-size:8px; }
+    .inventory-bar > div:first-child { font-size:10px; padding:5px 8px; }
+    .toast { max-width:200px; font-size:11px; padding:6px 10px; }
   }
 </style>
 </head>
@@ -147,8 +184,11 @@
       <div><h1>Bakery Co-op</h1><div class="subtitle">P0 vector kitchen · local solo test</div></div>
     </div>
     <div class="top-actions">
-      <button class="btn" id="helpBtn" type="button">Kontrol</button>
-      <button class="btn" id="restartBtn" type="button">↻ Ulang</button>
+      <button class="btn" id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menu">⋯</button>
+      <div class="menu-panel" id="menuPanel" hidden>
+        <button class="btn" id="helpBtn" type="button">Kontrol</button>
+        <button class="btn" id="restartBtn" type="button">↻ Ulang</button>
+      </div>
     </div>
   </header>
   <section class="hud" aria-label="Status ronde">
@@ -239,9 +279,9 @@
   };
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
-  const els = Object.fromEntries(['timerText','scoreText','orderList','stationPrompt','inventoryText','toast','startScreen','helpScreen','resultsScreen','startBtn','restartBtn','helpBtn','closeHelpBtn','playAgainBtn','resultSummary','resultScore','resultServed','resultExpired','resultBurnt','starsText','actionBtn','actionLabel','joyKnob','joystickZone'].map(id => [id, document.getElementById(id)]));
+  const els = Object.fromEntries(['timerText','scoreText','orderList','stationPrompt','inventoryText','toast','startScreen','helpScreen','resultsScreen','startBtn','restartBtn','helpBtn','menuBtn','menuPanel','closeHelpBtn','playAgainBtn','resultSummary','resultScore','resultServed','resultExpired','resultBurnt','starsText','actionBtn','actionLabel','joyKnob','joystickZone'].map(id => [id, document.getElementById(id)]));
 
-  let dpr = 1;
+  let dpr = 1, compact = false;   // compact = HUD melayang (landscape pendek): teks canvas di pojok kiri atas disembunyikan
   // Aset SVG (assets/*.svg, lihat ASSET_PLAN §6). Gagal dimuat = pakai gambar prosedural.
   const ART = { raw:{}, cache:new Map() };
   const ART_KEYS = ['station_oven_empty','station_oven_cooking','station_oven_ready','station_oven_burnt','station_prep_empty','station_prep_dough','station_prep_prepared','station_counter_idle','station_dough_idle','station_butter_idle','station_salt_idle','station_serve_idle','station_trash_idle','char_baker_dr_idle_0','char_baker_dr_idle_1','char_baker_dr_walk_0','char_baker_dr_walk_1','char_baker_dr_walk_2','char_baker_dr_walk_3'];
@@ -600,11 +640,15 @@
     els.actionBtn.setAttribute('aria-label', text);
   }
   function renderOrders() {
-    if (!orders.length) { els.orderList.innerHTML = '<span class="order-empty">Tidak ada order aktif. Siapkan stasiun!</span>'; return; }
-    els.orderList.innerHTML = orders.map(o => {
+    // Selalu CONFIG.maxOrders slot: tinggi HUD tetap, layout tidak bergeser saat order datang/pergi.
+    let html = '';
+    for (let i = 0; i < CONFIG.maxOrders; i++) {
+      const o = orders[i];
+      if (!o) { html += '<div class="order-slot"></div>'; continue; }
       const left = Math.max(0,o.deadlineAt-elapsed), ratio = Math.max(0,Math.min(1,left/o.patience));
-      return `<div class="order-card"><span class="order-emoji">${recipeEmoji(o.type)}</span><div><div class="order-name">${recipeName(o.type)}</div><div class="order-time">${left.toFixed(0)}s tersisa</div></div><div class="order-bar"><i class="${ratio<.3?'low':''}" style="transform:scaleX(${ratio})"></i></div></div>`;
-    }).join('');
+      html += `<div class="order-card"><span class="order-emoji">${recipeEmoji(o.type)}</span><div><div class="order-name">${recipeName(o.type)}</div><div class="order-time">${left.toFixed(0)}s</div></div><div class="order-bar"><i class="${ratio<.3?'low':''}" style="transform:scaleX(${ratio})"></i></div></div>`;
+    }
+    els.orderList.innerHTML = html;
   }
   function formatTime(seconds) { const n=Math.ceil(Math.max(0,seconds)); return `${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`; }
   function resetJoystick() {
@@ -632,7 +676,7 @@
     joystick.x=nx; joystick.y=ny;
   }
   function resizeCanvas() {
-    const r=canvas.getBoundingClientRect(); dpr=Math.min(window.devicePixelRatio||1,2); ART.cache.clear();
+    const r=canvas.getBoundingClientRect(); dpr=Math.min(window.devicePixelRatio||1,2); ART.cache.clear(); compact=!!window.matchMedia?.('(orientation:landscape) and (max-height:520px)').matches;
     canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr));
     ctx.setTransform(dpr,0,0,dpr,0,0); canvasW=r.width; canvasH=r.height;
     mapScale=Math.min(1.18,canvasW/700,canvasH/340);
@@ -663,9 +707,11 @@
     ctx.fillStyle='#243b5a0c'; ctx.fillRect(0,0,canvasW,Math.max(0,top.y-tileH));
     // Wall trim and a simple framed menu board; all shapes are drawn locally, no image downloads.
     ctx.fillStyle='#d9b28c'; ctx.fillRect(0,Math.max(38,canvasH*.105),canvasW,3*mapScale);
+    if(!compact){
     ctx.fillStyle='#fff8e9'; roundRect(ctx,canvasW*.72,12*mapScale,Math.min(132*mapScale,canvasW*.22),31*mapScale,5*mapScale);ctx.fill();
     ctx.strokeStyle='#b98a62';ctx.lineWidth=1*mapScale;roundRect(ctx,canvasW*.72,12*mapScale,Math.min(132*mapScale,canvasW*.22),31*mapScale,5*mapScale);ctx.stroke();
     ctx.fillStyle='#8b6448';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`800 ${Math.max(7,9*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillText('FRESH DAILY',canvasW*.72+Math.min(66*mapScale,canvasW*.11),27*mapScale);
+    }
     ctx.fillStyle='#cf9c7740'; ctx.fillRect(0,canvasH-4,canvasW,4);
   }
   function drawStation(s,target) {
@@ -798,8 +844,10 @@
     // Gentle decorative wall panels.
     ctx.fillStyle='#d9a88b20';ctx.fillRect(0,0,canvasW,Math.max(26,canvasH*.13));
     ctx.strokeStyle='#d9a88b45';ctx.lineWidth=1;for(let x=20;x<canvasW;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvasH*.1);ctx.stroke();}
+    if(!compact){
     ctx.fillStyle='#1f4172';ctx.font=`800 ${Math.max(10,13*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('BAKERY KITCHEN',12,10);
     ctx.fillStyle='#718097';ctx.font=`${Math.max(9,10*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillText(mode==='running'?'Shift sedang berlangsung':'Prototipe P0 · dapur latihan',12,28);
+    }
   }
   function render() {
     ctx.clearRect(0,0,canvasW,canvasH);drawBackground();drawFloor();drawHazards();
@@ -810,7 +858,7 @@
     for(const a of actors){if(a.kind==='station')drawStation(a.s,a.s===target);else drawPlayer();}
     drawFeedback();
     // On-screen fallback hint for desktop.
-    if(mode==='running' && canvasW>760 && !matchMedia('(pointer:coarse)').matches){ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle='#536982';ctx.font=`700 ${Math.max(10,11*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillText('WASD / ↑↓←→ bergerak  •  SPACE interaksi',canvasW-14,12);}
+    if(mode==='running' && canvasW>760 && !compact && !matchMedia('(pointer:coarse)').matches){ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle='#536982';ctx.font=`700 ${Math.max(10,11*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillText('WASD / ↑↓←→ bergerak  •  SPACE interaksi',canvasW-14,canvasH-26);}
   }
   function frame(now) {
     const dt=Math.min(.05,(now-lastFrame)/1000);lastFrame=now;
@@ -830,13 +878,21 @@
   window.addEventListener('keyup', ev => keys.delete(ev.key.toLowerCase()));
   window.addEventListener('blur', () => { keys.clear(); resetJoystick(); });
   document.addEventListener('visibilitychange', () => { if(document.hidden){keys.clear();resetJoystick();} });
-  els.actionBtn.addEventListener('pointerdown', ev => { ev.preventDefault(); if(mode==='running' && !els.actionBtn.hasPointerCapture?.(ev.pointerId)) { els.actionBtn.setPointerCapture?.(ev.pointerId); interact(); } });
-  els.actionBtn.addEventListener('pointerup', ev => { if(els.actionBtn.hasPointerCapture?.(ev.pointerId)) els.actionBtn.releasePointerCapture(ev.pointerId); });
-  els.actionBtn.addEventListener('pointercancel', () => {});
+  // Satu pointerdown = satu aksi. Jangan cek hasPointerCapture: di layar sentuh capture implisit jatuh ke elemen yang tersentuh (span/tepi tombol), bukan selalu tombolnya.
+  els.actionBtn.addEventListener('pointerdown', ev => { ev.preventDefault(); interact(); });
   els.startBtn.addEventListener('click',startGame);
-  els.restartBtn.addEventListener('click',() => resetGame(true));
+  // Menu ⋯: Kontrol dan Ulang. Ulang di tengah ronde butuh dua ketukan (konfirmasi 3 detik).
+  let restartTimer = null;
+  const resetRestart = () => { clearTimeout(restartTimer); restartTimer = null; els.restartBtn.textContent = '↻ Ulang'; };
+  const closeMenu = () => { els.menuPanel.hidden = true; els.menuBtn.setAttribute('aria-expanded','false'); resetRestart(); };
+  els.menuBtn.addEventListener('click', () => { const open = els.menuPanel.hidden; els.menuPanel.hidden = !open; els.menuBtn.setAttribute('aria-expanded', String(open)); if (!open) resetRestart(); });
+  document.addEventListener('pointerdown', ev => { if (!els.menuPanel.hidden && !ev.target.closest('.top-actions')) closeMenu(); });
+  els.restartBtn.addEventListener('click', () => {
+    if (mode !== 'running' || restartTimer) { closeMenu(); resetGame(true); return; }
+    els.restartBtn.textContent = 'Yakin ulang?'; restartTimer = setTimeout(resetRestart, 3000);
+  });
   els.playAgainBtn.addEventListener('click',startGame);
-  els.helpBtn.addEventListener('click',() => els.helpScreen.classList.remove('hidden'));
+  els.helpBtn.addEventListener('click',() => { closeMenu(); els.helpScreen.classList.remove('hidden'); });
   els.closeHelpBtn.addEventListener('click',() => els.helpScreen.classList.add('hidden'));
   els.helpScreen.addEventListener('click',ev => { if(ev.target===els.helpScreen) els.helpScreen.classList.add('hidden'); });
   els.startScreen.addEventListener('click',ev => { if(ev.target===els.startScreen) startGame(); });

@@ -15,8 +15,8 @@
   .app { width:min(1240px,100%); margin:0 auto; padding:12px 16px 18px; }
   .topline { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
   .brand { display:flex; align-items:center; gap:10px; min-width:0; }
-  .brand-mark { width:44px; height:44px; display:grid; place-items:center; border-radius:15px; background:#fff; border:1px solid var(--line); font-size:24px; box-shadow:0 4px 12px #1f41720d; overflow:hidden; padding:0; }
-  .brand-mark img { width:100%; height:100%; object-fit:cover; display:block; }
+  .brand-mark { width:44px; height:44px; display:grid; place-items:center; font-size:24px; padding:0; }
+  .brand-mark img { width:100%; height:100%; object-fit:contain; display:block; }
   h1 { font-size:clamp(18px,2.4vw,26px); line-height:1.1; margin:0; color:var(--blue); letter-spacing:-.04em; }
   .subtitle { margin-top:3px; font-size:12px; color:var(--muted); }
   .top-actions { position:relative; display:flex; gap:8px; align-items:center; }
@@ -114,7 +114,7 @@
     .stat,.orders-panel { min-height:42px; padding:5px 7px; }
     .stat-value { font-size:17px; }
     canvas { height:calc(100dvh - 126px); min-height:200px; }
-    .joystick-zone { width:100px; height:100px; left:calc(max(12px,env(safe-area-inset-left)) + 30px); bottom:35px; }
+    .joystick-zone { width:100px; height:100px; left:calc(max(12px,env(safe-area-inset-left)) + 50px); bottom:35px; }
     .joy-knob { width:42px; height:42px; }
     .action-zone { right:calc(max(16px,env(safe-area-inset-right)) + 30px); bottom:37px; }
     .action-button { width:70px; height:70px; }
@@ -129,9 +129,11 @@
   .order-card.low .order-time { color:var(--red); }
   .action-hint { position:absolute; right:0; bottom:calc(100% + 8px); width:max-content; max-width:170px; padding:6px 10px; border-radius:12px; background:#fff; border:1px solid var(--line); color:var(--ink); font-size:11px; font-weight:800; line-height:1.3; text-align:center; box-shadow:0 4px 14px #182c4720; pointer-events:none; }
   .action-hint[hidden] { display:none; }
-  @media (orientation:portrait) { .hud { grid-template-columns:1fr 1fr; } .orders-panel { grid-column:1 / -1; } .joystick-zone { left:max(2px,env(safe-area-inset-left)); } }
+  .joystick-zone::before { content:''; position:absolute; inset:-30px; }   /* area sentuh lebih luas dari lingkaran; arah dihitung dari pusat */
+  .ic { fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+  @media (orientation:portrait) { .hud { grid-template-columns:1fr 1fr; } .orders-panel { grid-column:1 / -1; } .joystick-zone { left:calc(max(12px,env(safe-area-inset-left)) + 10px); } }
   @media ((max-width:760px), (pointer:coarse)) and (orientation:landscape) and (min-height:421px) {
-    .joystick-zone { left:calc(max(12px,env(safe-area-inset-left)) + 30px); bottom:calc(max(12px,env(safe-area-inset-bottom)) + 30px); }
+    .joystick-zone { left:calc(max(12px,env(safe-area-inset-left)) + 50px); bottom:calc(max(12px,env(safe-area-inset-bottom)) + 30px); }
     .action-zone { right:calc(max(16px,env(safe-area-inset-right)) + 30px); bottom:calc(max(19px,env(safe-area-inset-bottom)) + 30px); }
   }
   /* Layar sentuh: pill status disembunyikan (label tombol sudah cukup), halaman tidak ikut ter-scroll saat main */
@@ -186,6 +188,7 @@
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="hud-hand" viewBox="0 0 24 24"><path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V11M11 10.5V5a1.5 1.5 0 0 1 3 0v5.5M14 10.5V7a1.5 1.5 0 0 1 3 0v6.5c0 4-2.5 7-6 7-2.6 0-4-1.5-5.5-4L3.5 13.5a1.5 1.5 0 0 1 2.5-1.6L8 14"/></symbol><symbol id="hud-ambil" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 19h14"/></symbol><symbol id="hud-taruh" viewBox="0 0 24 24"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></symbol><symbol id="hud-uleni" viewBox="0 0 24 24"><rect x="5" y="9" width="14" height="6" rx="3"/><path d="M2 12h3M19 12h3"/></symbol><symbol id="hud-tambah" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol><symbol id="hud-oven" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2"/><rect x="7" y="10" width="10" height="7" rx="1"/><path d="M7 7h.01M10 7h.01"/></symbol><symbol id="hud-bell" viewBox="0 0 24 24"><path d="M4 18h16M6.5 18a5.5 5.5 0 0 1 11 0M12 9V7M10.5 7h3"/></symbol><symbol id="hud-trash" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 12h8l1-12M10 11v5M14 11v5"/></symbol></defs></svg>
 <div class="app">
   <header class="topline">
     <div class="brand">
@@ -214,7 +217,7 @@
       <div class="joystick-zone" id="joystickZone" aria-label="Virtual joystick">
         <div class="joy-base"></div><div class="joy-knob" id="joyKnob"></div><div class="joy-label">MOVE</div>
       </div>
-      <div class="action-zone"><button class="action-button" id="actionBtn" type="button"><span>✋</span><span id="actionLabel">AKSI</span></button><div class="action-hint" id="actionHint" hidden></div></div>
+      <div class="action-zone"><button class="action-button" id="actionBtn" type="button" aria-label="Aksi"><svg class="ic" id="actionIcon" width="38" height="38" aria-hidden="true"><use href="#hud-hand"/></svg></button><div class="action-hint" id="actionHint" hidden></div></div>
     </div>
     <div class="overlay" id="startScreen">
       <div class="modal">
@@ -284,11 +287,12 @@
     maxComboBonus: 50,
     oneStar: 300,
     twoStars: 600,
-    threeStars: 900
+    threeStars: 900,
+    guideIdleSeconds: 10
   };
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
-  const els = Object.fromEntries(['timerText','scoreText','orderList','stationPrompt','inventoryText','toast','startScreen','helpScreen','resultsScreen','startBtn','restartBtn','helpBtn','menuBtn','menuPanel','closeHelpBtn','playAgainBtn','resultSummary','resultScore','resultServed','resultExpired','resultBurnt','starsText','actionBtn','actionLabel','actionHint','joyKnob','joystickZone'].map(id => [id, document.getElementById(id)]));
+  const els = Object.fromEntries(['timerText','scoreText','orderList','stationPrompt','inventoryText','toast','startScreen','helpScreen','resultsScreen','startBtn','restartBtn','helpBtn','menuBtn','menuPanel','closeHelpBtn','playAgainBtn','resultSummary','resultScore','resultServed','resultExpired','resultBurnt','starsText','actionBtn','actionIcon','actionHint','joyKnob','joystickZone'].map(id => [id, document.getElementById(id)]));
 
   let dpr = 1, compact = false;   // compact = HUD melayang (landscape pendek): teks canvas di pojok kiri atas disembunyikan
   // Aset SVG (assets/*.svg, lihat ASSET_PLAN §6). Gagal dimuat = pakai gambar prosedural.
@@ -342,6 +346,7 @@
   let score = 0, ordersServed = 0, ordersExpired = 0, burntCount = 0, streak = 0;
   let orders = [], orderSerial = 1, itemSerial = 1;
   let heldItem = null, currentToastTimeout = null, lastInteractionMessage = '';
+  let guideOn = false, guideIds = [], idleFor = 0, lastSig = '', lastServed = 0;   // petunjuk langkah berikutnya
   // Lightweight, client-side P0 hazard: visible spill patches briefly reduce movement speed.
   const HAZARD = { enabled:true, firstAt:24, intervalMin:26, intervalMax:36, warnSeconds:2.5, activeSeconds:7.5, slowFactor:0.62, slipSeconds:0.45 };
   let hazards = [], nextHazardAt = HAZARD.firstAt, nextHazardId = 1, slipUntil = 0, lastHazardToastAt = -99, feedback = [];
@@ -383,6 +388,7 @@
     score = 0; ordersServed = 0; ordersExpired = 0; burntCount = 0; streak = 0;
     orders = []; orderSerial = 1; itemSerial = 1; heldItem = null;
     hazards = []; nextHazardAt = HAZARD.firstAt; nextHazardId = 1; slipUntil = 0; lastHazardToastAt = -99; feedback = [];
+    guideOn = false; guideIds = []; idleFor = 0; lastSig = ''; lastServed = 0;
     player.x = 4.15; player.y = 6.15; player.facingX = 0; player.facingY = -1; player.walkCycle = 0;
     for (const s of stations) {
       if (s.type === 'prep') { s.item=null; s.processing=false; s.timer=0; }
@@ -471,6 +477,13 @@
         burntCount++; showToast('Oven berasap! Rotinya gosong — buang ke Trash.', 2200);
       }
     }
+    // Petunjuk: 10 detik tanpa kemajuan membuat pesanan -> stasiun langkah berikutnya berkedip sampai order disajikan.
+    if (ordersServed !== lastServed) { lastServed = ordersServed; guideOn = false; idleFor = 0; }
+    const sig = [heldItem ? heldItem.type + (heldItem.mods || []).join('+') : '-', prep.item ? prep.item.type + (prep.item.mods || []).join('+') : '-', prep.processing, oven.status, stationById.counter1.item?.type, stationById.counter2.item?.type].join('|');
+    if (sig !== lastSig) { lastSig = sig; idleFor = 0; } else if (orders.length) idleFor += dt;
+    if (!orders.length) guideOn = false;
+    else if (!guideOn && idleFor >= CONFIG.guideIdleSeconds) { guideOn = true; showToast('Bingung? Stasiun yang berkedip adalah langkah berikutnya.', 2600); }
+    const g = guideOn ? nextGuide() : null; guideIds = g ? [].concat(g) : [];
     movePlayer(dt);
     if (roundLeft <= 0) { finishRound(); return; }
     // Refresh HUD at a modest cadence instead of rebuilding DOM on every animation frame.
@@ -546,7 +559,33 @@
     });
     return valid[0];
   }
+  const VERB_ICON = { AMBIL:'ambil', TARUH:'taruh', ULENI:'uleni', TAMBAH:'tambah', PANGGANG:'oven', SAJIKAN:'bell', BUANG:'trash' };
+  let actionIconName = 'hand';
   const VERBS = [[/^Ambil/,'AMBIL'],[/^(Letakkan|Taruh)/,'TARUH'],[/^Mulai uleni/,'ULENI'],[/^Tambahkan/,'TAMBAH'],[/^Masukkan/,'PANGGANG'],[/^Sajikan/,'SAJIKAN'],[/^Buang/,'BUANG']];
+  const freeCounter = () => ['counter1','counter2'].find(id => !stationById[id].item) || null;
+  // Stasiun tujuan berikutnya (id atau array id) menurut isi tangan, meja prep, oven, dan order tertua.
+  function nextGuide() {
+    const prep = stationById.prep, oven = stationById.oven, h = heldItem, pm = prep.item?.mods || [];
+    if (h) {
+      if (h.type === 'dough') return !prep.item ? 'prep' : freeCounter();
+      if (h.type === 'prepared_dough') return oven.status === 'empty' ? 'oven' : freeCounter();
+      if (h.type === 'butter' || h.type === 'salt') return prep.item?.type === 'prepared_dough' ? (pm.includes(h.type) ? 'trash' : 'prep') : freeCounter();
+      if (h.type === 'plain_bread' || h.type === 'salt_bread') return orders.some(o => o.type === h.type) ? 'serve' : 'trash';
+      return 'trash';
+    }
+    if (oven.status === 'ready' || oven.status === 'burnt') return 'oven';
+    if (prep.processing) return null;
+    if (prep.item?.type === 'dough') return 'prep';
+    if (prep.item?.type === 'prepared_dough') {
+      const salt = pm.length ? true : orders[0]?.type === 'salt_bread';
+      const missing = salt ? ['butter','salt'].filter(m => !pm.includes(m)) : [];
+      return missing.length ? missing : 'prep';
+    }
+    const done = ['counter1','counter2'].find(id => { const t = stationById[id].item?.type; return t && orders.some(o => o.type === t); });
+    if (done) return done;
+    if (oven.status === 'cooking') return null;
+    return orders.length ? 'dough' : null;
+  }
   function actionText(s) {
     if (!s) return 'Dekati stasiun lalu tekan Aksi';
     if (s.type === 'crate') return heldItem ? 'Tangan penuh — kosongkan tangan dulu' : `Ambil ${s.label.toLowerCase()}`;
@@ -658,6 +697,8 @@
     const hint = mode === 'running' && target ? text : '';
     els.actionHint.textContent = hint; els.actionHint.hidden = !hint;
     els.actionBtn.classList.toggle('idle', !verb);
+    const icon = verb ? VERB_ICON[verb[1]] : 'hand';
+    if (icon !== actionIconName) { actionIconName = icon; els.actionIcon.querySelector('use').setAttribute('href', '#hud-' + icon); }
     els.actionBtn.setAttribute('aria-label', text);
   }
   function renderOrders() {
@@ -703,7 +744,7 @@
     mapScale=Math.min(1.18,canvasW/700,canvasH/340);
     tileW=88*mapScale; tileH=44*mapScale;
     originX=canvasW/2; originY=Math.max(10,canvasH*0.07);
-    if(canvasH>canvasW) originY=Math.max(10,(canvasH-330*mapScale)/2);   // portrait: peta di tengah vertikal (tinggi isi ±330 unit)
+    if(canvasH>canvasW) originY=Math.max(10,(canvasH-330*mapScale)/2-canvasH*0.10);   // portrait: peta di tengah vertikal (tinggi isi ±330 unit)
   }
   function project(x,y) { return { x:originX+(x-y)*tileW/2, y:originY+(x+y)*tileH/2 }; }
   function poly(points,fill,stroke,lineWidth=1) {
@@ -788,6 +829,15 @@
     if(s.id==='oven'&&s.status==='cooking')drawMiniBar(p.x,topY-24*sc,1-s.timer/CONFIG.cookSeconds,'#e2ad44',sc);
     if(s.id==='oven'&&s.status==='ready')drawMiniBar(p.x,topY-24*sc,1-s.readyTimer/CONFIG.readyBeforeBurnSeconds,'#c34f5a',sc);
     if(s.id==='prep'&&s.item?.type==='prepared_dough'&&(s.item.mods?.length===1||(!art&&s.item.mods?.length))){const t=s.item.mods.map(m=>m==='butter'?'B':'S').join(' · ');ctx.font=`800 ${Math.max(8,11*sc)}px ui-sans-serif,system-ui,sans-serif`;const tw=ctx.measureText(t).width+10*sc;ctx.fillStyle='#243b5ae6';roundRect(ctx,p.x-tw/2,topY-23*sc,tw,13*sc,6*sc);ctx.fill();ctx.fillStyle='#fffaf2';ctx.fillText(t,p.x,topY-16.5*sc);}
+  }
+  function drawGuide(s) {
+    const p=project(s.x,s.y), sc=mapScale, w=tileW*.82, h=tileH*.70, lift=29*sc, pulse=.5+.5*Math.sin(elapsed*6);
+    ctx.save(); ctx.globalAlpha=.35+.65*pulse;
+    poly([[p.x,p.y-lift-h/2-5*sc],[p.x+w/2+5*sc,p.y-lift],[p.x,p.y-lift+h/2+5*sc],[p.x-w/2-5*sc,p.y-lift]],'#B9852D33','#B9852D',3.2*sc);
+    ctx.restore();
+    const by=Math.max(12,p.y-lift-h/2-24*sc)-Math.abs(Math.sin(elapsed*4))*5*sc;
+    ctx.beginPath();ctx.moveTo(p.x-7*sc,by-8*sc);ctx.lineTo(p.x+7*sc,by-8*sc);ctx.lineTo(p.x,by+4*sc);ctx.closePath();
+    ctx.fillStyle='#B9852D';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5*sc;ctx.stroke();
   }
   function shade(hex, amount) {
     const c=hex.replace('#',''); const num=parseInt(c,16); let r=(num>>16)+amount,g=((num>>8)&255)+amount,b=(num&255)+amount;
@@ -879,7 +929,7 @@
     // A small direction hint between the player and the active target.
     if(target){const p=project(player.x,player.y),q=project(target.x,target.y);ctx.strokeStyle='#2e806755';ctx.lineWidth=1.5*mapScale;ctx.setLineDash([3*mapScale,4*mapScale]);ctx.beginPath();ctx.moveTo(p.x,p.y-5*mapScale);ctx.lineTo(q.x,q.y-20*mapScale);ctx.stroke();ctx.setLineDash([]);}
     const actors=[...stations.map(s=>({depth:s.x+s.y,kind:'station',s})),{depth:player.x+player.y,kind:'player'}].sort((a,b)=>a.depth-b.depth);
-    for(const a of actors){if(a.kind==='station')drawStation(a.s,a.s===target);else drawPlayer();}
+    for(const a of actors){if(a.kind==='station'){drawStation(a.s,a.s===target);if(guideIds.includes(a.s.id))drawGuide(a.s);}else drawPlayer();}
     drawFeedback();
     // On-screen fallback hint for desktop.
     if(mode==='running' && canvasW>760 && !compact && !matchMedia('(pointer:coarse)').matches){ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle='#536982';ctx.font=`700 ${Math.max(10,11*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillText('WASD / ↑↓←→ bergerak  •  SPACE interaksi',canvasW-14,canvasH-26);}

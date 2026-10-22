@@ -4,9 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#fdf0f0" />
-<title>Bakery Co-op — P0 Vector Kitchen</title>
+<title>SHAKIES Bakery Co-op — P0 Vector Kitchen</title>
 <style>
-  :root { --pink:#f6f0e7; --blue:#243b5a; --blue2:#3e6387; --cream:#fffaf2; --ink:#24344a; --muted:#6e7d91; --green:#2e8067; --red:#c34f5a; --gold:#e2ad44; --line:#e6d8c6; }
+  :root { --pink:#FDF0F0; --blue:#1F4172; --blue2:#3e6387; --cream:#fffaf2; --ink:#1F4172; --muted:#6B756F; --green:#2F5D50; --green-d:#1E3D35; --green-t:#E4EDE9; --red:#C1443C; --red-t:#F8E5E2; --gold:#B9852D; --gold-t:#F5EAD3; --line:#E7E1D6; }
   * { box-sizing:border-box; }
   html,body { margin:0; min-height:100%; background:var(--pink); color:var(--ink); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
   body { min-height:100dvh; }
@@ -15,7 +15,8 @@
   .app { width:min(1240px,100%); margin:0 auto; padding:12px 16px 18px; }
   .topline { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
   .brand { display:flex; align-items:center; gap:10px; min-width:0; }
-  .brand-mark { width:44px; height:44px; display:grid; place-items:center; border-radius:15px; background:#fff; border:1px solid var(--line); font-size:24px; box-shadow:0 4px 12px #1f41720d; }
+  .brand-mark { width:44px; height:44px; display:grid; place-items:center; border-radius:15px; background:#fff; border:1px solid var(--line); font-size:24px; box-shadow:0 4px 12px #1f41720d; overflow:hidden; padding:0; }
+  .brand-mark img { width:100%; height:100%; object-fit:cover; display:block; }
   h1 { font-size:clamp(18px,2.4vw,26px); line-height:1.1; margin:0; color:var(--blue); letter-spacing:-.04em; }
   .subtitle { margin-top:3px; font-size:12px; color:var(--muted); }
   .top-actions { position:relative; display:flex; gap:8px; align-items:center; }
@@ -27,20 +28,20 @@
   .btn.primary { color:white; background:var(--blue); border-color:var(--blue); }
   .btn:disabled { opacity:.45; cursor:not-allowed; }
   .hud { display:grid; grid-template-columns:132px 132px 1fr; gap:9px; margin-bottom:10px; align-items:stretch; }
-  .stat,.orders-panel { border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.85); padding:10px 12px; min-height:58px; }
+  .stat,.orders-panel { border:1px solid var(--line); border-radius:16px; background:#fff; padding:10px 12px; min-height:58px; }
   .stat-label,.panel-label { display:block; color:var(--muted); font-weight:750; font-size:10px; text-transform:uppercase; letter-spacing:.09em; margin-bottom:4px; }
   .stat-value { font-weight:850; color:var(--blue); font-variant-numeric:tabular-nums; font-size:24px; line-height:1; }
   .stat-value.warning { color:var(--red); }
   .order-list { display:flex; gap:8px; min-height:31px; flex-wrap:wrap; align-items:center; }
-  .order-card { position:relative; display:flex; gap:8px; align-items:center; background:#fff9f5; border:1px solid #f0d8ce; padding:6px 8px; border-radius:10px; min-width:130px; flex:1 1 130px; }
+  .order-card { position:relative; display:flex; gap:8px; align-items:center; background:#fff; border:1px solid var(--line); padding:6px 8px; border-radius:12px; min-width:130px; flex:1 1 130px; }
   .order-emoji { font-size:21px; }
   .order-name { font-weight:800; color:var(--blue); font-size:12px; }
   .order-time { margin-top:2px; font-size:10px; color:var(--muted); font-variant-numeric:tabular-nums; }
-  .order-bar { position:absolute; left:8px; right:8px; bottom:3px; height:3px; background:#f0e5e1; overflow:hidden; border-radius:5px; }
+  .order-bar { position:absolute; left:8px; right:8px; bottom:3px; height:3px; background:var(--line); overflow:hidden; border-radius:5px; }
   .order-bar > i { display:block; width:100%; height:100%; background:var(--green); transform-origin:left center; }
   .order-bar > i.low { background:var(--red); }
   .order-empty { color:var(--muted); font-size:12px; }
-  .game-frame { position:relative; border:1px solid #e9d8d7; background:#fff9f5; border-radius:18px; overflow:hidden; box-shadow:0 9px 26px #1f417210; }
+  .game-frame { position:relative; border:1px solid var(--line); background:#fff9f5; border-radius:18px; overflow:hidden; box-shadow:0 9px 26px #1f417210; }
   canvas { display:block; width:100%; height:clamp(280px,62vh,620px); min-height:250px; touch-action:none; }
   .stage-vignette { position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg,#ffffff08,transparent 55%,#1f417206); }
   .station-prompt { position:absolute; left:50%; bottom:14px; transform:translateX(-50%); border:1px solid #d9e0e8; background:#ffffffed; backdrop-filter:blur(7px); color:var(--blue); border-radius:999px; padding:8px 14px; font-size:12px; font-weight:800; box-shadow:0 4px 14px #182c4715; max-width:calc(100% - 24px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; pointer-events:none; }
@@ -113,18 +114,26 @@
     .stat,.orders-panel { min-height:42px; padding:5px 7px; }
     .stat-value { font-size:17px; }
     canvas { height:calc(100dvh - 126px); min-height:200px; }
-    .joystick-zone { width:100px; height:100px; bottom:5px; }
+    .joystick-zone { width:100px; height:100px; left:calc(max(12px,env(safe-area-inset-left)) + 30px); bottom:35px; }
     .joy-knob { width:42px; height:42px; }
-    .action-zone { bottom:7px; }
+    .action-zone { right:calc(max(16px,env(safe-area-inset-right)) + 30px); bottom:37px; }
     .action-button { width:70px; height:70px; }
   }
   /* HUD stabil: 3 slot order tetap, modal tidak boleh keluar dari frame */
   .order-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; min-height:46px; align-items:stretch; }
   .order-card { min-width:0; min-height:46px; flex:none; }
-  .order-slot { min-height:46px; border:1px dashed var(--line); border-radius:10px; background:#ffffff55; }
+  .order-slot { min-height:46px; border:1px dashed var(--line); border-radius:12px; background:#ffffff55; }
   .modal { max-height:100%; overflow-y:auto; }
   .action-button:active { transform:scale(.94); }
-  @media (orientation:portrait) { .hud { grid-template-columns:1fr 1fr; } .orders-panel { grid-column:1 / -1; } }
+  .order-card.low { border:1.5px dashed var(--red); background:var(--red-t); }
+  .order-card.low .order-time { color:var(--red); }
+  .action-hint { position:absolute; right:0; bottom:calc(100% + 8px); width:max-content; max-width:170px; padding:6px 10px; border-radius:12px; background:#fff; border:1px solid var(--line); color:var(--ink); font-size:11px; font-weight:800; line-height:1.3; text-align:center; box-shadow:0 4px 14px #182c4720; pointer-events:none; }
+  .action-hint[hidden] { display:none; }
+  @media (orientation:portrait) { .hud { grid-template-columns:1fr 1fr; } .orders-panel { grid-column:1 / -1; } .joystick-zone { left:max(2px,env(safe-area-inset-left)); } }
+  @media ((max-width:760px), (pointer:coarse)) and (orientation:landscape) and (min-height:421px) {
+    .joystick-zone { left:calc(max(12px,env(safe-area-inset-left)) + 30px); bottom:calc(max(12px,env(safe-area-inset-bottom)) + 30px); }
+    .action-zone { right:calc(max(16px,env(safe-area-inset-right)) + 30px); bottom:calc(max(19px,env(safe-area-inset-bottom)) + 30px); }
+  }
   /* Layar sentuh: pill status disembunyikan (label tombol sudah cukup), halaman tidak ikut ter-scroll saat main */
   @media (pointer:coarse) {
     .station-prompt { display:none; }
@@ -180,8 +189,8 @@
 <div class="app">
   <header class="topline">
     <div class="brand">
-      <div class="brand-mark">🥐</div>
-      <div><h1>Bakery Co-op</h1><div class="subtitle">P0 vector kitchen · local solo test</div></div>
+      <div class="brand-mark"><img src="assets/badge-72.png" alt="SHAKIES" width="44" height="44"></div>
+      <div><h1>SHAKIES Bakery Co-op</h1><div class="subtitle">P0 vector kitchen · local solo test</div></div>
     </div>
     <div class="top-actions">
       <button class="btn" id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menu">⋯</button>
@@ -205,7 +214,7 @@
       <div class="joystick-zone" id="joystickZone" aria-label="Virtual joystick">
         <div class="joy-base"></div><div class="joy-knob" id="joyKnob"></div><div class="joy-label">MOVE</div>
       </div>
-      <div class="action-zone"><button class="action-button" id="actionBtn" type="button"><span>✋</span><span id="actionLabel">AKSI</span></button></div>
+      <div class="action-zone"><button class="action-button" id="actionBtn" type="button"><span>✋</span><span id="actionLabel">AKSI</span></button><div class="action-hint" id="actionHint" hidden></div></div>
     </div>
     <div class="overlay" id="startScreen">
       <div class="modal">
@@ -279,12 +288,12 @@
   };
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
-  const els = Object.fromEntries(['timerText','scoreText','orderList','stationPrompt','inventoryText','toast','startScreen','helpScreen','resultsScreen','startBtn','restartBtn','helpBtn','menuBtn','menuPanel','closeHelpBtn','playAgainBtn','resultSummary','resultScore','resultServed','resultExpired','resultBurnt','starsText','actionBtn','actionLabel','joyKnob','joystickZone'].map(id => [id, document.getElementById(id)]));
+  const els = Object.fromEntries(['timerText','scoreText','orderList','stationPrompt','inventoryText','toast','startScreen','helpScreen','resultsScreen','startBtn','restartBtn','helpBtn','menuBtn','menuPanel','closeHelpBtn','playAgainBtn','resultSummary','resultScore','resultServed','resultExpired','resultBurnt','starsText','actionBtn','actionLabel','actionHint','joyKnob','joystickZone'].map(id => [id, document.getElementById(id)]));
 
   let dpr = 1, compact = false;   // compact = HUD melayang (landscape pendek): teks canvas di pojok kiri atas disembunyikan
   // Aset SVG (assets/*.svg, lihat ASSET_PLAN §6). Gagal dimuat = pakai gambar prosedural.
   const ART = { raw:{}, cache:new Map() };
-  const ART_KEYS = ['station_oven_empty','station_oven_cooking','station_oven_ready','station_oven_burnt','station_prep_empty','station_prep_dough','station_prep_prepared','station_counter_idle','station_dough_idle','station_butter_idle','station_salt_idle','station_serve_idle','station_trash_idle','char_baker_dr_idle_0','char_baker_dr_idle_1','char_baker_dr_walk_0','char_baker_dr_walk_1','char_baker_dr_walk_2','char_baker_dr_walk_3','char_baker_dr_carry_idle_0','char_baker_dr_carry_idle_1','char_baker_dr_carry_walk_0','char_baker_dr_carry_walk_1','char_baker_dr_carry_walk_2','char_baker_dr_carry_walk_3','item_dough','item_prepared_dough','item_prepared_salt','item_butter','item_salt','item_plain_bread','item_salt_bread','item_burnt_bread','item_failed_bread'];
+  const ART_KEYS = ['station_oven_empty','station_oven_cooking','station_oven_ready','station_oven_burnt','station_prep_empty','station_prep_dough','station_prep_prepared_plain','station_prep_prepared_salt','station_counter_idle','station_dough_idle','station_butter_idle','station_salt_idle','station_serve_idle','station_trash_idle','char_baker_dr_idle_0','char_baker_dr_idle_1','char_baker_dr_walk_0','char_baker_dr_walk_1','char_baker_dr_walk_2','char_baker_dr_walk_3','char_baker_dr_carry_idle_0','char_baker_dr_carry_idle_1','char_baker_dr_carry_walk_0','char_baker_dr_carry_walk_1','char_baker_dr_carry_walk_2','char_baker_dr_carry_walk_3','item_dough','item_prepared_dough','item_prepared_salt','item_butter','item_salt','item_plain_bread','item_salt_bread','item_burnt_bread','item_failed_bread'];
   const ITEM_SCALE = 1; // item viewBox 32x24 = satuan peta; di HP mapScale ~0.78 -> ±25x19 px [Menebak, uji di HP]
   const CHAR_SCALE = 1; // viewBox 40x64 = satuan peta; 1 = sama skala dengan stasiun [Menebak, uji di HP]
   function loadArt(keys) {
@@ -316,7 +325,12 @@
   }
   function artKey(s) {
     if (s.id === 'oven') return `station_oven_${s.status}`;
-    if (s.id === 'prep') return `station_prep_${!s.item ? 'empty' : s.item.type === 'dough' ? 'dough' : 'prepared'}`;
+    if (s.id === 'prep') {   // empty | dough | prepared_plain (belum/baru satu tambahan) | prepared_salt (mentega + garam lengkap)
+      if (!s.item) return 'station_prep_empty';
+      if (s.item.type === 'dough') return 'station_prep_dough';
+      const m = s.item.mods || [];
+      return `station_prep_prepared_${m.includes('butter') && m.includes('salt') ? 'salt' : 'plain'}`;
+    }
     if (s.type === 'counter') return 'station_counter_idle';
     return `station_${s.id}_idle`;
   }
@@ -641,7 +655,8 @@
     els.stationPrompt.textContent = mode === 'running' ? actionText(target) : mode === 'results' ? 'Shift selesai — lihat hasil ronde' : 'Mulai shift untuk bermain';
     const text = actionText(target);
     const verb = mode === 'running' && target ? VERBS.find(([re]) => re.test(text)) : null;
-    els.actionLabel.textContent = verb ? verb[1] : 'AKSI';
+    const hint = mode === 'running' && target ? text : '';
+    els.actionHint.textContent = hint; els.actionHint.hidden = !hint;
     els.actionBtn.classList.toggle('idle', !verb);
     els.actionBtn.setAttribute('aria-label', text);
   }
@@ -652,7 +667,7 @@
       const o = orders[i];
       if (!o) { html += '<div class="order-slot"></div>'; continue; }
       const left = Math.max(0,o.deadlineAt-elapsed), ratio = Math.max(0,Math.min(1,left/o.patience));
-      html += `<div class="order-card"><span class="order-emoji">${recipeEmoji(o.type)}</span><div><div class="order-name">${recipeName(o.type)}</div><div class="order-time">${left.toFixed(0)}s</div></div><div class="order-bar"><i class="${ratio<.3?'low':''}" style="transform:scaleX(${ratio})"></i></div></div>`;
+      html += `<div class="order-card${ratio<.3?' low':''}"><span class="order-emoji">${recipeEmoji(o.type)}</span><div><div class="order-name">${recipeName(o.type)}</div><div class="order-time">${left.toFixed(0)}s</div></div><div class="order-bar"><i class="${ratio<.3?'low':''}" style="transform:scaleX(${ratio})"></i></div></div>`;
     }
     els.orderList.innerHTML = html;
   }
@@ -688,6 +703,7 @@
     mapScale=Math.min(1.18,canvasW/700,canvasH/340);
     tileW=88*mapScale; tileH=44*mapScale;
     originX=canvasW/2; originY=Math.max(10,canvasH*0.07);
+    if(canvasH>canvasW) originY=Math.max(10,(canvasH-330*mapScale)/2);   // portrait: peta di tengah vertikal (tinggi isi ±330 unit)
   }
   function project(x,y) { return { x:originX+(x-y)*tileW/2, y:originY+(x+y)*tileH/2 }; }
   function poly(points,fill,stroke,lineWidth=1) {
@@ -771,7 +787,7 @@
     if(s.id==='prep'&&s.processing)drawMiniBar(p.x,topY-24*sc,Math.max(0,1-s.timer/CONFIG.prepSeconds),'#2e8067',sc);
     if(s.id==='oven'&&s.status==='cooking')drawMiniBar(p.x,topY-24*sc,1-s.timer/CONFIG.cookSeconds,'#e2ad44',sc);
     if(s.id==='oven'&&s.status==='ready')drawMiniBar(p.x,topY-24*sc,1-s.readyTimer/CONFIG.readyBeforeBurnSeconds,'#c34f5a',sc);
-    if(s.id==='prep'&&s.item?.type==='prepared_dough'&&s.item.mods?.length){ctx.font=`${Math.max(8,11*sc)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillStyle='#fffaf2';ctx.fillText(s.item.mods.map(m=>m==='butter'?'B':'S').join(' · '),p.x,topY-17*sc);}
+    if(s.id==='prep'&&s.item?.type==='prepared_dough'&&(s.item.mods?.length===1||(!art&&s.item.mods?.length))){const t=s.item.mods.map(m=>m==='butter'?'B':'S').join(' · ');ctx.font=`800 ${Math.max(8,11*sc)}px ui-sans-serif,system-ui,sans-serif`;const tw=ctx.measureText(t).width+10*sc;ctx.fillStyle='#243b5ae6';roundRect(ctx,p.x-tw/2,topY-23*sc,tw,13*sc,6*sc);ctx.fill();ctx.fillStyle='#fffaf2';ctx.fillText(t,p.x,topY-16.5*sc);}
   }
   function shade(hex, amount) {
     const c=hex.replace('#',''); const num=parseInt(c,16); let r=(num>>16)+amount,g=((num>>8)&255)+amount,b=(num&255)+amount;

@@ -152,7 +152,8 @@
   .ob.s2 { --amp:1.6px; animation:ob-shake .25s linear infinite; }
   .ob.s3 { --amp:2.4px; animation:ob-shake .12s linear infinite; }
   @keyframes ob-shake { 0%,100% { translate:0 0; rotate:0deg; } 25% { translate:var(--amp) 0; rotate:.6deg; } 75% { translate:calc(var(--amp) * -1) 0; rotate:-.6deg; } }
-  .order-fx { position:fixed; z-index:50; pointer-events:none; will-change:transform; }
+  .orders-panel { position:relative; z-index:3; }
+  .order-fx { position:fixed; z-index:2; pointer-events:none; will-change:transform; }
   @media (prefers-reduced-motion:reduce) { .ob { animation:none !important; transition:none; } }
   @media (orientation:landscape) and (max-height:520px) { .orders-panel { justify-self:start; } #orderList.belt .ob-name { font-size:7.5px; } }
 
@@ -232,7 +233,7 @@
   <section class="hud" aria-label="Status ronde">
     <div class="stat"><span class="stat-label">Sisa waktu</span><div class="stat-value" id="timerText">04:00</div></div>
     <div class="stat"><span class="stat-label">Skor tim</span><div class="stat-value" id="scoreText">0</div></div>
-    <div class="orders-panel"><span class="panel-label">Pesanan masuk</span><div class="order-list" id="orderList"><span class="order-empty">Mulai shift untuk menerima pesanan.</span></div></div>
+    <div class="orders-panel"><span class="panel-label">Orderan</span><div class="order-list" id="orderList"><span class="order-empty">Mulai shift untuk menerima pesanan.</span></div></div>
   </section>
   <main class="game-frame" id="gameFrame">
     <canvas id="gameCanvas" aria-label="Dapur Bakery Co-op"></canvas>
@@ -323,7 +324,7 @@
   let dpr = 1, compact = false;   // compact = HUD melayang (landscape pendek): teks canvas di pojok kiri atas disembunyikan
   // Aset SVG (assets/*.svg, lihat ASSET_PLAN §6). Gagal dimuat = pakai gambar prosedural.
   const ART = { raw:{}, cache:new Map() };
-  const ART_KEYS = ['station_oven_empty','station_oven_cooking','station_oven_ready','station_oven_burnt','station_prep_empty','station_prep_dough','station_prep_prepared_plain','station_prep_prepared_salt','station_counter_idle','station_dough_idle','station_butter_idle','station_salt_idle','station_serve_idle','station_trash_idle','char_baker_dr_idle_0','char_baker_dr_idle_1','char_baker_dr_walk_0','char_baker_dr_walk_1','char_baker_dr_walk_2','char_baker_dr_walk_3','char_baker_dr_carry_idle_0','char_baker_dr_carry_idle_1','char_baker_dr_carry_walk_0','char_baker_dr_carry_walk_1','char_baker_dr_carry_walk_2','char_baker_dr_carry_walk_3','item_dough','item_prepared_dough','item_prepared_salt','item_butter','item_salt','item_plain_bread','item_salt_bread','item_burnt_bread','item_failed_bread'];
+  const ART_KEYS = ['station_oven_empty','station_oven_cooking','station_oven_ready','station_oven_burnt','station_prep_empty','station_prep_dough','station_prep_prepared_plain','station_prep_prepared_salt','station_counter_idle','station_dough_idle','station_butter_idle','station_salt_idle','station_serve_idle','station_serve_down_idle','station_trash_idle','char_baker_dr_idle_0','char_baker_dr_idle_1','char_baker_dr_walk_0','char_baker_dr_walk_1','char_baker_dr_walk_2','char_baker_dr_walk_3','char_baker_dr_carry_idle_0','char_baker_dr_carry_idle_1','char_baker_dr_carry_walk_0','char_baker_dr_carry_walk_1','char_baker_dr_carry_walk_2','char_baker_dr_carry_walk_3','item_dough','item_prepared_dough','item_prepared_salt','item_butter','item_salt','item_plain_bread','item_salt_bread','item_burnt_bread','item_failed_bread'];
   const ITEM_SCALE = 1; // item viewBox 32x24 = satuan peta; di HP mapScale ~0.78 -> ±25x19 px [Menebak, uji di HP]
   const CHAR_SCALE = 1; // viewBox 40x64 = satuan peta; 1 = sama skala dengan stasiun [Menebak, uji di HP]
   function loadArt(keys) {
@@ -361,6 +362,7 @@
       const m = s.item.mods || [];
       return `station_prep_prepared_${m.includes('butter') && m.includes('salt') ? 'salt' : 'plain'}`;
     }
+    if (s.id === 'serve2') return 'station_serve_down_idle';
     if (s.type === 'counter') return 'station_counter_idle';
     return `station_${s.id}_idle`;
   }
@@ -386,6 +388,7 @@
     { id:'prep', type:'prep', name:'MEJA PREP', label:'Meja prep', x:3, y:1, emoji:'🧈', color:'#e6c49c', item:null, processing:false, timer:0 },
     { id:'oven', type:'oven', name:'OVEN', label:'Oven', x:5, y:1, emoji:'🔥', color:'#c17a69', item:null, status:'empty', timer:0, readyTimer:0 },
     { id:'serve', type:'serve', name:'COUNTER OUT', label:'Counter output', x:7, y:1, emoji:'🍞', color:'#c8a98a' },
+    { id:'serve2', type:'serve', name:'COUNTER OUT', label:'Counter output', x:7, y:3, emoji:'🍞', color:'#c8a98a' },
     { id:'butter', type:'crate', name:'MENTEGA', label:'Mentega', x:1, y:5, emoji:'🧈', color:'#f0d878' },
     { id:'salt', type:'crate', name:'GARAM', label:'Garam', x:3, y:5, emoji:'🧂', color:'#d7dce2' },
     { id:'counter1', type:'counter', name:'COUNTER', label:'Counter', x:2, y:3, emoji:'📥', color:'#d9c3a3', item:null },
@@ -416,7 +419,7 @@
     score = 0; ordersServed = 0; ordersExpired = 0; burntCount = 0; streak = 0;
     orders = []; orderSerial = 1; itemSerial = 1; heldItem = null;
     hazards = []; nextHazardAt = HAZARD.firstAt; nextHazardId = 1; slipUntil = 0; lastHazardToastAt = -99; feedback = [];
-    fxGen++; pendingDelta = 0; document.querySelectorAll('.order-fx').forEach(n => n.remove());
+    fxGen++; pendingDelta = 0; BELT.holds.length = 0; document.querySelectorAll('.order-fx').forEach(n => n.remove());
     guideOn = false; guideIds = []; idleFor = 0; lastSig = ''; lastServed = 0;
     player.x = 4.15; player.y = 6.15; player.facingX = 0; player.facingY = -1; player.walkCycle = 0;
     for (const s of stations) {
@@ -600,7 +603,7 @@
       if (h.type === 'dough') return !prep.item ? 'prep' : freeCounter();
       if (h.type === 'prepared_dough') return oven.status === 'empty' ? 'oven' : freeCounter();
       if (h.type === 'butter' || h.type === 'salt') return prep.item?.type === 'prepared_dough' ? (pm.includes(h.type) ? 'trash' : 'prep') : freeCounter();
-      if (h.type === 'plain_bread' || h.type === 'salt_bread') return orders.some(o => o.type === h.type) ? 'serve' : 'trash';
+      if (h.type === 'plain_bread' || h.type === 'salt_bread') return orders.some(o => o.type === h.type) ? ['serve','serve2'] : 'trash';
       return 'trash';
     }
     if (oven.status === 'ready' || oven.status === 'burnt') return 'oven';
@@ -731,7 +734,7 @@
     if (icon && icon !== actionIconName) { actionIconName = icon; els.actionHint.querySelector('use').setAttribute('href', '#hud-' + icon); }
     els.actionBtn.setAttribute('aria-label', text);
   }
-  const BELT = { vert:null, B:56, G:6, boxes:new Map(), relayout:false };
+  const BELT = { vert:null, B:56, G:6, boxes:new Map(), relayout:false, holds:[] };
   const RING_D = 'M50 2H88A10 10 0 0 1 98 12V88A10 10 0 0 1 88 98H12A10 10 0 0 1 2 88V12A10 10 0 0 1 12 2H50';
   const REDUCED = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const PAPER_SVG = '<svg viewBox="0 0 40 40"><polygon points="20,4 28,7 35,14 34,26 27,35 15,36 6,28 5,16 11,8" fill="#efe9de" stroke="#6B756F" stroke-width="2" stroke-linejoin="round"/><path d="M12 12L22 18L16 27M24 10L26 24L33 20M9 24L20 25" fill="none" stroke="#6B756F" stroke-width="1.3" stroke-linecap="round"/></svg>';
@@ -758,7 +761,7 @@
     const live = new Set(orders.map(o => o.id));
     for (const [id, b] of BELT.boxes) if (!live.has(id)) { b.remove(); BELT.boxes.delete(id); }
     orders.forEach((o, i) => {
-      let b = BELT.boxes.get(o.id); const q = slotPos(i);
+      let b = BELT.boxes.get(o.id); const q = slotPos(i + BELT.holds.filter(h => h.idx <= i).length);
       if (!b) {   // order baru masuk dari ujung kanan (portrait) / bawah (landscape HP), meluncur ke slotnya
         b = makeBox(o); const far = (BELT.vert ? els.orderList.clientHeight : els.orderList.clientWidth) + BELT.B;
         b.style.transition = 'none'; b.style.transform = BELT.vert ? `translate(${q.x}px,${far}px)` : `translate(${far}px,${q.y}px)`;
@@ -784,11 +787,17 @@
     clone.animate([{ opacity:1 }, { opacity:0 }], { duration:260, fill:'forwards' });
     icon.animate([{ opacity:0 }, { opacity:1 }], { duration:260, fill:'forwards' });
     const gen = fxGen; pendingDelta += delta;
+    // 1) jadi kertas/kado lalu keluar dari belt (turun di portrait, ke kanan di landscape); slotnya ditahan
+    // 2) setelah keluar, kotak sebelahnya geser mengisi slot (di atas fx karena panel z-index lebih tinggi), lalu fx terbang ke skor
+    const hold = { idx:orders.findIndex(o => o.id === id) }, hop = BELT.B * 1.1, hx = BELT.vert ? hop : 0, hy = BELT.vert ? 0 : hop;
+    BELT.holds.push(hold);
+    setTimeout(() => { fx.style.zIndex = 50; const k = BELT.holds.indexOf(hold); if (k >= 0) { BELT.holds.splice(k, 1); renderOrders(); } }, 450);
     fx.animate([
-      { transform:'translate(0,0) scale(1) rotate(0deg)' },
-      { transform:'translate(0,0) scale(.62) rotate(-14deg)', offset:.28 },
+      { transform:'translate(0,0) scale(1) rotate(0deg)', easing:'ease-out' },
+      { transform:`translate(${hx*.6}px,${hy*.6}px) scale(.62) rotate(-14deg)`, offset:.19, easing:'ease-out' },
+      { transform:`translate(${hx}px,${hy}px) scale(.62) rotate(-14deg)`, offset:.33, easing:'cubic-bezier(.5,0,.9,.6)' },
       { transform:`translate(${dx}px,${dy}px) scale(.3) rotate(220deg)` }
-    ], { duration:950, easing:'cubic-bezier(.5,0,.9,.6)', fill:'forwards' }).onfinish = () => {
+    ], { duration:1350, fill:'forwards' }).onfinish = () => {
       fx.remove(); if (gen !== fxGen) return;
       pendingDelta -= delta; renderUI();
       els.scoreText.animate(kind === 'gift'
@@ -822,13 +831,15 @@
     joystick.x=nx; joystick.y=ny;
   }
   function resizeCanvas() {
+    shell = null;
     const r=canvas.getBoundingClientRect(); dpr=Math.min(window.devicePixelRatio||1,2); ART.cache.clear(); compact=!!window.matchMedia?.('(orientation:landscape) and (max-height:520px)').matches;
     canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr));
     ctx.setTransform(dpr,0,0,dpr,0,0); canvasW=r.width; canvasH=r.height;
-    mapScale=Math.min(1.18,canvasW/700,canvasH/340);
+    mapScale=Math.min(1.18,canvasW/700,canvasH/(340+wallH()+14));
     tileW=88*mapScale; tileH=44*mapScale;
     originX=canvasW/2; originY=Math.max(10,canvasH*0.07);
-    if(canvasH>canvasW) originY=Math.max(10,(canvasH-330*mapScale)/2-canvasH*0.10);   // portrait: peta di tengah vertikal (tinggi isi ±330 unit)
+    if(canvasH>canvasW) originY=Math.max(10,(canvasH-330*mapScale)/2-canvasH*0.10);
+    originY += wallH()*mapScale;   // portrait: peta di tengah vertikal (tinggi isi ±330 unit)
   }
   function project(x,y) { return { x:originX+(x-y)*tileW/2, y:originY+(x+y)*tileH/2 }; }
   function poly(points,fill,stroke,lineWidth=1) {
@@ -836,31 +847,65 @@
     for(let i=1;i<points.length;i++) ctx.lineTo(points[i][0],points[i][1]);
     ctx.closePath(); if(fill){ctx.fillStyle=fill;ctx.fill();} if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lineWidth;ctx.stroke();}
   }
-  function drawFloor() {
-    // Isometric bakery tiles: restrained palette, clear seams, small custom vector accents.
-    for(let sum=0;sum<=14;sum++) {
-      for(let x=0;x<=8;x++) {
-        const y=sum-x; if(y<0||y>7) continue;
-        const p=project(x,y), hw=tileW/2, hh=tileH/2;
-        const fill=(x+y)%2===0?'#f4e6d4':'#efdfca';
-        poly([[p.x,p.y-hh],[p.x+hw,p.y],[p.x,p.y+hh],[p.x-hw,p.y]],fill,'#fffaf0',.9*mapScale);
-        if ((x*3+y)%5===0) {
-          ctx.strokeStyle='#caa98a35'; ctx.lineWidth=.7*mapScale;
-          ctx.beginPath();ctx.moveTo(p.x-tileW*.12,p.y-tileH*.02);ctx.lineTo(p.x-tileW*.03,p.y+tileH*.08);ctx.stroke();
-        }
-      }
-    }
-    const top=project(4,0);
-    ctx.fillStyle='#243b5a0c'; ctx.fillRect(0,0,canvasW,Math.max(0,top.y-tileH));
-    // Wall trim and a simple framed menu board; all shapes are drawn locally, no image downloads.
-    ctx.fillStyle='#d9b28c'; ctx.fillRect(0,Math.max(38,canvasH*.105),canvasW,3*mapScale);
-    if(!compact){
-    ctx.fillStyle='#fff8e9'; roundRect(ctx,canvasW*.72,12*mapScale,Math.min(132*mapScale,canvasW*.22),31*mapScale,5*mapScale);ctx.fill();
-    ctx.strokeStyle='#b98a62';ctx.lineWidth=1*mapScale;roundRect(ctx,canvasW*.72,12*mapScale,Math.min(132*mapScale,canvasW*.22),31*mapScale,5*mapScale);ctx.stroke();
-    ctx.fillStyle='#8b6448';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`800 ${Math.max(7,9*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillText('FRESH DAILY',canvasW*.72+Math.min(66*mapScale,canvasW*.11),27*mapScale);
-    }
-    ctx.fillStyle='#cf9c7740'; ctx.fillRect(0,canvasH-4,canvasW,4);
+// Hanya menggambar area yang bisa dijangkau (x 1..7, y 1..6) + dinding rendah + alas.
+// Digambar SEKALI ke canvas offscreen (cache), lalu ditempel satu drawImage per frame.
+let shell = null;
+const wallH = () => compact ? 0 : 38;              // tinggi dinding (satuan peta); 0 = tanpa dinding (HP landscape)
+function drawFloor() { if (!shell) buildShell(); ctx.drawImage(shell, 0, 0, canvasW, canvasH); }
+function buildShell() {
+  shell = document.createElement('canvas');
+  shell.width = Math.max(1, Math.ceil(canvasW * dpr)); shell.height = Math.max(1, Math.ceil(canvasH * dpr));
+  const g = shell.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); paintSky(g); paintShell(g);
+}
+function paintShell(g) {
+  const sc = mapScale, WH = wallH() * sc, SL = 14 * sc, INK = '#243b5a';
+  const pl = (pts, fill, stroke, lw) => {
+    g.beginPath(); pts.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath();
+    if (fill) { g.fillStyle = fill; g.fill(); }
+    if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw; g.lineJoin = 'round'; g.stroke(); }
+  };
+  const P = (x, y) => { const p = project(x, y); return [p.x, p.y]; };
+  const A = P(.5, .5), B = P(7.5, .5), C = P(7.5, 6.5), D = P(.5, 6.5);   // sudut lantai
+  const dn = (q, h) => [q[0], q[1] + h], up = (q, h) => [q[0], q[1] - h];
+  pl([D, C, dn(C, SL), dn(D, SL)], '#7d5238', INK, 2 * sc);               // alas (tebal lantai)
+  pl([C, B, dn(B, SL), dn(C, SL)], '#9a6a45', INK, 2 * sc);
+  for (let x = 1; x <= 7; x++) for (let y = 1; y <= 6; y++) {              // ubin
+    const p = project(x, y), hw = tileW / 2, hh = tileH / 2;
+    pl([[p.x, p.y - hh], [p.x + hw, p.y], [p.x, p.y + hh], [p.x - hw, p.y]], (x + y) % 2 === 0 ? '#f4e6d4' : '#efdfca', '#fffaf0', .9 * sc);
+    if ((x * 3 + y) % 5 === 0) { g.strokeStyle = '#caa98a35'; g.lineWidth = .7 * sc; g.beginPath(); g.moveTo(p.x - tileW * .12, p.y - tileH * .02); g.lineTo(p.x - tileW * .03, p.y + tileH * .08); g.stroke(); }
   }
+  if (!WH) return;                                                          // mode compact: tanpa dinding
+  const wall = (p0, p1, base, tile) => {
+    const th = 16 * sc;
+    pl([p0, p1, up(p1, WH), up(p0, WH)], base, INK, 2 * sc);                // dinding
+    pl([p0, p1, up(p1, th), up(p0, th)], tile);                             // pita ubin
+    g.strokeStyle = '#7fb0a4'; g.lineWidth = .8 * sc;
+    for (let k = 1; k < 14; k++) { const t = k / 14, x = p0[0] + (p1[0] - p0[0]) * t, y = p0[1] + (p1[1] - p0[1]) * t; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - th); g.stroke(); }
+    g.strokeStyle = '#c98e5a'; g.lineWidth = 2.5 * sc; g.beginPath(); g.moveTo(p0[0], p0[1] - th); g.lineTo(p1[0], p1[1] - th); g.stroke();
+    pl([up(p0, WH), up(p1, WH), up(p1, WH + 5 * sc), up(p0, WH + 5 * sc)], '#c98e5a', INK, 1.6 * sc);   // trim kayu
+  };
+  wall(A, D, '#ecd3bd', '#a9cfc3'); wall(A, B, '#f6e3cf', '#b9ddd1');
+  const wl = (p0, p1, t, h) => [p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t - h * sc];
+  const hTop = wallH() - 4;
+  const frame = (p0, p1, t0, t1, fill) => {                                 // bingkai poster (abstrak, orisinal)
+    const q = (t, h) => wl(p0, p1, t, h), u = t1 - t0;
+    pl([q(t0, 16), q(t1, 16), q(t1, hTop), q(t0, hTop)], '#c98e5a', INK, 1.5 * sc);
+    pl([q(t0 + u * .12, 19), q(t1 - u * .12, 19), q(t1 - u * .12, hTop - 3), q(t0 + u * .12, hTop - 3)], fill, INK, sc);
+  };
+  frame(A, D, .16, .30, '#fbe8c2'); frame(A, D, .58, .72, '#cfe3ee'); frame(A, B, .22, .36, '#f1c98a');
+  const ck = wl(A, B, .80, 25);                                              // jam dinding
+  g.beginPath(); g.arc(ck[0], ck[1], 7 * sc, 0, 7); g.fillStyle = '#fffaf2'; g.fill(); g.strokeStyle = INK; g.lineWidth = 1.6 * sc; g.stroke();
+  g.beginPath(); g.moveTo(ck[0], ck[1]); g.lineTo(ck[0], ck[1] - 4 * sc); g.moveTo(ck[0], ck[1]); g.lineTo(ck[0] + 3.5 * sc, ck[1] + 1.5 * sc); g.stroke();
+}
+function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekitar ruangan, bintang (deterministik)
+  const W = canvasW, H = canvasH, gr = g.createLinearGradient(0, 0, 0, H);
+  gr.addColorStop(0, '#1b2d50'); gr.addColorStop(1, '#101b35'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  const cx = originX, cy = originY + 3.5 * tileH, R = Math.max(W, H) * .55, rg = g.createRadialGradient(cx, cy, 0, cx, cy, R);
+  rg.addColorStop(0, 'rgba(255,238,200,.20)'); rg.addColorStop(1, 'rgba(255,238,200,0)'); g.fillStyle = rg; g.fillRect(0, 0, W, H);
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 90; i++) { g.globalAlpha = .25 + rnd() * .6; g.fillStyle = '#fff'; g.beginPath(); g.arc(rnd() * W, rnd() * H, .5 + rnd() * 1.1, 0, 7); g.fill(); }
+  g.globalAlpha = 1;
+}
   function drawStation(s,target) {
     const p=project(s.x,s.y), sc=mapScale;
     const w=tileW*.82, h=tileH*.70, lift=29*sc, depth=22*sc;
@@ -903,7 +948,7 @@
     } else if(s.type==='counter'){
       ctx.fillStyle='#fff5df';ctx.beginPath();ctx.ellipse(p.x,topY,w*.22,h*.15,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#cba879';ctx.lineWidth=1*sc;ctx.stroke();
       if(s.item)drawHeldItem(p.x,topY-2*sc,s.item,sc);
-    } else if(s.id==='serve'){
+    } else if(s.type==='serve'){
       ctx.fillStyle='#fff5df';roundRect(ctx,p.x-w*.27,topY-h*.11,w*.54,h*.18,3*sc);ctx.fill();ctx.strokeStyle='#cba879';ctx.stroke();
       ctx.fillStyle='#c58b4f';ctx.beginPath();ctx.ellipse(p.x,topY-h*.02,w*.10,h*.065,0,0,Math.PI*2);ctx.fill();
       ctx.strokeStyle='#e9c28c';ctx.lineWidth=1*sc;ctx.beginPath();ctx.moveTo(p.x-w*.2,topY+h*.05);ctx.lineTo(p.x+w*.2,topY+h*.05);ctx.stroke();
@@ -1002,16 +1047,7 @@
     else {ctx.fillStyle=item.type==='burnt_bread'?'#4b3830':'#c98a43';ctx.beginPath();ctx.ellipse(x,y,7*sc,4.5*sc,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#8c5b32';ctx.stroke();}
   }
   function roundRect(c,x,y,w,h,r) { c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath(); }
-  function drawBackground() {
-    const g=ctx.createLinearGradient(0,0,0,canvasH);g.addColorStop(0,'#fffaf5');g.addColorStop(1,'#f7e7dd');ctx.fillStyle=g;ctx.fillRect(0,0,canvasW,canvasH);
-    // Gentle decorative wall panels.
-    ctx.fillStyle='#d9a88b20';ctx.fillRect(0,0,canvasW,Math.max(26,canvasH*.13));
-    ctx.strokeStyle='#d9a88b45';ctx.lineWidth=1;for(let x=20;x<canvasW;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvasH*.1);ctx.stroke();}
-    if(!compact){
-    ctx.fillStyle='#1f4172';ctx.font=`800 ${Math.max(10,13*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('BAKERY KITCHEN',12,10);
-    ctx.fillStyle='#718097';ctx.font=`${Math.max(9,10*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillText(mode==='running'?'Shift sedang berlangsung':'Prototipe P0 · dapur latihan',12,28);
-    }
-  }
+  function drawBackground() {}   // langit dan dinding digambar di cache shell (drawFloor)
   function render() {
     ctx.clearRect(0,0,canvasW,canvasH);drawBackground();drawFloor();drawHazards();
     const target=mode==='running'?getTargetStation():null;
@@ -1021,7 +1057,7 @@
     for(const a of actors){if(a.kind==='station'){drawStation(a.s,a.s===target);if(guideIds.includes(a.s.id))drawGuide(a.s);}else drawPlayer();}
     drawFeedback();
     // On-screen fallback hint for desktop.
-    if(mode==='running' && canvasW>760 && !compact && !matchMedia('(pointer:coarse)').matches){ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle='#536982';ctx.font=`700 ${Math.max(10,11*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillText('WASD / ↑↓←→ bergerak  •  SPACE interaksi',canvasW-14,canvasH-26);}
+    if(mode==='running' && canvasW>760 && !compact && !matchMedia('(pointer:coarse)').matches){ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle='#c9d6ea';ctx.font=`700 ${Math.max(10,11*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillText('WASD / ↑↓←→ bergerak  •  SPACE interaksi',canvasW-14,canvasH-26);}
   }
   function frame(now) {
     const dt=Math.min(.05,(now-lastFrame)/1000);lastFrame=now;

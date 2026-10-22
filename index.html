@@ -536,7 +536,9 @@
   function isBlocked(x,y) {
     if (x < 0.63 || x > 7.37 || y < 0.63 || y > 6.37) return true;
     for (const s of stations) {
-      if (x > s.x-0.37 && x < s.x+0.56 && y > s.y-0.37 && y < s.y+0.56) return true;   // jejak kubus di layar bergeser ±0.15 ke depan dari titik tengah, jadi sisi depan/kanan diperlebar
+      if (x > s.x-0.52 && x < s.x+0.56 && y > s.y-0.52 && y < s.y+0.56) return true;   // jejak kubus di layar bergeser ±0.15 ke depan dari titik tengah (sisi depan/kanan +0.19); sisi kiri/belakang diberi ruang badan karakter (±10 unit layar)
+      const u = (x-s.x)*44 - (y-s.y)*44, v = ((x-s.x) + (y-s.y))*22 - 6.6;   // jejak alas kubus di layar (unit @scale 1) + ±10 unit untuk lebar badan
+      if (Math.max(0, Math.abs(u)-10)/36.1 + Math.abs(v)/15.4 < 1) return true;
     }
     return false;
   }

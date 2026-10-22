@@ -127,7 +127,7 @@
   .action-button:active { transform:scale(.94); }
   .order-card.low { border:1.5px dashed var(--red); background:var(--red-t); }
   .order-card.low .order-time { color:var(--red); }
-  .action-hint { position:absolute; right:0; bottom:calc(100% + 8px); width:max-content; max-width:170px; padding:6px 10px; border-radius:12px; background:#fff; border:1px solid var(--line); color:var(--ink); font-size:11px; font-weight:800; line-height:1.3; text-align:center; box-shadow:0 4px 14px #182c4720; pointer-events:none; }
+  .action-hint { position:absolute; right:23px; bottom:calc(100% + 8px); width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:#fff; border:1px solid var(--line); color:var(--ink); box-shadow:0 4px 14px #182c4720; pointer-events:none; }
   .action-hint[hidden] { display:none; }
   .joystick-zone::before { content:''; position:absolute; inset:-30px; }   /* area sentuh lebih luas dari lingkaran; arah dihitung dari pusat */
   .ic { fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex:none; }
@@ -217,7 +217,7 @@
       <div class="joystick-zone" id="joystickZone" aria-label="Virtual joystick">
         <div class="joy-base"></div><div class="joy-knob" id="joyKnob"></div><div class="joy-label">MOVE</div>
       </div>
-      <div class="action-zone"><button class="action-button" id="actionBtn" type="button" aria-label="Aksi"><svg class="ic" id="actionIcon" width="38" height="38" aria-hidden="true"><use href="#hud-hand"/></svg></button><div class="action-hint" id="actionHint" hidden></div></div>
+      <div class="action-zone"><button class="action-button" id="actionBtn" type="button" aria-label="Aksi"><svg class="ic" width="24" height="24" aria-hidden="true"><use href="#hud-hand"/></svg><span>AKSI</span></button><div class="action-hint" id="actionHint" hidden><svg class="ic" width="22" height="22" aria-hidden="true"><use href="#hud-ambil"/></svg></div></div>
     </div>
     <div class="overlay" id="startScreen">
       <div class="modal">
@@ -292,7 +292,7 @@
   };
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
-  const els = Object.fromEntries(['timerText','scoreText','orderList','stationPrompt','inventoryText','toast','startScreen','helpScreen','resultsScreen','startBtn','restartBtn','helpBtn','menuBtn','menuPanel','closeHelpBtn','playAgainBtn','resultSummary','resultScore','resultServed','resultExpired','resultBurnt','starsText','actionBtn','actionIcon','actionHint','joyKnob','joystickZone'].map(id => [id, document.getElementById(id)]));
+  const els = Object.fromEntries(['timerText','scoreText','orderList','stationPrompt','inventoryText','toast','startScreen','helpScreen','resultsScreen','startBtn','restartBtn','helpBtn','menuBtn','menuPanel','closeHelpBtn','playAgainBtn','resultSummary','resultScore','resultServed','resultExpired','resultBurnt','starsText','actionBtn','actionHint','joyKnob','joystickZone'].map(id => [id, document.getElementById(id)]));
 
   let dpr = 1, compact = false;   // compact = HUD melayang (landscape pendek): teks canvas di pojok kiri atas disembunyikan
   // Aset SVG (assets/*.svg, lihat ASSET_PLAN §6). Gagal dimuat = pakai gambar prosedural.
@@ -560,7 +560,7 @@
     return valid[0];
   }
   const VERB_ICON = { AMBIL:'ambil', TARUH:'taruh', ULENI:'uleni', TAMBAH:'tambah', PANGGANG:'oven', SAJIKAN:'bell', BUANG:'trash' };
-  let actionIconName = 'hand';
+  let actionIconName = 'ambil';
   const VERBS = [[/^Ambil/,'AMBIL'],[/^(Letakkan|Taruh)/,'TARUH'],[/^Mulai uleni/,'ULENI'],[/^Tambahkan/,'TAMBAH'],[/^Masukkan/,'PANGGANG'],[/^Sajikan/,'SAJIKAN'],[/^Buang/,'BUANG']];
   const freeCounter = () => ['counter1','counter2'].find(id => !stationById[id].item) || null;
   // Stasiun tujuan berikutnya (id atau array id) menurut isi tangan, meja prep, oven, dan order tertua.
@@ -694,11 +694,10 @@
     els.stationPrompt.textContent = mode === 'running' ? actionText(target) : mode === 'results' ? 'Shift selesai — lihat hasil ronde' : 'Mulai shift untuk bermain';
     const text = actionText(target);
     const verb = mode === 'running' && target ? VERBS.find(([re]) => re.test(text)) : null;
-    const hint = mode === 'running' && target ? text : '';
-    els.actionHint.textContent = hint; els.actionHint.hidden = !hint;
+    els.actionHint.hidden = !verb;
     els.actionBtn.classList.toggle('idle', !verb);
-    const icon = verb ? VERB_ICON[verb[1]] : 'hand';
-    if (icon !== actionIconName) { actionIconName = icon; els.actionIcon.querySelector('use').setAttribute('href', '#hud-' + icon); }
+    const icon = verb ? VERB_ICON[verb[1]] : null;
+    if (icon && icon !== actionIconName) { actionIconName = icon; els.actionHint.querySelector('use').setAttribute('href', '#hud-' + icon); }
     els.actionBtn.setAttribute('aria-label', text);
   }
   function renderOrders() {

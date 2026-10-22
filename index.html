@@ -153,6 +153,8 @@
   .ob.s3 { --amp:2.4px; animation:ob-shake .12s linear infinite; }
   @keyframes ob-shake { 0%,100% { translate:0 0; rotate:0deg; } 25% { translate:var(--amp) 0; rotate:.6deg; } 75% { translate:calc(var(--amp) * -1) 0; rotate:-.6deg; } }
   .orders-panel { position:relative; z-index:3; }
+  .score-chip { position:fixed; left:0; top:0; z-index:60; pointer-events:none; padding:2px 9px; border-radius:999px; background:#fff; border:1.5px solid; font-weight:900; font-size:15px; font-variant-numeric:tabular-nums; box-shadow:0 3px 10px #182c4726; will-change:transform,opacity; }
+  .score-chip.good { color:var(--green); border-color:var(--green); } .score-chip.bad { color:var(--red); border-color:var(--red); }
   .order-fx { position:fixed; z-index:2; pointer-events:none; will-change:transform; }
   @media (prefers-reduced-motion:reduce) { .ob { animation:none !important; transition:none; } }
   @media (orientation:landscape) and (max-height:520px) { .orders-panel { justify-self:start; } #orderList.belt .ob-name { font-size:7.5px; } }
@@ -374,7 +376,7 @@
   let score = 0, ordersServed = 0, ordersExpired = 0, burntCount = 0, streak = 0;
   let orders = [], orderSerial = 1, itemSerial = 1;
   let heldItem = null, currentToastTimeout = null, lastInteractionMessage = '';
-  let pendingDelta = 0, fxGen = 0, showLabels = true;
+  let pendingDelta = 0, fxGen = 0, chipActive = 0, showLabels = true;
   try { showLabels = localStorage.getItem('sbc_labels') !== '0'; } catch (e) {}
   let guideOn = false, guideIds = [], idleFor = 0, lastSig = '', lastServed = 0;   // petunjuk langkah berikutnya
   // Lightweight, client-side P0 hazard: visible spill patches briefly reduce movement speed.
@@ -418,7 +420,7 @@
     score = 0; ordersServed = 0; ordersExpired = 0; burntCount = 0; streak = 0;
     orders = []; orderSerial = 1; itemSerial = 1; heldItem = null;
     hazards = []; nextHazardAt = HAZARD.firstAt; nextHazardId = 1; slipUntil = 0; lastHazardToastAt = -99; feedback = [];
-    fxGen++; pendingDelta = 0; BELT.holds.length = 0; document.querySelectorAll('.order-fx').forEach(n => n.remove());
+    fxGen++; pendingDelta = 0; BELT.holds.length = 0; document.querySelectorAll('.order-fx, .score-chip').forEach(n => n.remove()); chipActive = 0;
     guideOn = false; guideIds = []; idleFor = 0; lastSig = ''; lastServed = 0;
     player.x = 4.15; player.y = 6.15; player.facingX = 0; player.facingY = -1; player.walkCycle = 0;
     for (const s of stations) {
@@ -536,9 +538,7 @@
   function isBlocked(x,y) {
     if (x < 0.63 || x > 7.37 || y < 0.63 || y > 6.37) return true;
     for (const s of stations) {
-      if (x > s.x-0.52 && x < s.x+0.56 && y > s.y-0.52 && y < s.y+0.56) return true;   // jejak kubus di layar bergeser ±0.15 ke depan dari titik tengah (sisi depan/kanan +0.19); sisi kiri/belakang diberi ruang badan karakter (±10 unit layar)
-      const u = (x-s.x)*44 - (y-s.y)*44, v = ((x-s.x) + (y-s.y))*22 - 6.6;   // jejak alas kubus di layar (unit @scale 1) + ±10 unit untuk lebar badan
-      if (Math.max(0, Math.abs(u)-10)/36.1 + Math.abs(v)/15.4 < 1) return true;
+      if (x > s.x-0.52 && x < s.x+0.72 && y > s.y-0.52 && y < s.y+0.72) return true;   // persegi sejajar grid (karakter bisa menyelip di sepanjang sisi). Jejak kubus di layar bergeser ±0.15 ke depan; sisi depan/kanan +0.72, kiri/belakang -0.52 memberi ruang badan
     }
     return false;
   }
@@ -711,7 +711,7 @@
     }
     if (s.type === 'trash') {
       if (!heldItem) { showToast('Tangan kamu kosong.'); return; }
-      score -= CONFIG.trashPenalty;
+      score -= CONFIG.trashPenalty; launchTrashFx(-CONFIG.trashPenalty);
       const wasBurnt = heldItem.type === 'burnt_bread';
       heldItem=null; streak=0;
       showToast(`Item dibuang −${CONFIG.trashPenalty} poin${wasBurnt ? '. Oven aman.' : '.'}`);
@@ -722,7 +722,7 @@
     document.body.classList.toggle('playing', mode === 'running');
     els.timerText.textContent = formatTime(roundLeft);
     els.timerText.classList.toggle('warning',roundLeft <= 30);
-    els.scoreText.textContent = Math.round(score - pendingDelta).toLocaleString('id-ID');
+    paintScore();
     els.inventoryText.textContent = heldItem ? `${itemEmoji(heldItem)} ${itemTitle(heldItem)}${heldItem.mods?.length ? ` (${heldItem.mods.join(' + ')})` : ''}` : 'Kosong';
     renderOrders();
     const target = getTargetStation();
@@ -776,20 +776,44 @@
     });
     if (BELT.relayout) { els.orderList.offsetWidth; for (const b of BELT.boxes.values()) b.style.transition = ''; BELT.relayout = false; }
   }
-  // Order selesai -> kado, kedaluwarsa -> kertas diremas; keduanya terbang ke skor. Skor di HUD baru berubah saat sampai (pendingDelta).
+  // Alur skor: kado/kertas (atau bola sampah dari Trash) terbang ke skor -> jadi chip angka (+125 / -50 / -10) di atas skor
+  // -> chip menyatu ke skor: angka chip menghitung ke 0 sambil skor total menghitung naik/turun searah. pendingDelta = sisa selisih yang belum "masuk".
+  function paintScore() { els.scoreText.textContent = Math.round(score - pendingDelta).toLocaleString('id-ID'); }
+  function scoreTarget() { const rg = document.createRange(); rg.selectNodeContents(els.scoreText); const b = rg.getBoundingClientRect(); return { x:b.left + b.width/2, y:b.top + b.height/2, h:b.height }; }
+  const fmtDelta = n => (n > 0 ? '+' : n < 0 ? '\u2212' : '') + Math.abs(n).toLocaleString('id-ID');
+  function mergeChip(delta, ax, ay, gen) {
+    const t = scoreTarget(), off = chipActive++ * 18, chip = document.createElement('div');
+    chip.className = 'score-chip ' + (delta > 0 ? 'good' : 'bad'); chip.textContent = fmtDelta(delta); document.body.appendChild(chip);
+    const y0 = ay - off, HOLD = 260, DUR = 800, t0 = performance.now(); let rem = delta;
+    const tick = now => {
+      if (gen !== fxGen) { chip.remove(); return; }
+      const e = now - t0, p = Math.max(0, Math.min(1, (e - HOLD) / DUR)), k = p < .5 ? 2*p*p : 1 - Math.pow(-2*p + 2, 2) / 2;
+      const nr = delta * (1 - k); pendingDelta += nr - rem; rem = nr;
+      const pop = e < HOLD ? 1 + .3 * Math.sin(Math.PI * e / HOLD) : 1;
+      chip.textContent = fmtDelta(Math.round(rem));
+      chip.style.transform = `translate(${ax}px,${y0}px) translate(-50%,-50%) translate(${(t.x - ax) * k}px,${(t.y - y0) * k}px) scale(${pop * (1 - .3*k)})`;
+      chip.style.opacity = p > .85 ? (1 - p) / .15 : 1;
+      paintScore();
+      if (p < 1) { requestAnimationFrame(tick); return; }
+      chip.remove(); chipActive = Math.max(0, chipActive - 1); pendingDelta -= rem; paintScore();
+      els.scoreText.animate(delta > 0
+        ? [{ transform:'scale(1)' }, { transform:'scale(1.3)', color:'#2F5D50' }, { transform:'scale(1)' }]
+        : [{ transform:'translateX(0)' }, { transform:'translateX(-4px)', color:'#C1443C' }, { transform:'translateX(4px)' }, { transform:'translateX(0)' }], { duration:360 });
+    };
+    requestAnimationFrame(tick);
+  }
+  // Order selesai -> kado, kedaluwarsa -> kertas diremas. Keluar dari belt dulu, baru kotak sebelahnya geser, lalu terbang ke skor dan jadi chip.
   function launchOrderFx(id, kind, delta) {
     const box = BELT.boxes.get(id); if (!box || REDUCED) return;
-    const r = box.getBoundingClientRect(), t = els.scoreText.getBoundingClientRect();
+    const r = box.getBoundingClientRect(), t = scoreTarget(), ax = t.x, ay = t.y - (t.h / 2 + 16);
     const fx = document.createElement('div'); fx.className = 'order-fx'; fx.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
     const clone = box.cloneNode(true); clone.style.cssText = 'position:absolute;inset:0;transform:none;transition:none;animation:none;translate:none;rotate:none';
     const icon = document.createElement('div'); icon.style.cssText = 'position:absolute;inset:6%;opacity:0'; icon.innerHTML = kind === 'gift' ? GIFT_SVG : PAPER_SVG;
     fx.append(clone, icon); document.body.appendChild(fx);
-    const dx = t.left + t.width/2 - (r.left + r.width/2), dy = t.top + t.height/2 - (r.top + r.height/2);
+    const dx = ax - (r.left + r.width/2), dy = ay - (r.top + r.height/2);
     clone.animate([{ opacity:1 }, { opacity:0 }], { duration:260, fill:'forwards' });
     icon.animate([{ opacity:0 }, { opacity:1 }], { duration:260, fill:'forwards' });
     const gen = fxGen; pendingDelta += delta;
-    // 1) jadi kertas/kado lalu keluar dari belt (turun di portrait, ke kanan di landscape); slotnya ditahan
-    // 2) setelah keluar, kotak sebelahnya geser mengisi slot (di atas fx karena panel z-index lebih tinggi), lalu fx terbang ke skor
     const hold = { idx:orders.findIndex(o => o.id === id) }, hop = BELT.B * 1.1, hx = BELT.vert ? hop : 0, hy = BELT.vert ? 0 : hop;
     BELT.holds.push(hold);
     setTimeout(() => { fx.style.zIndex = 50; const k = BELT.holds.indexOf(hold); if (k >= 0) { BELT.holds.splice(k, 1); renderOrders(); } }, 450);
@@ -798,13 +822,21 @@
       { transform:`translate(${hx*.6}px,${hy*.6}px) scale(.62) rotate(-14deg)`, offset:.19, easing:'ease-out' },
       { transform:`translate(${hx}px,${hy}px) scale(.62) rotate(-14deg)`, offset:.33, easing:'cubic-bezier(.5,0,.9,.6)' },
       { transform:`translate(${dx}px,${dy}px) scale(.3) rotate(220deg)` }
-    ], { duration:1350, fill:'forwards' }).onfinish = () => {
-      fx.remove(); if (gen !== fxGen) return;
-      pendingDelta -= delta; renderUI();
-      els.scoreText.animate(kind === 'gift'
-        ? [{ transform:'scale(1)' }, { transform:'scale(1.3)', color:'#2F5D50' }, { transform:'scale(1)' }]
-        : [{ transform:'translateX(0)' }, { transform:'translateX(-4px)', color:'#C1443C' }, { transform:'translateX(4px)' }, { transform:'translateX(0)' }], { duration:360 });
-    };
+    ], { duration:1350, fill:'forwards' }).onfinish = () => { fx.remove(); if (gen !== fxGen) return; mergeChip(delta, ax, ay, gen); };
+  }
+  // Buang sampah: bola kertas dilempar dari Trash ke skor, jadi chip -10 lalu menyatu.
+  function launchTrashFx(delta) {
+    if (REDUCED) return;
+    const st = stationById.trash, p = project(st.x, st.y), cr = canvas.getBoundingClientRect(), sc = mapScale, size = 26 * Math.max(.8, sc);
+    const x0 = cr.left + p.x, y0 = cr.top + p.y - 36 * sc, t = scoreTarget(), ax = t.x, ay = t.y - (t.h / 2 + 16), dx = ax - x0, dy = ay - y0;
+    const fx = document.createElement('div'); fx.className = 'order-fx'; fx.style.cssText = `left:${x0 - size/2}px;top:${y0 - size/2}px;width:${size}px;height:${size}px;z-index:50`; fx.innerHTML = PAPER_SVG;
+    document.body.appendChild(fx);
+    const gen = fxGen; pendingDelta += delta;
+    fx.animate([
+      { transform:'translate(0,0) scale(.6) rotate(0deg)', easing:'ease-out' },
+      { transform:`translate(${dx*.5}px,${Math.min(dy*.5, 0) - 70}px) scale(1) rotate(160deg)`, offset:.45, easing:'ease-in' },
+      { transform:`translate(${dx}px,${dy}px) scale(.55) rotate(360deg)` }
+    ], { duration:800, fill:'forwards' }).onfinish = () => { fx.remove(); if (gen !== fxGen) return; mergeChip(delta, ax, ay, gen); };
   }
   function formatTime(seconds) { const n=Math.ceil(Math.max(0,seconds)); return `${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`; }
   function resetJoystick() {
@@ -837,10 +869,12 @@
     canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr));
     ctx.setTransform(dpr,0,0,dpr,0,0); canvasW=r.width; canvasH=r.height;
     mapScale=Math.min(1.18,canvasW/700,canvasH/(340+wallH()+14));
+    mapScale=Math.min(mapScale*(canvasH>canvasW?1.10:1.05),canvasW/630);   // lantai diperbesar: portrait +10%, landscape +5% (dibatasi lebar kanvas)
     tileW=88*mapScale; tileH=44*mapScale;
     originX=canvasW/2; originY=Math.max(10,canvasH*0.07);
     if(canvasH>canvasW) originY=Math.max(10,(canvasH-330*mapScale)/2-canvasH*0.10);
-    originY += wallH()*mapScale;   // portrait: peta di tengah vertikal (tinggi isi ±330 unit)
+    if(canvasH>canvasW) originY += wallH()*mapScale;
+    else originY=Math.max(8,(canvasH-(322+wallH()*.7+14)*mapScale)/2+(wallH()*.7+5)*mapScale);   // landscape: isi ruangan (dinding sampai alas) di tengah vertikal   // portrait: peta di tengah vertikal (tinggi isi ±330 unit)
   }
   function project(x,y) { return { x:originX+(x-y)*tileW/2, y:originY+(x+y)*tileH/2 }; }
   function poly(points,fill,stroke,lineWidth=1) {

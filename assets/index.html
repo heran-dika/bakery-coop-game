@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#fdf0f0" />
+<title>Bakery Co-op — P0 Vector Kitchen</title>
+<style>
+  :root { --pink:#f6f0e7; --blue:#243b5a; --blue2:#3e6387; --cream:#fffaf2; --ink:#24344a; --muted:#6e7d91; --green:#2e8067; --red:#c34f5a; --gold:#e2ad44; --line:#e6d8c6; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; min-height:100%; background:var(--pink); color:var(--ink); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  body { min-height:100dvh; }
+  button { font:inherit; cursor:pointer; }
+  button:focus-visible { outline:3px solid #83a7dc; outline-offset:2px; }
+  .app { width:min(1240px,100%); margin:0 auto; padding:12px 16px 18px; }
+  .topline { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+  .brand { display:flex; align-items:center; gap:10px; min-width:0; }
+  .brand-mark { width:44px; height:44px; display:grid; place-items:center; border-radius:15px; background:#fff; border:1px solid var(--line); font-size:24px; box-shadow:0 4px 12px #1f41720d; }
+  h1 { font-size:clamp(18px,2.4vw,26px); line-height:1.1; margin:0; color:var(--blue); letter-spacing:-.04em; }
+  .subtitle { margin-top:3px; font-size:12px; color:var(--muted); }
+  .top-actions { position:relative; display:flex; gap:8px; align-items:center; }
+  #menuBtn { min-width:44px; min-height:44px; padding:0; font-size:22px; line-height:1; }
+  .menu-panel { position:absolute; right:0; top:calc(100% + 6px); z-index:20; display:flex; flex-direction:column; gap:6px; padding:6px; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 24px #182c4726; }
+  .menu-panel[hidden] { display:none; }
+  .menu-panel .btn { white-space:nowrap; padding:10px 14px; font-size:13px; }
+  .btn { border:1px solid #d8e0ec; background:#fff; color:var(--blue); border-radius:12px; padding:10px 13px; font-weight:750; box-shadow:0 3px 9px #1f41720a; }
+  .btn.primary { color:white; background:var(--blue); border-color:var(--blue); }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .hud { display:grid; grid-template-columns:132px 132px 1fr; gap:9px; margin-bottom:10px; align-items:stretch; }
+  .stat,.orders-panel { border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.85); padding:10px 12px; min-height:58px; }
+  .stat-label,.panel-label { display:block; color:var(--muted); font-weight:750; font-size:10px; text-transform:uppercase; letter-spacing:.09em; margin-bottom:4px; }
+  .stat-value { font-weight:850; color:var(--blue); font-variant-numeric:tabular-nums; font-size:24px; line-height:1; }
+  .stat-value.warning { color:var(--red); }
+  .order-list { display:flex; gap:8px; min-height:31px; flex-wrap:wrap; align-items:center; }
+  .order-card { position:relative; display:flex; gap:8px; align-items:center; background:#fff9f5; border:1px solid #f0d8ce; padding:6px 8px; border-radius:10px; min-width:130px; flex:1 1 130px; }
+  .order-emoji { font-size:21px; }
+  .order-name { font-weight:800; color:var(--blue); font-size:12px; }
+  .order-time { margin-top:2px; font-size:10px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .order-bar { position:absolute; left:8px; right:8px; bottom:3px; height:3px; background:#f0e5e1; overflow:hidden; border-radius:5px; }
+  .order-bar > i { display:block; width:100%; height:100%; background:var(--green); transform-origin:left center; }
+  .order-bar > i.low { background:var(--red); }
+  .order-empty { color:var(--muted); font-size:12px; }
+  .game-frame { position:relative; border:1px solid #e9d8d7; background:#fff9f5; border-radius:18px; overflow:hidden; box-shadow:0 9px 26px #1f417210; }
+  canvas { display:block; width:100%; height:clamp(280px,62vh,620px); min-height:250px; touch-action:none; }
+  .stage-vignette { position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg,#ffffff08,transparent 55%,#1f417206); }
+  .station-prompt { position:absolute; left:50%; bottom:14px; transform:translateX(-50%); border:1px solid #d9e0e8; background:#ffffffed; backdrop-filter:blur(7px); color:var(--blue); border-radius:999px; padding:8px 14px; font-size:12px; font-weight:800; box-shadow:0 4px 14px #182c4715; max-width:calc(100% - 24px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; pointer-events:none; }
+  .touch-controls { display:none; }
+  .toast { position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:5; max-width:calc(100% - 24px); padding:10px 14px; color:#fff; background:#253950ed; border-radius:12px; box-shadow:0 6px 20px #182c4728; text-align:center; font-size:12px; font-weight:750; pointer-events:none; opacity:0; transition:opacity .15s; }
+  .toast.show { opacity:1; }
+  .inventory-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 2px 0; font-size:12px; color:var(--muted); }
+  .inventory { color:var(--blue); font-weight:800; }
+  .help-line { text-align:right; }
+  .overlay { position:absolute; z-index:10; inset:0; display:flex; align-items:center; justify-content:center; padding:18px; background:#fff9f2d9; backdrop-filter:blur(5px); }
+  .overlay.hidden { display:none; }
+  .modal { width:min(480px,100%); border:1px solid #ead9d6; border-radius:20px; background:#fff; padding:clamp(18px,4vw,28px); text-align:center; box-shadow:0 16px 50px #223d5b20; }
+  .modal-icon { font-size:42px; margin-bottom:4px; }
+  .modal h2 { color:var(--blue); letter-spacing:-.04em; margin:4px 0 8px; font-size:clamp(23px,4vw,32px); }
+  .modal p { margin:0 auto 14px; max-width:390px; color:#65758a; font-size:13px; line-height:1.55; }
+  .recipe-chips { display:flex; justify-content:center; flex-wrap:wrap; gap:7px; margin:14px 0 18px; }
+  .chip { border:1px solid #eadbd8; background:#fff8f4; padding:7px 9px; border-radius:99px; font-size:11px; font-weight:800; color:var(--blue); }
+  .controls-note { display:grid; gap:7px; text-align:left; background:#f9f7f4; border-radius:12px; padding:12px; margin:14px 0 18px; color:#56677d; font-size:12px; line-height:1.45; }
+  .controls-note b { color:var(--blue); }
+  .result-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin:16px 0; }
+  .result-item { background:#f9f7f4; border:1px solid #f0e8e2; border-radius:12px; padding:11px; }
+  .result-item strong { display:block; font-size:22px; color:var(--blue); }
+  .result-item span { font-size:11px; color:var(--muted); }
+  .stars { color:var(--gold); font-size:25px; letter-spacing:3px; margin-bottom:6px; }
+  .footer-note { margin-top:9px; font-size:10px; text-align:center; color:#8b93a0; }
+  @media (max-width:760px), (pointer:coarse) {
+    .app { padding:8px 9px 12px; }
+    .brand-mark { width:36px; height:36px; border-radius:12px; font-size:20px; }
+    .subtitle { font-size:10px; }
+    .topline { margin-bottom:7px; }
+    .top-actions .btn { padding:8px 9px; font-size:11px; }
+    .hud { grid-template-columns:88px 88px 1fr; gap:5px; margin-bottom:6px; }
+    .stat,.orders-panel { border-radius:11px; padding:7px 8px; min-height:51px; }
+    .stat-label,.panel-label { font-size:8px; margin-bottom:5px; }
+    .stat-value { font-size:19px; }
+    .order-list { gap:4px; }
+    .order-card { min-width:100px; flex-basis:100px; padding:5px 6px 9px; gap:5px; }
+    .order-emoji { font-size:17px; }
+    .order-name { font-size:10px; }
+    .order-time { font-size:9px; }
+    .order-bar { bottom:3px; left:6px; right:6px; }
+    canvas { height:clamp(250px,62vh,520px); min-height:250px; }
+    .station-prompt { bottom:8px; padding:7px 11px; font-size:11px; }
+    .inventory-bar { padding-top:7px; font-size:10px; }
+    .help-line { display:none; }
+    .touch-controls { display:block; position:absolute; inset:0; pointer-events:none; z-index:4; }
+    .joystick-zone { position:absolute; left:max(12px,env(safe-area-inset-left)); bottom:max(12px,env(safe-area-inset-bottom)); width:118px; height:118px; pointer-events:auto; touch-action:none; }
+    .joy-base { position:absolute; inset:8px; border:1px solid #1f417246; border-radius:50%; background:#ffffff75; box-shadow:inset 0 0 0 7px #ffffff4a; }
+    .joy-knob { position:absolute; width:48px; height:48px; left:50%; top:50%; transform:translate(-50%,-50%); border-radius:50%; border:2px solid #ffffff; background:#1f4172df; box-shadow:0 3px 9px #182c4730; pointer-events:none; }
+    .joy-label { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:8px; font-weight:900; letter-spacing:.08em; color:#1f417278; pointer-events:none; }
+    .action-zone { position:absolute; right:max(16px,env(safe-area-inset-right)); bottom:max(19px,env(safe-area-inset-bottom)); pointer-events:auto; touch-action:none; }
+    .action-button { width:82px; height:82px; white-space:nowrap; letter-spacing:-.01em; border:2px solid #ffffff; border-radius:50%; background:#1f4172f2; color:#fff; box-shadow:0 5px 16px #182c4735; padding:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:10px; font-weight:900; text-align:center; touch-action:none; }
+    .action-button span:first-child { font-size:22px; line-height:1; }
+    .action-button.idle { opacity:.5; }
+    .overlay { padding:10px; }
+    .modal { padding:17px; }
+    .modal-icon { font-size:34px; }
+    .modal h2 { font-size:23px; }
+    .modal p { font-size:12px; margin-bottom:10px; }
+    .controls-note { font-size:11px; padding:9px; gap:5px; margin:10px 0 12px; }
+    .recipe-chips { margin:10px 0 12px; }
+  }
+  @media (max-height:420px) and (orientation:landscape) {
+    .app { padding:5px 8px; }
+    .topline { margin-bottom:4px; }
+    .brand-mark { width:30px; height:30px; }
+    h1 { font-size:17px; }
+    .subtitle { display:none; }
+    .hud { margin-bottom:4px; }
+    .stat,.orders-panel { min-height:42px; padding:5px 7px; }
+    .stat-value { font-size:17px; }
+    canvas { height:calc(100dvh - 126px); min-height:200px; }
+    .joystick-zone { width:100px; height:100px; bottom:5px; }
+    .joy-knob { width:42px; height:42px; }
+    .action-zone { bottom:7px; }
+    .action-button { width:70px; height:70px; }
+  }
+  /* HUD stabil: 3 slot order tetap, modal tidak boleh keluar dari frame */
+  .order-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; min-height:46px; align-items:stretch; }
+  .order-card { min-width:0; min-height:46px; flex:none; }
+  .order-slot { min-height:46px; border:1px dashed var(--line); border-radius:10px; background:#ffffff55; }
+  .modal { max-height:100%; overflow-y:auto; }
+  .action-button:active { transform:scale(.94); }
+  @media (orientation:portrait) { .hud { grid-template-columns:1fr 1fr; } .orders-panel { grid-column:1 / -1; } }
+  /* Layar sentuh: pill status disembunyikan (label tombol sudah cukup), halaman tidak ikut ter-scroll saat main */
+  @media (pointer:coarse) {
+    .station-prompt { display:none; }
+    body.playing { touch-action:none; overscroll-behavior:none; -webkit-user-select:none; user-select:none; }
+    .toast { top:auto; bottom:150px; }
+  }
+  /* HP landscape: HUD melayang di sudut kiri atas canvas (area dinding/lantai kosong di luar belah ketupat map), map memakai seluruh tinggi layar */
+  @media (orientation:landscape) and (max-height:520px) {
+    .app { position:relative; height:100dvh; padding:0; display:flex; flex-direction:column; }
+    .game-frame { flex:1; min-height:0; border:0; border-radius:0; box-shadow:none; }
+    canvas { height:100%; min-height:0; }
+    .brand, .footer-note, .help-line { display:none; }
+    .topline { position:absolute; top:max(8px,env(safe-area-inset-top)); right:max(8px,env(safe-area-inset-right)); margin:0; z-index:3; }
+    .hud { position:absolute; top:max(8px,env(safe-area-inset-top)); left:max(8px,env(safe-area-inset-left)); width:150px; margin:0; z-index:3; grid-template-columns:1fr 1fr; gap:4px; pointer-events:none; }
+    .orders-panel { grid-column:1 / -1; }
+    .stat, .orders-panel { background:#ffffffe0; min-height:0; padding:3px 7px; }
+    .stat-label, .panel-label { font-size:7px; margin-bottom:1px; }
+    .stat-value { font-size:16px; }
+    .order-list { grid-template-columns:1fr; gap:4px; min-height:0; }
+    .order-card, .order-slot { min-height:32px; }
+    .order-card { padding:3px 6px 7px; }
+    .inventory-bar { position:absolute; top:max(8px,env(safe-area-inset-top)); right:calc(max(8px,env(safe-area-inset-right)) + 52px); padding:0; z-index:3; pointer-events:none; }
+    .inventory-bar > div:first-child { background:#ffffffe0; border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:11px; }
+    .toast { top:58px; right:10px; left:auto; bottom:auto; transform:none; max-width:34%; text-align:left; }
+    .overlay { padding:6px; }
+    .modal { padding:10px 16px; }
+    .modal-icon, #startControls { display:none; }
+    .modal h2 { font-size:20px; margin:0 0 4px; }
+    .modal p { font-size:11px; line-height:1.4; margin:0 auto 6px; }
+    .recipe-chips { margin:6px 0 8px; }
+    .modal .btn { padding:9px !important; }
+    .result-grid { grid-template-columns:repeat(4,1fr); margin:8px 0; }
+    .result-item { padding:6px; }
+    .result-item strong { font-size:17px; }
+    .stars { font-size:19px; margin-bottom:2px; }
+  }
+  /* Layar sempit (mis. 640x~300): HUD lebih rapat supaya tidak menutupi stasiun kiri */
+  @media (orientation:landscape) and (max-height:520px) and (max-width:720px) {
+    .hud { width:118px; gap:3px; }
+    .stat, .orders-panel { padding:2px 6px; }
+    .stat-value { font-size:14px; }
+    .order-card, .order-slot { min-height:28px; }
+    .order-card { padding:2px 5px 6px; gap:4px; }
+    .order-emoji { font-size:15px; }
+    .order-name { font-size:9px; }
+    .order-time { font-size:8px; }
+    .inventory-bar > div:first-child { font-size:10px; padding:5px 8px; }
+    .toast { max-width:200px; font-size:11px; padding:6px 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topline">
+    <div class="brand">
+      <div class="brand-mark">🥐</div>
+      <div><h1>Bakery Co-op</h1><div class="subtitle">P0 vector kitchen · local solo test</div></div>
+    </div>
+    <div class="top-actions">
+      <button class="btn" id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menu">⋯</button>
+      <div class="menu-panel" id="menuPanel" hidden>
+        <button class="btn" id="helpBtn" type="button">Kontrol</button>
+        <button class="btn" id="restartBtn" type="button">↻ Ulang</button>
+      </div>
+    </div>
+  </header>
+  <section class="hud" aria-label="Status ronde">
+    <div class="stat"><span class="stat-label">Sisa waktu</span><div class="stat-value" id="timerText">04:00</div></div>
+    <div class="stat"><span class="stat-label">Skor tim</span><div class="stat-value" id="scoreText">0</div></div>
+    <div class="orders-panel"><span class="panel-label">Pesanan masuk</span><div class="order-list" id="orderList"><span class="order-empty">Mulai shift untuk menerima pesanan.</span></div></div>
+  </section>
+  <main class="game-frame" id="gameFrame">
+    <canvas id="gameCanvas" aria-label="Dapur Bakery Co-op"></canvas>
+    <div class="stage-vignette"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="station-prompt" id="stationPrompt">Mulai shift untuk bermain</div>
+    <div class="touch-controls" id="touchControls" aria-label="Kontrol layar sentuh">
+      <div class="joystick-zone" id="joystickZone" aria-label="Virtual joystick">
+        <div class="joy-base"></div><div class="joy-knob" id="joyKnob"></div><div class="joy-label">MOVE</div>
+      </div>
+      <div class="action-zone"><button class="action-button" id="actionBtn" type="button"><span>✋</span><span id="actionLabel">AKSI</span></button></div>
+    </div>
+    <div class="overlay" id="startScreen">
+      <div class="modal">
+        <div class="modal-icon">👩🏻‍🍳</div>
+        <h2>Siap buka bakery?</h2>
+        <p>Layani pesanan roti sebelum pelanggan kehabisan kesabaran. Ini prototipe P0: satu dapur, dua resep, satu ronde penuh.</p>
+        <div class="recipe-chips"><span class="chip">🍞 Plain bread</span><span class="chip">🥐 Salt bread</span><span class="chip">⏱️ 4 menit</span></div>
+        <div class="controls-note" id="startControls">
+          <div><b>Desktop:</b> WASD / tombol panah untuk bergerak, Space untuk interaksi.</div>
+          <div><b>Mobile:</b> joystick di kiri bawah, tombol Aksi di kanan bawah. Disarankan landscape.</div>
+          <div><b>Alur:</b> ambil adonan → meja prep → uleni → (opsional mentega + garam untuk salt bread) → oven → sajikan.</div>
+        </div>
+        <button class="btn primary" id="startBtn" type="button" style="width:100%;padding:13px">Mulai Shift</button>
+      </div>
+    </div>
+    <div class="overlay hidden" id="helpScreen">
+      <div class="modal">
+        <div class="modal-icon">🎮</div><h2>Kontrol & resep</h2>
+        <div class="controls-note">
+          <div><b>Gerak:</b> WASD / Arrow Keys, atau joystick virtual pada layar sentuh.</div>
+          <div><b>Interaksi:</b> Space / tombol Aksi untuk mengambil, meletakkan, memulai proses, atau menyajikan.</div>
+          <div><b>Plain bread:</b> adonan → prep → uleni → oven → counter output.</div>
+          <div><b>Salt bread:</b> adonan → prep → uleni → ambil mentega lalu tambahkan di prep → ambil garam lalu tambahkan di prep → oven → counter output.</div>
+          <div><b>Counter:</b> tempat taruh item sementara, satu item per slot.</div>
+          <div><b>Kesalahan:</b> item yang salah atau gosong dapat dibuang ke Trash. Order kedaluwarsa memberi penalti skor.</div>
+        </div>
+        <button class="btn primary" id="closeHelpBtn" type="button" style="width:100%">Mengerti</button>
+      </div>
+    </div>
+    <div class="overlay hidden" id="resultsScreen">
+      <div class="modal">
+        <div class="modal-icon">🏁</div><h2>Shift selesai!</h2>
+        <div class="stars" id="starsText">☆☆☆</div>
+        <p id="resultSummary">Hasil ronde.</p>
+        <div class="result-grid">
+          <div class="result-item"><strong id="resultScore">0</strong><span>Skor tim</span></div>
+          <div class="result-item"><strong id="resultServed">0</strong><span>Order selesai</span></div>
+          <div class="result-item"><strong id="resultExpired">0</strong><span>Order kedaluwarsa</span></div>
+          <div class="result-item"><strong id="resultBurnt">0</strong><span>Roti gosong</span></div>
+        </div>
+        <button class="btn primary" id="playAgainBtn" type="button" style="width:100%;padding:13px">Main Lagi</button>
+      </div>
+    </div>
+  </main>
+  <div class="inventory-bar"><div>Di tangan: <span class="inventory" id="inventoryText">Kosong</span></div><div class="help-line">Dekati stasiun lalu tekan <b>Space</b> / <b>Aksi</b> · Hindari oven gosong.</div></div>
+  <div class="footer-note">P0 vector prototype · hazard lantai licin aktif · multiplayer online, cloud save, audio final, dan progression belum termasuk.</div>
+</div>
+<!-- Vector-first P0: all gameplay art is procedural Canvas geometry; external image/font assets are intentionally avoided for offline and mobile performance. -->
+<script>
+(() => {
+  'use strict';
+  const CONFIG = {
+    roundSeconds: 240,
+    maxOrders: 3,
+    patienceSeconds: 45,
+    firstSpawnSeconds: 14,
+    spawnMinSeconds: 13,
+    spawnMaxSeconds: 18,
+    prepSeconds: 2.4,
+    cookSeconds: 6,
+    readyBeforeBurnSeconds: 8,
+    scorePerOrder: 100,
+    fastBonus: 25,
+    expiredPenalty: 50,
+    trashPenalty: 10,
+    comboBonusPerOrder: 10,
+    maxComboBonus: 50,
+    oneStar: 300,
+    twoStars: 600,
+    threeStars: 900
+  };
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const els = Object.fromEntries(['timerText','scoreText','orderList','stationPrompt','inventoryText','toast','startScreen','helpScreen','resultsScreen','startBtn','restartBtn','helpBtn','menuBtn','menuPanel','closeHelpBtn','playAgainBtn','resultSummary','resultScore','resultServed','resultExpired','resultBurnt','starsText','actionBtn','actionLabel','joyKnob','joystickZone'].map(id => [id, document.getElementById(id)]));
+
+  let dpr = 1, compact = false;   // compact = HUD melayang (landscape pendek): teks canvas di pojok kiri atas disembunyikan
+  // Aset SVG (assets/*.svg, lihat ASSET_PLAN §6). Gagal dimuat = pakai gambar prosedural.
+  const ART = { raw:{}, cache:new Map() };
+  const ART_KEYS = ['station_oven_empty','station_oven_cooking','station_oven_ready','station_oven_burnt','station_prep_empty','station_prep_dough','station_prep_prepared_plain','station_prep_prepared_salt','station_counter_idle','station_dough_idle','station_butter_idle','station_salt_idle','station_serve_idle','station_trash_idle','char_baker_dr_idle_0','char_baker_dr_idle_1','char_baker_dr_walk_0','char_baker_dr_walk_1','char_baker_dr_walk_2','char_baker_dr_walk_3','char_baker_dr_carry_idle_0','char_baker_dr_carry_idle_1','char_baker_dr_carry_walk_0','char_baker_dr_carry_walk_1','char_baker_dr_carry_walk_2','char_baker_dr_carry_walk_3','item_dough','item_prepared_dough','item_prepared_salt','item_butter','item_salt','item_plain_bread','item_salt_bread','item_burnt_bread','item_failed_bread'];
+  const ITEM_SCALE = 1; // item viewBox 32x24 = satuan peta; di HP mapScale ~0.78 -> ±25x19 px [Menebak, uji di HP]
+  const CHAR_SCALE = 1; // viewBox 40x64 = satuan peta; 1 = sama skala dengan stasiun [Menebak, uji di HP]
+  function loadArt(keys) {
+    for (const k of keys) {
+      const img = new Image(); img.decoding = 'async';
+      img.onload = () => { ART.raw[k] = img; ART.cache.clear(); };
+      img.src = `assets/${k}.svg`;
+    }
+  }
+  function artFor(key, wUnits, hUnits, sc) {
+    const img = ART.raw[key]; if (!img) return null;
+    const id = `${key}@${sc.toFixed(2)}x${dpr}`; let c = ART.cache.get(id);
+    if (!c) {
+      const cw = Math.ceil(wUnits*sc*dpr), ch = Math.ceil(hUnits*sc*dpr);
+      if (!(cw >= 1 && ch >= 1)) return null;   // layout belum siap (skala 0): pakai gambar prosedural
+      c = document.createElement('canvas'); c.width = cw; c.height = ch;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); ART.cache.set(id, c);
+    }
+    return c;
+  }
+  function charKey(moving) {
+    const pre = heldItem ? 'carry_' : '';
+    return moving ? `char_baker_dr_${pre}walk_${Math.floor(player.walkCycle/1.68)%4}`   // 1.68 = 12 rad/s x 0.14 s per frame
+                  : `char_baker_dr_${pre}idle_${Math.floor(elapsed/0.42)%2}`;
+  }
+  function itemKey(it) {
+    if (it.type === 'prepared_dough') return it.mods && it.mods.includes('salt') ? 'item_prepared_salt' : 'item_prepared_dough';
+    return `item_${it.type}`;
+  }
+  function artKey(s) {
+    if (s.id === 'oven') return `station_oven_${s.status}`;
+    if (s.id === 'prep') {   // empty | dough | prepared_plain (belum/baru satu tambahan) | prepared_salt (mentega + garam lengkap)
+      if (!s.item) return 'station_prep_empty';
+      if (s.item.type === 'dough') return 'station_prep_dough';
+      const m = s.item.mods || [];
+      return `station_prep_prepared_${m.includes('butter') && m.includes('salt') ? 'salt' : 'plain'}`;
+    }
+    if (s.type === 'counter') return 'station_counter_idle';
+    return `station_${s.id}_idle`;
+  }
+  const paused = () => !els.helpScreen.classList.contains('hidden');
+  let canvasW = 1000, canvasH = 500, mapScale = 1, tileW = 88, tileH = 44, originX = 500, originY = 70;
+  let mode = 'menu';
+  let lastFrame = performance.now();
+  let elapsed = 0, roundLeft = CONFIG.roundSeconds, nextOrderAt = CONFIG.firstSpawnSeconds, uiRefreshElapsed = 0;
+  let score = 0, ordersServed = 0, ordersExpired = 0, burntCount = 0, streak = 0;
+  let orders = [], orderSerial = 1, itemSerial = 1;
+  let heldItem = null, currentToastTimeout = null, lastInteractionMessage = '';
+  // Lightweight, client-side P0 hazard: visible spill patches briefly reduce movement speed.
+  const HAZARD = { enabled:true, firstAt:24, intervalMin:26, intervalMax:36, warnSeconds:2.5, activeSeconds:7.5, slowFactor:0.62, slipSeconds:0.45 };
+  let hazards = [], nextHazardAt = HAZARD.firstAt, nextHazardId = 1, slipUntil = 0, lastHazardToastAt = -99, feedback = [];
+  const keys = new Set();
+  const joystick = { active:false, pointerId:null, x:0, y:0, originX:0, originY:0, maxRadius:37 };
+  const player = { x:4.15, y:6.15, facingX:0, facingY:-1, walkCycle:0 };
+  const stations = [
+    { id:'dough', type:'crate', name:'ADONAN', label:'Adonan', x:1, y:1, emoji:'🥣', color:'#e6c99a' },
+    { id:'prep', type:'prep', name:'MEJA PREP', label:'Meja prep', x:3, y:1, emoji:'🧈', color:'#e6c49c', item:null, processing:false, timer:0 },
+    { id:'oven', type:'oven', name:'OVEN', label:'Oven', x:5, y:1, emoji:'🔥', color:'#c17a69', item:null, status:'empty', timer:0, readyTimer:0 },
+    { id:'serve', type:'serve', name:'COUNTER OUT', label:'Counter output', x:7, y:1, emoji:'🍞', color:'#c8a98a' },
+    { id:'butter', type:'crate', name:'MENTEGA', label:'Mentega', x:1, y:5, emoji:'🧈', color:'#f0d878' },
+    { id:'salt', type:'crate', name:'GARAM', label:'Garam', x:3, y:5, emoji:'🧂', color:'#d7dce2' },
+    { id:'counter1', type:'counter', name:'COUNTER', label:'Counter', x:2, y:3, emoji:'📥', color:'#d9c3a3', item:null },
+    { id:'counter2', type:'counter', name:'COUNTER', label:'Counter', x:6, y:3, emoji:'📥', color:'#d9c3a3', item:null },
+    { id:'trash', type:'trash', name:'TRASH', label:'Tempat sampah', x:7, y:5, emoji:'🗑️', color:'#7a9c92' }
+  ];
+  const stationById = Object.fromEntries(stations.map(s => [s.id, s]));
+
+  function makeItem(type, mods = []) { return { id:itemSerial++, type, mods:[...mods] }; }
+  function itemTitle(item) {
+    if (!item) return 'Kosong';
+    const names = { dough:'Adonan mentah', butter:'Mentega', salt:'Garam', prepared_dough:'Adonan siap panggang', plain_bread:'Plain bread', salt_bread:'Salt bread', burnt_bread:'Roti gosong', failed_bread:'Roti gagal' };
+    return names[item.type] || item.type;
+  }
+  function itemEmoji(item) {
+    if (!item) return '';
+    return ({ dough:'🥣', butter:'🧈', salt:'🧂', prepared_dough:'🥖', plain_bread:'🍞', salt_bread:'🥐', burnt_bread:'⚫', failed_bread:'🥨' })[item.type] || '📦';
+  }
+  function showToast(message, ms=1900) {
+    els.toast.textContent = message;
+    els.toast.classList.add('show');
+    clearTimeout(currentToastTimeout);
+    currentToastTimeout = setTimeout(() => els.toast.classList.remove('show'), ms);
+  }
+  function resetGame(toMenu=true) {
+    mode = toMenu ? 'menu' : 'running';
+    elapsed = 0; roundLeft = CONFIG.roundSeconds; nextOrderAt = CONFIG.firstSpawnSeconds; uiRefreshElapsed = 0;
+    score = 0; ordersServed = 0; ordersExpired = 0; burntCount = 0; streak = 0;
+    orders = []; orderSerial = 1; itemSerial = 1; heldItem = null;
+    hazards = []; nextHazardAt = HAZARD.firstAt; nextHazardId = 1; slipUntil = 0; lastHazardToastAt = -99; feedback = [];
+    player.x = 4.15; player.y = 6.15; player.facingX = 0; player.facingY = -1; player.walkCycle = 0;
+    for (const s of stations) {
+      if (s.type === 'prep') { s.item=null; s.processing=false; s.timer=0; }
+      if (s.type === 'oven') { s.item=null; s.status='empty'; s.timer=0; s.readyTimer=0; }
+      if (s.type === 'counter') s.item=null;
+    }
+    keys.clear(); resetJoystick();
+    els.resultsScreen.classList.add('hidden');
+    els.helpScreen.classList.add('hidden');
+    if (toMenu) els.startScreen.classList.remove('hidden');
+    else els.startScreen.classList.add('hidden');
+    renderUI();
+  }
+  function startGame() {
+    resetGame(false);
+    mode = 'running';
+    pushOrder('plain_bread');
+    pushOrder('salt_bread');
+    nextOrderAt = 13;
+    els.startScreen.classList.add('hidden');
+    els.resultsScreen.classList.add('hidden');
+    showToast('Shift dimulai! Cek pesanan di atas.', 2200);
+    canvas.focus?.();
+  }
+  function pushOrder(type) {
+    if (orders.length >= CONFIG.maxOrders) return;
+    orders.push({ id:orderSerial++, type, createdAt:elapsed, deadlineAt:elapsed+CONFIG.patienceSeconds, patience:CONFIG.patienceSeconds });
+    renderOrders();
+  }
+  function recipeName(type) { return type === 'salt_bread' ? 'Salt bread' : 'Plain bread'; }
+  function recipeEmoji(type) { return type === 'salt_bread' ? '🥐' : '🍞'; }
+  function spawnOrder() {
+    nextOrderAt = elapsed + CONFIG.spawnMinSeconds + Math.random()*(CONFIG.spawnMaxSeconds-CONFIG.spawnMinSeconds);
+    if (orders.length >= CONFIG.maxOrders) return;
+    // Alternating tendency keeps the prototype testable instead of relying on pure random streaks.
+    const type = Math.random() < 0.5 ? 'plain_bread' : 'salt_bread';
+    pushOrder(type);
+    showToast(`Pesanan baru: ${recipeName(type)}!`, 1400);
+  }
+  function finishRound() {
+    if (mode !== 'running') return;
+    mode = 'results';
+    const stars = score >= CONFIG.threeStars ? 3 : score >= CONFIG.twoStars ? 2 : score >= CONFIG.oneStar ? 1 : 0;
+    els.starsText.textContent = '★'.repeat(stars) + '☆'.repeat(3-stars);
+    els.resultSummary.textContent = stars === 3 ? 'Bakery berjalan seperti mesin! Target tiga bintang tercapai.' : stars === 2 ? 'Shift cukup rapi. Coba kurangi order terlambat untuk mencapai tiga bintang.' : stars === 1 ? 'Bakery tetap buka, tetapi masih ada ruang untuk koordinasi yang lebih baik.' : 'Hari yang berat di dapur. Atur urutan kerja dan awasi oven di shift berikutnya.';
+    els.resultScore.textContent = Math.round(score);
+    els.resultServed.textContent = ordersServed;
+    els.resultExpired.textContent = ordersExpired;
+    els.resultBurnt.textContent = burntCount;
+    els.resultsScreen.classList.remove('hidden');
+    renderUI();
+  }
+  function update(dt) {
+    if (mode !== 'running') return;
+    elapsed += dt;
+    roundLeft = Math.max(0, CONFIG.roundSeconds - elapsed);
+    if (elapsed >= nextOrderAt) spawnOrder();
+    updateHazards(dt);
+    for (let i=orders.length-1; i>=0; i--) {
+      if (elapsed >= orders[i].deadlineAt) {
+        orders.splice(i,1); ordersExpired++; score -= CONFIG.expiredPenalty; streak=0;
+        showToast(`Pesanan kedaluwarsa −${CONFIG.expiredPenalty} poin`, 1700);
+      }
+    }
+    const prep = stationById.prep;
+    if (prep.processing) {
+      prep.timer -= dt;
+      if (prep.timer <= 0) {
+        prep.processing = false; prep.timer=0;
+        if (prep.item && prep.item.type === 'dough') { prep.item.type='prepared_dough'; prep.item.mods=[]; showToast('Adonan siap! Bisa langsung dipanggang atau ditambah mentega + garam.', 2400); }
+      }
+    }
+    const oven = stationById.oven;
+    if (oven.status === 'cooking') {
+      oven.timer -= dt;
+      if (oven.timer <= 0) {
+        oven.timer=0; oven.status='ready'; oven.readyTimer=CONFIG.readyBeforeBurnSeconds;
+        if (oven.item) oven.item.type = oven.item.mods.includes('butter') && oven.item.mods.includes('salt') ? 'salt_bread' : oven.item.mods.length === 0 ? 'plain_bread' : 'failed_bread';
+        showToast('TING! Roti matang. Ambil dari oven!', 1800);
+      }
+    } else if (oven.status === 'ready') {
+      oven.readyTimer -= dt;
+      if (oven.readyTimer <= 0) {
+        oven.status='burnt'; oven.readyTimer=0;
+        if (oven.item) oven.item.type='burnt_bread';
+        burntCount++; showToast('Oven berasap! Rotinya gosong — buang ke Trash.', 2200);
+      }
+    }
+    movePlayer(dt);
+    if (roundLeft <= 0) { finishRound(); return; }
+    // Refresh HUD at a modest cadence instead of rebuilding DOM on every animation frame.
+    uiRefreshElapsed += dt;
+    if (uiRefreshElapsed >= 0.15) { uiRefreshElapsed = 0; renderUI(); }
+  }
+  function getScreenInput() {
+    let sx = 0, sy = 0;
+    if (keys.has('a') || keys.has('arrowleft')) sx -= 1;
+    if (keys.has('d') || keys.has('arrowright')) sx += 1;
+    if (keys.has('w') || keys.has('arrowup')) sy -= 1;
+    if (keys.has('s') || keys.has('arrowdown')) sy += 1;
+    if (joystick.active) { sx += joystick.x; sy += joystick.y; }
+    const len = Math.hypot(sx,sy);
+    if (len > 1) { sx/=len; sy/=len; }
+    return {sx,sy};
+  }
+  function isBlocked(x,y) {
+    if (x < 0.42 || x > 7.58 || y < 0.42 || y > 6.58) return true;
+    for (const s of stations) {
+      if (Math.abs(x-s.x) < 0.37 && Math.abs(y-s.y) < 0.37) return true;
+    }
+    return false;
+  }
+  function movePlayer(dt) {
+    const {sx,sy} = getScreenInput();
+    if (Math.abs(sx)+Math.abs(sy) < 0.01) return;
+    // Inverse isometric projection: the controls move in screen directions, not grid diagonals.
+    const pxSpeed = tileH * 2.7;
+    const dx = sx*pxSpeed/tileW + sy*pxSpeed/tileH;
+    const dy = sy*pxSpeed/tileH - sx*pxSpeed/tileW;
+    let factor = heldItem && ['dough','butter','salt','prepared_dough'].includes(heldItem.type) ? 0.94 : 1;
+    if (elapsed < slipUntil) factor *= 0.48;
+    for (const h of hazards) {
+      if (h.state === 'active' && Math.hypot(player.x-h.x, player.y-h.y) < h.radius) {
+        factor *= HAZARD.slowFactor;
+        if (elapsed-lastHazardToastAt > 2.2) { showToast('Lantai licin! Bergerak pelan sampai melewati tumpahan.', 1500); lastHazardToastAt=elapsed; }
+      }
+    }
+    const oldX=player.x, oldY=player.y;
+    const nx = player.x + dx*dt*factor;
+    const ny = player.y + dy*dt*factor;
+    // Substeps reduce tunneling across station collision cells.
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(nx-player.x),Math.abs(ny-player.y))*8));
+    const sxStep = (nx-player.x)/steps, syStep=(ny-player.y)/steps;
+    for (let i=0;i<steps;i++) {
+      const tryX = player.x + sxStep;
+      if (!isBlocked(tryX,player.y)) player.x = tryX;
+      const tryY = player.y + syStep;
+      if (!isBlocked(player.x,tryY)) player.y = tryY;
+    }
+    player.facingX = sx; player.facingY = sy; player.walkCycle += dt*12;
+    for (const h of hazards) {
+      if (h.state === 'active' && Math.hypot(player.x-h.x, player.y-h.y) < h.radius && Math.hypot(oldX-h.x,oldY-h.y) >= h.radius) {
+        slipUntil = elapsed + HAZARD.slipSeconds;
+        addFeedback(player.x,player.y,'OOPS!','#c34f5a');
+      }
+    }
+  }
+  function stationDistance(s) { return Math.hypot(s.x-player.x, s.y-player.y); }
+  function getTargetStation() {
+    const valid = stations.filter(s => stationDistance(s) <= 1.28);
+    if (!valid.length) return null;
+    // Prefer a station in the direction the character last moved, then nearest distance.
+    valid.sort((a,b) => {
+      const scoreFor = s => {
+        const dx=(s.x-player.x)-(s.y-player.y);
+        const dy=((s.x-player.x)+(s.y-player.y))*0.5;
+        const dot = dx*player.facingX + dy*player.facingY;
+        return stationDistance(s) - (dot > 0 ? 0.12 : 0);
+      };
+      return scoreFor(a)-scoreFor(b);
+    });
+    return valid[0];
+  }
+  const VERBS = [[/^Ambil/,'AMBIL'],[/^(Letakkan|Taruh)/,'TARUH'],[/^Mulai uleni/,'ULENI'],[/^Tambahkan/,'TAMBAH'],[/^Masukkan/,'PANGGANG'],[/^Sajikan/,'SAJIKAN'],[/^Buang/,'BUANG']];
+  function actionText(s) {
+    if (!s) return 'Dekati stasiun lalu tekan Aksi';
+    if (s.type === 'crate') return heldItem ? 'Tangan penuh — kosongkan tangan dulu' : `Ambil ${s.label.toLowerCase()}`;
+    if (s.type === 'prep') {
+      if (s.processing) return `Menguleni… ${Math.max(0,s.timer).toFixed(1)}s`;
+      if (!s.item) return heldItem?.type === 'dough' ? 'Letakkan adonan di meja prep' : 'Meja prep kosong';
+      if (s.item.type === 'dough') return !heldItem ? 'Mulai uleni adonan' : 'Kosongkan tangan untuk menguleni';
+      if (s.item.type === 'prepared_dough') {
+        if (heldItem?.type === 'butter') return s.item.mods.includes('butter') ? 'Mentega sudah ditambahkan' : 'Tambahkan mentega';
+        if (heldItem?.type === 'salt') return s.item.mods.includes('salt') ? 'Garam sudah ditambahkan' : 'Tambahkan garam';
+        return !heldItem ? 'Ambil adonan siap panggang' : 'Meja prep sedang dipakai';
+      }
+      return 'Meja prep tidak bisa dipakai';
+    }
+    if (s.type === 'oven') {
+      if (s.status === 'empty') return heldItem?.type === 'prepared_dough' ? 'Masukkan adonan ke oven' : 'Oven kosong';
+      if (s.status === 'cooking') return `Memanggang… ${Math.max(0,s.timer).toFixed(1)}s`;
+      if (s.status === 'ready') return !heldItem ? 'Ambil roti matang!' : 'Oven siap — kosongkan tangan';
+      if (s.status === 'burnt') return !heldItem ? 'Ambil roti gosong' : 'Oven berisi roti gosong';
+    }
+    if (s.type === 'counter') return s.item ? (heldItem ? 'Counter terisi — kosongkan tangan' : `Ambil ${itemTitle(s.item).toLowerCase()}`) : (heldItem ? `Taruh ${itemTitle(heldItem).toLowerCase()} di counter` : 'Counter kosong');
+    if (s.type === 'serve') return heldItem && ['plain_bread','salt_bread'].includes(heldItem.type) ? `Sajikan ${recipeName(heldItem.type)}` : 'Butuh roti matang yang sesuai';
+    if (s.type === 'trash') return heldItem ? `Buang ${itemTitle(heldItem).toLowerCase()}` : 'Tempat sampah';
+    return 'Aksi';
+  }
+  function interact() {
+    if (mode !== 'running' || paused()) return;
+    const s = getTargetStation();
+    if (!s) { showToast('Dekati stasiun lebih dekat untuk berinteraksi.'); return; }
+    if (s.type === 'crate') {
+      if (heldItem) { showToast('Tangan kamu masih penuh. Letakkan atau buang item dulu.'); return; }
+      const type = s.id === 'dough' ? 'dough' : s.id === 'butter' ? 'butter' : 'salt';
+      heldItem = makeItem(type);
+      showToast(`${itemTitle(heldItem)} diambil.`);
+      renderUI(); return;
+    }
+    if (s.type === 'prep') {
+      if (s.processing) { showToast('Adonan masih diuleni.'); return; }
+      if (!s.item) {
+        if (heldItem?.type === 'dough') { s.item=heldItem; heldItem=null; showToast('Adonan diletakkan di meja prep. Tekan Aksi lagi untuk mulai uleni.'); }
+        else { showToast('Ambil adonan mentah dari peti dulu.'); }
+      } else if (s.item.type === 'dough') {
+        if (!heldItem) { s.processing=true; s.timer=CONFIG.prepSeconds; showToast('Mulai menguleni adonan…'); }
+        else { showToast('Kosongkan tangan sebelum menguleni.'); }
+      } else if (s.item.type === 'prepared_dough') {
+        if (heldItem?.type === 'butter' || heldItem?.type === 'salt') {
+          const mod = heldItem.type;
+          if (s.item.mods.includes(mod)) { showToast(`${mod === 'butter' ? 'Mentega' : 'Garam'} sudah ditambahkan.`); }
+          else { s.item.mods.push(mod); showToast(`${mod === 'butter' ? 'Mentega' : 'Garam'} ditambahkan ke adonan.`); heldItem=null; }
+        } else if (!heldItem) { heldItem=s.item; s.item=null; showToast('Adonan siap dibawa ke oven.'); }
+        else { showToast('Letakkan bahan di meja prep sebelum menambahkan topping.'); }
+      }
+      renderUI(); return;
+    }
+    if (s.type === 'oven') {
+      if (s.status === 'empty') {
+        if (heldItem?.type === 'prepared_dough') {
+          s.item=heldItem; heldItem=null; s.status='cooking'; s.timer=CONFIG.cookSeconds; s.readyTimer=0; showToast(`Adonan masuk oven. Matang dalam ${CONFIG.cookSeconds} detik.`);
+        } else showToast('Oven hanya bisa menerima adonan yang sudah siap panggang.');
+      } else if (s.status === 'cooking') showToast('Tunggu sampai oven berbunyi. Jangan ditinggal terlalu lama!');
+      else if (s.status === 'ready' || s.status === 'burnt') {
+        if (heldItem) showToast('Kosongkan tangan dulu untuk mengambil roti.');
+        else { const wasBurnt=s.status==='burnt' || s.item?.type==='burnt_bread'; heldItem=s.item; s.item=null; s.status='empty'; s.timer=0; s.readyTimer=0; showToast(wasBurnt ? 'Roti gosong diangkat. Buang ke Trash.' : `Mengambil ${itemTitle(heldItem)}.`); }
+      }
+      renderUI(); return;
+    }
+    if (s.type === 'counter') {
+      if (s.item && !heldItem) { heldItem=s.item; s.item=null; showToast(`${itemTitle(heldItem)} diambil dari counter.`); }
+      else if (!s.item && heldItem) { s.item=heldItem; heldItem=null; showToast('Item ditaruh di counter.'); }
+      else if (s.item) showToast('Tangan penuh, counter ini juga sudah terisi.');
+      else showToast('Counter kosong.');
+      renderUI(); return;
+    }
+    if (s.type === 'serve') {
+      if (!heldItem || !['plain_bread','salt_bread'].includes(heldItem.type)) { showToast('Bawa roti matang yang cocok dengan order aktif.'); return; }
+      const idx = orders.findIndex(o => o.type === heldItem.type && elapsed < o.deadlineAt);
+      if (idx < 0) { showToast(`Tidak ada order aktif untuk ${recipeName(heldItem.type)}. Simpan dulu atau buang jika salah.`); return; }
+      const order = orders[idx]; const patienceLeft = Math.max(0,order.deadlineAt-elapsed)/order.patience;
+      let earned = CONFIG.scorePerOrder;
+      if (patienceLeft > 0.5) earned += CONFIG.fastBonus;
+      streak++;
+      const combo = streak >= 2 ? Math.min((streak-1)*CONFIG.comboBonusPerOrder,CONFIG.maxComboBonus) : 0;
+      earned += combo; score += earned; ordersServed++;
+      orders.splice(idx,1); heldItem=null;
+      addFeedback(player.x,player.y,`+${earned}`,'#2e8067');
+      showToast(`Order selesai +${earned} poin${combo ? ` (combo +${combo})` : ''}!`,2000);
+      renderUI(); return;
+    }
+    if (s.type === 'trash') {
+      if (!heldItem) { showToast('Tangan kamu kosong.'); return; }
+      score -= CONFIG.trashPenalty;
+      const wasBurnt = heldItem.type === 'burnt_bread';
+      heldItem=null; streak=0;
+      showToast(`Item dibuang −${CONFIG.trashPenalty} poin${wasBurnt ? '. Oven aman.' : '.'}`);
+      renderUI(); return;
+    }
+  }
+  function renderUI() {
+    document.body.classList.toggle('playing', mode === 'running');
+    els.timerText.textContent = formatTime(roundLeft);
+    els.timerText.classList.toggle('warning',roundLeft <= 30);
+    els.scoreText.textContent = Math.round(score).toLocaleString('id-ID');
+    els.inventoryText.textContent = heldItem ? `${itemEmoji(heldItem)} ${itemTitle(heldItem)}${heldItem.mods?.length ? ` (${heldItem.mods.join(' + ')})` : ''}` : 'Kosong';
+    renderOrders();
+    const target = getTargetStation();
+    els.stationPrompt.textContent = mode === 'running' ? actionText(target) : mode === 'results' ? 'Shift selesai — lihat hasil ronde' : 'Mulai shift untuk bermain';
+    const text = actionText(target);
+    const verb = mode === 'running' && target ? VERBS.find(([re]) => re.test(text)) : null;
+    els.actionLabel.textContent = verb ? verb[1] : 'AKSI';
+    els.actionBtn.classList.toggle('idle', !verb);
+    els.actionBtn.setAttribute('aria-label', text);
+  }
+  function renderOrders() {
+    // Selalu CONFIG.maxOrders slot: tinggi HUD tetap, layout tidak bergeser saat order datang/pergi.
+    let html = '';
+    for (let i = 0; i < CONFIG.maxOrders; i++) {
+      const o = orders[i];
+      if (!o) { html += '<div class="order-slot"></div>'; continue; }
+      const left = Math.max(0,o.deadlineAt-elapsed), ratio = Math.max(0,Math.min(1,left/o.patience));
+      html += `<div class="order-card"><span class="order-emoji">${recipeEmoji(o.type)}</span><div><div class="order-name">${recipeName(o.type)}</div><div class="order-time">${left.toFixed(0)}s</div></div><div class="order-bar"><i class="${ratio<.3?'low':''}" style="transform:scaleX(${ratio})"></i></div></div>`;
+    }
+    els.orderList.innerHTML = html;
+  }
+  function formatTime(seconds) { const n=Math.ceil(Math.max(0,seconds)); return `${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`; }
+  function resetJoystick() {
+    joystick.active=false; joystick.pointerId=null; joystick.x=0; joystick.y=0;
+    els.joyKnob.style.left='50%'; els.joyKnob.style.top='50%';
+  }
+  function setupJoystick() {
+    const zone = els.joystickZone;
+    zone.addEventListener('pointerdown', ev => {
+      ev.preventDefault(); joystick.active=true; joystick.pointerId=ev.pointerId; zone.setPointerCapture?.(ev.pointerId);
+      const r=zone.getBoundingClientRect(); joystick.originX=r.left+r.width/2; joystick.originY=r.top+r.height/2;
+      updateJoystick(ev.clientX,ev.clientY);
+    });
+    zone.addEventListener('pointermove', ev => { if (joystick.active && ev.pointerId===joystick.pointerId) { ev.preventDefault(); updateJoystick(ev.clientX,ev.clientY); } });
+    const end = ev => { if (ev.pointerId===joystick.pointerId) resetJoystick(); };
+    zone.addEventListener('pointerup',end); zone.addEventListener('pointercancel',end); zone.addEventListener('lostpointercapture',resetJoystick);
+  }
+  function updateJoystick(clientX,clientY) {
+    const zone = els.joystickZone, r=zone.getBoundingClientRect();
+    const maxR=Math.min(r.width,r.height)*0.34;
+    let dx=clientX-joystick.originX, dy=clientY-joystick.originY;
+    const len=Math.hypot(dx,dy); if (len>maxR) { dx=dx/len*maxR; dy=dy/len*maxR; }
+    els.joyKnob.style.left=`calc(50% + ${dx}px)`; els.joyKnob.style.top=`calc(50% + ${dy}px)`;
+    let nx=dx/maxR, ny=dy/maxR; const mag=Math.hypot(nx,ny); if (mag<0.16) { nx=0; ny=0; } else if (mag>1) { nx/=mag; ny/=mag; }
+    joystick.x=nx; joystick.y=ny;
+  }
+  function resizeCanvas() {
+    const r=canvas.getBoundingClientRect(); dpr=Math.min(window.devicePixelRatio||1,2); ART.cache.clear(); compact=!!window.matchMedia?.('(orientation:landscape) and (max-height:520px)').matches;
+    canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0); canvasW=r.width; canvasH=r.height;
+    mapScale=Math.min(1.18,canvasW/700,canvasH/340);
+    tileW=88*mapScale; tileH=44*mapScale;
+    originX=canvasW/2; originY=Math.max(10,canvasH*0.07);
+  }
+  function project(x,y) { return { x:originX+(x-y)*tileW/2, y:originY+(x+y)*tileH/2 }; }
+  function poly(points,fill,stroke,lineWidth=1) {
+    ctx.beginPath(); ctx.moveTo(points[0][0],points[0][1]);
+    for(let i=1;i<points.length;i++) ctx.lineTo(points[i][0],points[i][1]);
+    ctx.closePath(); if(fill){ctx.fillStyle=fill;ctx.fill();} if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lineWidth;ctx.stroke();}
+  }
+  function drawFloor() {
+    // Isometric bakery tiles: restrained palette, clear seams, small custom vector accents.
+    for(let sum=0;sum<=14;sum++) {
+      for(let x=0;x<=8;x++) {
+        const y=sum-x; if(y<0||y>7) continue;
+        const p=project(x,y), hw=tileW/2, hh=tileH/2;
+        const fill=(x+y)%2===0?'#f4e6d4':'#efdfca';
+        poly([[p.x,p.y-hh],[p.x+hw,p.y],[p.x,p.y+hh],[p.x-hw,p.y]],fill,'#fffaf0',.9*mapScale);
+        if ((x*3+y)%5===0) {
+          ctx.strokeStyle='#caa98a35'; ctx.lineWidth=.7*mapScale;
+          ctx.beginPath();ctx.moveTo(p.x-tileW*.12,p.y-tileH*.02);ctx.lineTo(p.x-tileW*.03,p.y+tileH*.08);ctx.stroke();
+        }
+      }
+    }
+    const top=project(4,0);
+    ctx.fillStyle='#243b5a0c'; ctx.fillRect(0,0,canvasW,Math.max(0,top.y-tileH));
+    // Wall trim and a simple framed menu board; all shapes are drawn locally, no image downloads.
+    ctx.fillStyle='#d9b28c'; ctx.fillRect(0,Math.max(38,canvasH*.105),canvasW,3*mapScale);
+    if(!compact){
+    ctx.fillStyle='#fff8e9'; roundRect(ctx,canvasW*.72,12*mapScale,Math.min(132*mapScale,canvasW*.22),31*mapScale,5*mapScale);ctx.fill();
+    ctx.strokeStyle='#b98a62';ctx.lineWidth=1*mapScale;roundRect(ctx,canvasW*.72,12*mapScale,Math.min(132*mapScale,canvasW*.22),31*mapScale,5*mapScale);ctx.stroke();
+    ctx.fillStyle='#8b6448';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`800 ${Math.max(7,9*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillText('FRESH DAILY',canvasW*.72+Math.min(66*mapScale,canvasW*.11),27*mapScale);
+    }
+    ctx.fillStyle='#cf9c7740'; ctx.fillRect(0,canvasH-4,canvasW,4);
+  }
+  function drawStation(s,target) {
+    const p=project(s.x,s.y), sc=mapScale;
+    const w=tileW*.82, h=tileH*.70, lift=29*sc, depth=22*sc;
+    ctx.fillStyle='#3d30251b';ctx.beginPath();ctx.ellipse(p.x,p.y+5*sc,w*.62,h*.57,0,0,Math.PI*2);ctx.fill();
+    const art=artFor(artKey(s),80,80,sc);
+    if(art){ctx.drawImage(art,p.x-40*sc,p.y+22*sc-72*sc,80*sc,80*sc);if(target===s)poly([[p.x,p.y-lift-h/2],[p.x+w/2,p.y-lift],[p.x,p.y-lift+h/2],[p.x-w/2,p.y-lift]],null,'#238b69',2.8*sc);}
+    else {
+    // Solid cabinet sides + bevelled top. Geometry remains in the original isometric grid.
+    poly([[p.x-w/2,p.y-lift],[p.x,p.y-lift+h/2],[p.x,p.y+depth],[p.x-w/2,p.y+depth-h/2]],shade(s.color,-32),'#6b4c3540',.9*sc);
+    poly([[p.x+w/2,p.y-lift],[p.x,p.y-lift+h/2],[p.x,p.y+depth],[p.x+w/2,p.y+depth-h/2]],shade(s.color,-17),'#6b4c3540',.9*sc);
+    poly([[p.x,p.y-lift-h/2],[p.x+w/2,p.y-lift],[p.x,p.y-lift+h/2],[p.x-w/2,p.y-lift]],s.color,target===s?'#238b69':'#fff7e9',target===s?2.8*sc:1.2*sc);
+    }
+    if(target===s){ctx.strokeStyle='#238b69';ctx.lineWidth=1.5*sc;ctx.setLineDash([4*sc,3*sc]);poly([[p.x,p.y-lift-h/2-4*sc],[p.x+w/2+4*sc,p.y-lift],[p.x,p.y-lift+h/2+4*sc],[p.x-w/2-4*sc,p.y-lift]],null,'#238b69',1.5*sc);ctx.setLineDash([]);}
+    const topY=p.y-lift;
+    if(art){ if(s.type==='counter'&&s.item)drawHeldItem(p.x,topY-2*sc,s.item,sc); }
+    else if(s.id==='oven'){
+      // Oven face and glass door, with state-specific glow/steam.
+      poly([[p.x-w*.36,topY-h*.1],[p.x,topY+h*.12],[p.x,topY+depth*.72],[p.x-w*.36,topY+depth*.52]],'#8b6256','#70483d',.8*sc);
+      poly([[p.x-w*.30,topY+h*.02],[p.x-w*.04,topY+h*.16],[p.x-w*.04,topY+depth*.39],[p.x-w*.30,topY+depth*.25]],s.status==='ready'?'#ffd36e':s.status==='burnt'?'#4c3532':'#34465b','#f8ddad',.8*sc);
+      ctx.fillStyle='#e7d4b7';roundRect(ctx,p.x+w*.08,topY+h*.02,Math.max(3,3*sc),depth*.36,2*sc);ctx.fill();
+      ctx.fillStyle='#4a5a6c';for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(p.x+w*.21+i*3.3*sc,topY-h*.12,1.4*sc,0,Math.PI*2);ctx.fill();}
+      if(s.status==='cooking'){ctx.fillStyle='#ffb74d38';ctx.beginPath();ctx.ellipse(p.x,topY-3*sc,w*.28,h*.24,0,0,Math.PI*2);ctx.fill();}
+      if(s.status==='ready'){ctx.strokeStyle='#f2a93b';ctx.lineWidth=2*sc;ctx.beginPath();ctx.arc(p.x,topY-h*.2,4*sc,0,Math.PI*2);ctx.stroke();}
+      if(s.status==='burnt'){ctx.strokeStyle='#6c777e';ctx.lineWidth=2*sc;for(let i=0;i<2;i++){ctx.beginPath();ctx.moveTo(p.x-5*sc+i*9*sc,topY-h*.25);ctx.quadraticCurveTo(p.x-10*sc+i*9*sc,topY-h*.42,p.x-3*sc+i*9*sc,topY-h*.5);ctx.stroke();}}
+    } else if(s.id==='prep'){
+      // Rolling pin + dough puck and ingredient markers.
+      ctx.strokeStyle='#9d6b3c';ctx.lineWidth=3.2*sc;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(p.x-w*.25,topY-h*.08);ctx.lineTo(p.x+w*.22,topY+h*.05);ctx.stroke();
+      ctx.fillStyle=s.item?.type==='prepared_dough'?'#d8a45e':'#f4d9a5';ctx.beginPath();ctx.ellipse(p.x,topY+h*.04,w*.18,h*.12,-.1,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#c28a4c';ctx.lineWidth=.8*sc;ctx.stroke();
+      if(s.item?.mods?.includes('butter')){ctx.fillStyle='#f5c84f';ctx.fillRect(p.x-w*.28,topY-h*.12,5*sc,4*sc);}
+      if(s.item?.mods?.includes('salt')){ctx.fillStyle='#fffdf6';for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(p.x-w*.15+i*3*sc,topY-h*.12,1*sc,0,Math.PI*2);ctx.fill();}}
+    } else if(s.type==='crate'){
+      ctx.strokeStyle='#98683f';ctx.lineWidth=1.4*sc;ctx.beginPath();ctx.moveTo(p.x-w*.29,topY-h*.1);ctx.lineTo(p.x+w*.29,topY+h*.1);ctx.moveTo(p.x-w*.18,topY-h*.2);ctx.lineTo(p.x+w*.18,topY);ctx.stroke();
+      if(s.id==='dough'){ctx.fillStyle='#f0d4a4';ctx.beginPath();ctx.ellipse(p.x,topY-h*.02,w*.16,h*.10,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#c18d55';ctx.stroke();}
+      if(s.id==='butter'){ctx.fillStyle='#f5ca4f';roundRect(ctx,p.x-w*.15,topY-h*.08,w*.29,h*.15,2*sc);ctx.fill();ctx.strokeStyle='#e6ae32';ctx.stroke();}
+      if(s.id==='salt'){ctx.fillStyle='#f8f7f2';ctx.beginPath();ctx.moveTo(p.x-w*.13,topY+h*.03);ctx.lineTo(p.x-w*.09,topY-h*.11);ctx.lineTo(p.x+w*.09,topY-h*.11);ctx.lineTo(p.x+w*.13,topY+h*.03);ctx.closePath();ctx.fill();ctx.strokeStyle='#c4cbd0';ctx.stroke();}
+    } else if(s.id==='trash'){
+      poly([[p.x-w*.23,topY-h*.05],[p.x+w*.23,topY-h*.05],[p.x+w*.17,topY+depth*.36],[p.x-w*.17,topY+depth*.36]],'#6e9b8a','#426e60',.8*sc);
+      ctx.strokeStyle='#d5eee3';ctx.lineWidth=1.5*sc;for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(p.x+i*5*sc,topY+depth*.02);ctx.lineTo(p.x+i*4*sc,topY+depth*.28);ctx.stroke();}
+      ctx.strokeStyle='#426e60';ctx.lineWidth=2*sc;ctx.beginPath();ctx.moveTo(p.x-w*.26,topY-h*.08);ctx.lineTo(p.x+w*.26,topY-h*.08);ctx.stroke();
+    } else if(s.type==='counter'){
+      ctx.fillStyle='#fff5df';ctx.beginPath();ctx.ellipse(p.x,topY,w*.22,h*.15,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#cba879';ctx.lineWidth=1*sc;ctx.stroke();
+      if(s.item)drawHeldItem(p.x,topY-2*sc,s.item,sc);
+    } else if(s.id==='serve'){
+      ctx.fillStyle='#fff5df';roundRect(ctx,p.x-w*.27,topY-h*.11,w*.54,h*.18,3*sc);ctx.fill();ctx.strokeStyle='#cba879';ctx.stroke();
+      ctx.fillStyle='#c58b4f';ctx.beginPath();ctx.ellipse(p.x,topY-h*.02,w*.10,h*.065,0,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='#e9c28c';ctx.lineWidth=1*sc;ctx.beginPath();ctx.moveTo(p.x-w*.2,topY+h*.05);ctx.lineTo(p.x+w*.2,topY+h*.05);ctx.stroke();
+    }
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`800 ${Math.max(7,9.5*sc)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillStyle='#2a3d53';ctx.fillText(s.name,p.x,p.y+depth+8*sc);
+    if(s.id==='prep'&&s.processing)drawMiniBar(p.x,topY-24*sc,Math.max(0,1-s.timer/CONFIG.prepSeconds),'#2e8067',sc);
+    if(s.id==='oven'&&s.status==='cooking')drawMiniBar(p.x,topY-24*sc,1-s.timer/CONFIG.cookSeconds,'#e2ad44',sc);
+    if(s.id==='oven'&&s.status==='ready')drawMiniBar(p.x,topY-24*sc,1-s.readyTimer/CONFIG.readyBeforeBurnSeconds,'#c34f5a',sc);
+    if(s.id==='prep'&&s.item?.type==='prepared_dough'&&(s.item.mods?.length===1||(!art&&s.item.mods?.length))){const t=s.item.mods.map(m=>m==='butter'?'B':'S').join(' · ');ctx.font=`800 ${Math.max(8,11*sc)}px ui-sans-serif,system-ui,sans-serif`;const tw=ctx.measureText(t).width+10*sc;ctx.fillStyle='#243b5ae6';roundRect(ctx,p.x-tw/2,topY-23*sc,tw,13*sc,6*sc);ctx.fill();ctx.fillStyle='#fffaf2';ctx.fillText(t,p.x,topY-16.5*sc);}
+  }
+  function shade(hex, amount) {
+    const c=hex.replace('#',''); const num=parseInt(c,16); let r=(num>>16)+amount,g=((num>>8)&255)+amount,b=(num&255)+amount;
+    r=Math.max(0,Math.min(255,r));g=Math.max(0,Math.min(255,g));b=Math.max(0,Math.min(255,b));
+    return '#'+((r<<16)|(g<<8)|b).toString(16).padStart(6,'0');
+  }
+  function drawMiniBar(x,y,ratio,color,sc) {
+    ctx.fillStyle='#fff9f5';ctx.fillRect(x-18*sc,y,36*sc,4*sc);ctx.fillStyle=color;ctx.fillRect(x-18*sc,y,36*sc*Math.max(0,Math.min(1,ratio)),4*sc);
+  }
+  function updateHazards(dt) {
+    if (!HAZARD.enabled || mode!=='running') return;
+    if (elapsed>=nextHazardAt && hazards.length<2) {
+      // Spawn on the central walkway, away from station footprints and the player spawn.
+      const candidates=[{x:3.9,y:3.25},{x:5.1,y:4.0},{x:2.4,y:3.8}];
+      const spot=candidates[Math.floor(Math.random()*candidates.length)];
+      hazards.push({id:nextHazardId++,x:spot.x,y:spot.y,radius:.48,state:'warning',timer:HAZARD.warnSeconds});
+      nextHazardAt=elapsed+HAZARD.intervalMin+Math.random()*(HAZARD.intervalMax-HAZARD.intervalMin);
+      showToast('Awas! Ada tumpahan di lantai.',1500);
+    }
+    for(let i=hazards.length-1;i>=0;i--){const h=hazards[i];h.timer-=dt;if(h.timer<=0){if(h.state==='warning'){h.state='active';h.timer=HAZARD.activeSeconds;}else hazards.splice(i,1);}}
+    feedback=feedback.filter(f=>elapsed-f.at<1.1);
+  }
+  function addFeedback(x,y,text,color='#243b5a') { feedback.push({x,y,text,color,at:elapsed}); }
+  function drawHazards() {
+    for(const h of hazards){const p=project(h.x,h.y),sc=mapScale;const pulse=.92+Math.sin(elapsed*8+h.id)*.08;
+      if(h.state==='warning'){
+        ctx.fillStyle='#e4a83c22';ctx.beginPath();ctx.ellipse(p.x,p.y,h.radius*tileW*.42*pulse,h.radius*tileH*.62*pulse,0,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle='#d69a31';ctx.lineWidth=1.6*sc;ctx.setLineDash([3*sc,3*sc]);ctx.beginPath();ctx.ellipse(p.x,p.y,h.radius*tileW*.42*pulse,h.radius*tileH*.62*pulse,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+        ctx.fillStyle='#8b6124';ctx.font=`900 ${Math.max(9,12*sc)}px ui-sans-serif,system-ui,sans-serif`;ctx.textAlign='center';ctx.fillText('!',p.x,p.y-9*sc);
+      } else {
+        ctx.fillStyle='#5ba6b52c';ctx.beginPath();ctx.ellipse(p.x,p.y,h.radius*tileW*.46,h.radius*tileH*.65,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#6fb9c8a8';ctx.beginPath();ctx.ellipse(p.x-2*sc,p.y-1*sc,h.radius*tileW*.30,h.radius*tileH*.42,-.15,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle='#d5f3f5';ctx.lineWidth=1*sc;ctx.beginPath();ctx.moveTo(p.x-4*sc,p.y-2*sc);ctx.lineTo(p.x+3*sc,p.y+1*sc);ctx.stroke();
+      }
+    }
+  }
+  function drawFeedback() {
+    for(const f of feedback){const age=elapsed-f.at,p=project(f.x,f.y);ctx.globalAlpha=Math.max(0,1-age/1.1);ctx.fillStyle=f.color;ctx.font=`900 ${Math.max(11,15*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(f.text,p.x,p.y-30*mapScale-age*22*mapScale);ctx.globalAlpha=1;}
+  }
+  function drawPlayer() {
+    const p=project(player.x,player.y),sc=mapScale;
+    const input=getScreenInput(),moving=Math.abs(input.sx)+Math.abs(input.sy)>.01;
+    const bounce=moving?Math.sin(player.walkCycle)*1.7*sc:0;
+    const k=sc*CHAR_SCALE, ca=artFor(charKey(moving),40,64,k);
+    if(ca){
+      ctx.fillStyle='#3d30252b';ctx.beginPath();ctx.ellipse(p.x,p.y+3*sc,10*sc,5*sc,0,0,Math.PI*2);ctx.fill();
+      ctx.save();ctx.translate(p.x,p.y+2*sc);if(player.facingX<-0.05)ctx.scale(-1,1);   // anchor kaki (20,62)
+      ctx.drawImage(ca,-20*k,-62*k,40*k,64*k);ctx.restore();
+      if(heldItem){const ty=p.y+2*sc-59*k-(12*ITEM_SCALE+2)*sc;drawHeldItem(p.x,ty,heldItem,sc);}
+      return;
+    }
+    ctx.fillStyle='#3d30252b';ctx.beginPath();ctx.ellipse(p.x,p.y+3*sc,11*sc,5.5*sc,0,0,Math.PI*2);ctx.fill();
+    // Shoes + animated legs.
+    ctx.strokeStyle='#34465b';ctx.lineWidth=3.6*sc;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(p.x-3.5*sc,p.y-5*sc+bounce);ctx.lineTo(p.x-5*sc,p.y+1*sc);ctx.moveTo(p.x+3.5*sc,p.y-5*sc-bounce);ctx.lineTo(p.x+5*sc,p.y+1*sc);ctx.stroke();
+    ctx.fillStyle='#273b56';roundRect(ctx,p.x-8*sc,p.y-1*sc,6*sc,3*sc,1.5*sc);ctx.fill();roundRect(ctx,p.x+2*sc,p.y-1*sc,6*sc,3*sc,1.5*sc);ctx.fill();
+    // Body, apron straps and pockets.
+    ctx.fillStyle='#fffaf0';roundRect(ctx,p.x-8.5*sc,p.y-24*sc+bounce,17*sc,19*sc,5*sc);ctx.fill();
+    ctx.fillStyle='#315b91';roundRect(ctx,p.x-6.5*sc,p.y-16*sc+bounce,13*sc,11*sc,2.5*sc);ctx.fill();
+    ctx.strokeStyle='#d5e2f0';ctx.lineWidth=1.3*sc;ctx.beginPath();ctx.moveTo(p.x-4*sc,p.y-22*sc+bounce);ctx.lineTo(p.x-3*sc,p.y-15*sc+bounce);ctx.moveTo(p.x+4*sc,p.y-22*sc+bounce);ctx.lineTo(p.x+3*sc,p.y-15*sc+bounce);ctx.stroke();
+    ctx.fillStyle='#e8bd9e';ctx.beginPath();ctx.arc(p.x,p.y-28*sc+bounce,6.6*sc,0,Math.PI*2);ctx.fill();
+    // Hair cap + chef toque.
+    ctx.fillStyle='#5a443c';ctx.beginPath();ctx.arc(p.x,p.y-31*sc+bounce,6.8*sc,Math.PI,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fffdf6';roundRect(ctx,p.x-7.5*sc,p.y-37*sc+bounce,15*sc,6*sc,3*sc);ctx.fill();ctx.beginPath();ctx.arc(p.x-2.8*sc,p.y-37*sc+bounce,3.2*sc,Math.PI,Math.PI*2);ctx.arc(p.x+2.8*sc,p.y-37*sc+bounce,3.2*sc,Math.PI,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#3c3740';ctx.beginPath();ctx.arc(p.x+player.facingX*2.5*sc,p.y-28*sc+bounce+player.facingY*1.2*sc,1*sc,0,Math.PI*2);ctx.fill();
+    if(heldItem){ctx.fillStyle='#fffaf2';ctx.beginPath();ctx.ellipse(p.x,p.y-50*sc+bounce,10*sc,6*sc,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#d6c5ae';ctx.lineWidth=1*sc;ctx.stroke();drawHeldItem(p.x,p.y-51*sc+bounce,heldItem,sc);}
+  }
+  function drawHeldItem(x,y,item,sc){
+    const ik=sc*ITEM_SCALE, ia=artFor(itemKey(item),32,24,ik);
+    if(ia){ctx.drawImage(ia,x-16*ik,y-12*ik,32*ik,24*ik);return;}
+    if(['dough','prepared_dough'].includes(item.type)){ctx.fillStyle='#f1d5a2';ctx.beginPath();ctx.ellipse(x,y,7*sc,4.5*sc,-.2,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#c18d55';ctx.lineWidth=.8*sc;ctx.stroke();}
+    else if(item.type==='butter'){ctx.fillStyle='#f4c84e';roundRect(ctx,x-5*sc,y-4*sc,10*sc,7*sc,1.5*sc);ctx.fill();ctx.strokeStyle='#d7a62c';ctx.stroke();}
+    else if(item.type==='salt'){ctx.fillStyle='#fffdf5';ctx.beginPath();ctx.moveTo(x-5*sc,y+3*sc);ctx.lineTo(x-3*sc,y-4*sc);ctx.lineTo(x+3*sc,y-4*sc);ctx.lineTo(x+5*sc,y+3*sc);ctx.closePath();ctx.fill();ctx.strokeStyle='#aebac3';ctx.stroke();}
+    else {ctx.fillStyle=item.type==='burnt_bread'?'#4b3830':'#c98a43';ctx.beginPath();ctx.ellipse(x,y,7*sc,4.5*sc,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#8c5b32';ctx.stroke();}
+  }
+  function roundRect(c,x,y,w,h,r) { c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath(); }
+  function drawBackground() {
+    const g=ctx.createLinearGradient(0,0,0,canvasH);g.addColorStop(0,'#fffaf5');g.addColorStop(1,'#f7e7dd');ctx.fillStyle=g;ctx.fillRect(0,0,canvasW,canvasH);
+    // Gentle decorative wall panels.
+    ctx.fillStyle='#d9a88b20';ctx.fillRect(0,0,canvasW,Math.max(26,canvasH*.13));
+    ctx.strokeStyle='#d9a88b45';ctx.lineWidth=1;for(let x=20;x<canvasW;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvasH*.1);ctx.stroke();}
+    if(!compact){
+    ctx.fillStyle='#1f4172';ctx.font=`800 ${Math.max(10,13*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('BAKERY KITCHEN',12,10);
+    ctx.fillStyle='#718097';ctx.font=`${Math.max(9,10*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillText(mode==='running'?'Shift sedang berlangsung':'Prototipe P0 · dapur latihan',12,28);
+    }
+  }
+  function render() {
+    ctx.clearRect(0,0,canvasW,canvasH);drawBackground();drawFloor();drawHazards();
+    const target=mode==='running'?getTargetStation():null;
+    // A small direction hint between the player and the active target.
+    if(target){const p=project(player.x,player.y),q=project(target.x,target.y);ctx.strokeStyle='#2e806755';ctx.lineWidth=1.5*mapScale;ctx.setLineDash([3*mapScale,4*mapScale]);ctx.beginPath();ctx.moveTo(p.x,p.y-5*mapScale);ctx.lineTo(q.x,q.y-20*mapScale);ctx.stroke();ctx.setLineDash([]);}
+    const actors=[...stations.map(s=>({depth:s.x+s.y,kind:'station',s})),{depth:player.x+player.y,kind:'player'}].sort((a,b)=>a.depth-b.depth);
+    for(const a of actors){if(a.kind==='station')drawStation(a.s,a.s===target);else drawPlayer();}
+    drawFeedback();
+    // On-screen fallback hint for desktop.
+    if(mode==='running' && canvasW>760 && !compact && !matchMedia('(pointer:coarse)').matches){ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle='#536982';ctx.font=`700 ${Math.max(10,11*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillText('WASD / ↑↓←→ bergerak  •  SPACE interaksi',canvasW-14,canvasH-26);}
+  }
+  function frame(now) {
+    const dt=Math.min(.05,(now-lastFrame)/1000);lastFrame=now;
+    if(mode==='running' && !paused()) update(dt);
+    requestAnimationFrame(frame);render();
+  }
+  function isTypingTarget(target) { return target && (target.tagName==='INPUT' || target.tagName==='TEXTAREA' || target.isContentEditable); }
+  window.addEventListener('keydown', ev => {
+    if(isTypingTarget(ev.target)) return;
+    const key=ev.key.toLowerCase();
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key)) ev.preventDefault();
+    if(key==='escape') { if(!els.helpScreen.classList.contains('hidden')) els.helpScreen.classList.add('hidden'); return; }
+    if(key==='h' && mode==='running') { els.helpScreen.classList.remove('hidden'); return; }
+    if(key===' ' || key==='enter') { if(!ev.repeat && mode==='running') interact(); return; }
+    if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)) keys.add(key);
+  });
+  window.addEventListener('keyup', ev => keys.delete(ev.key.toLowerCase()));
+  window.addEventListener('blur', () => { keys.clear(); resetJoystick(); });
+  document.addEventListener('visibilitychange', () => { if(document.hidden){keys.clear();resetJoystick();} });
+  // Satu pointerdown = satu aksi. Jangan cek hasPointerCapture: di layar sentuh capture implisit jatuh ke elemen yang tersentuh (span/tepi tombol), bukan selalu tombolnya.
+  els.actionBtn.addEventListener('pointerdown', ev => { ev.preventDefault(); interact(); });
+  els.startBtn.addEventListener('click',startGame);
+  // Menu ⋯: Kontrol dan Ulang. Ulang di tengah ronde butuh dua ketukan (konfirmasi 3 detik).
+  let restartTimer = null;
+  const resetRestart = () => { clearTimeout(restartTimer); restartTimer = null; els.restartBtn.textContent = '↻ Ulang'; };
+  const closeMenu = () => { els.menuPanel.hidden = true; els.menuBtn.setAttribute('aria-expanded','false'); resetRestart(); };
+  els.menuBtn.addEventListener('click', () => { const open = els.menuPanel.hidden; els.menuPanel.hidden = !open; els.menuBtn.setAttribute('aria-expanded', String(open)); if (!open) resetRestart(); });
+  document.addEventListener('pointerdown', ev => { if (!els.menuPanel.hidden && !ev.target.closest('.top-actions')) closeMenu(); });
+  els.restartBtn.addEventListener('click', () => {
+    if (mode !== 'running' || restartTimer) { closeMenu(); resetGame(true); return; }
+    els.restartBtn.textContent = 'Yakin ulang?'; restartTimer = setTimeout(resetRestart, 3000);
+  });
+  els.playAgainBtn.addEventListener('click',startGame);
+  els.helpBtn.addEventListener('click',() => { closeMenu(); els.helpScreen.classList.remove('hidden'); });
+  els.closeHelpBtn.addEventListener('click',() => els.helpScreen.classList.add('hidden'));
+  els.helpScreen.addEventListener('click',ev => { if(ev.target===els.helpScreen) els.helpScreen.classList.add('hidden'); });
+  els.startScreen.addEventListener('click',ev => { if(ev.target===els.startScreen) startGame(); });
+  setupJoystick();
+  const ro = new ResizeObserver(() => resizeCanvas()); ro.observe(canvas);
+  window.addEventListener('orientationchange',() => { keys.clear(); resetJoystick(); setTimeout(resizeCanvas,120); });
+  loadArt(ART_KEYS);
+  resetGame(true); resizeCanvas(); renderUI(); requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

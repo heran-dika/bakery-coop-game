@@ -89,9 +89,9 @@
     .help-line { display:none; }
     .touch-controls { display:block; position:absolute; inset:0; pointer-events:none; z-index:4; }
     .joystick-zone { position:absolute; left:max(12px,env(safe-area-inset-left)); bottom:max(12px,env(safe-area-inset-bottom)); width:118px; height:118px; pointer-events:auto; touch-action:none; }
-    .joy-base { position:absolute; inset:8px; border:1px solid #1f417246; border-radius:50%; background:#ffffff75; box-shadow:inset 0 0 0 7px #ffffff4a; }
-    .joy-knob { position:absolute; width:48px; height:48px; left:50%; top:50%; transform:translate(-50%,-50%); border-radius:50%; border:2px solid #ffffff; background:#1f4172df; box-shadow:0 3px 9px #182c4730; pointer-events:none; }
-    .joy-label { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:8px; font-weight:900; letter-spacing:.08em; color:#1f417278; pointer-events:none; }
+    .joy-base { position:absolute; inset:8px; border:1px solid #1f417230; border-radius:50%; background:#ffffff2e; box-shadow:inset 0 0 0 7px #ffffff20; }
+    .joy-knob { position:absolute; width:48px; height:48px; left:50%; top:50%; transform:translate(-50%,-50%); border-radius:50%; border:2px solid #ffffffb0; background:#1f4172a8; box-shadow:0 3px 9px #182c4730; pointer-events:none; }
+    .joy-label { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:8px; font-weight:900; letter-spacing:.08em; color:#1f417255; pointer-events:none; }
     .action-zone { position:absolute; right:max(16px,env(safe-area-inset-right)); bottom:max(19px,env(safe-area-inset-bottom)); pointer-events:auto; touch-action:none; }
     .action-button { width:82px; height:82px; white-space:nowrap; letter-spacing:-.01em; border:2px solid #ffffff; border-radius:50%; background:#1f4172f2; color:#fff; box-shadow:0 5px 16px #182c4735; padding:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:10px; font-weight:900; text-align:center; touch-action:none; }
     .action-button span:first-child { font-size:22px; line-height:1; }
@@ -131,6 +131,31 @@
   .action-hint[hidden] { display:none; }
   .joystick-zone::before { content:''; position:absolute; inset:-30px; }   /* area sentuh lebih luas dari lingkaran; arah dihitung dari pusat */
   .ic { fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+  .action-button, .joystick-zone, .touch-controls { -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  .action-button:focus, .action-button:focus-visible { outline:none; }
+  .action-button > * { pointer-events:none; }
+  /* Pesanan = conveyor kotak persegi */
+  #orderList.belt { display:block; position:relative; overflow:hidden; min-height:0; }
+  .ob-slot { position:absolute; left:0; top:0; width:var(--ob); height:var(--ob); border:1px dashed var(--line); border-radius:12px; background:#ffffff55; }
+  .ob { position:absolute; left:0; top:0; width:var(--ob); height:var(--ob); transition:transform .7s cubic-bezier(.25,.8,.25,1); will-change:transform; }
+  .ob-in { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; padding-top:5px; background:#fff; border-radius:12px; }
+  .ob-name { font-size:8px; font-weight:800; line-height:1; color:var(--ink); }
+  .ob-ico { flex:1; width:100%; display:grid; place-items:center; }
+  .ob-ico img { width:68%; height:auto; display:block; }
+  .ob-ico span { font-size:24px; line-height:1; }
+  .ob .ring { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+  .ring path { fill:none; stroke-width:4; stroke-linecap:round; }
+  .ring .trk { stroke:var(--line); }
+  .ring .bar { stroke:var(--green); transition:stroke-dashoffset .2s linear; }
+  .ob.low .ob-in { background:var(--red-t); } .ob.low .ring .bar { stroke:var(--red); }
+  .ob.s1 { --amp:.8px; animation:ob-shake .5s linear infinite; }
+  .ob.s2 { --amp:1.6px; animation:ob-shake .25s linear infinite; }
+  .ob.s3 { --amp:2.4px; animation:ob-shake .12s linear infinite; }
+  @keyframes ob-shake { 0%,100% { translate:0 0; rotate:0deg; } 25% { translate:var(--amp) 0; rotate:.6deg; } 75% { translate:calc(var(--amp) * -1) 0; rotate:-.6deg; } }
+  .order-fx { position:fixed; z-index:50; pointer-events:none; will-change:transform; }
+  @media (prefers-reduced-motion:reduce) { .ob { animation:none !important; transition:none; } }
+  @media (orientation:landscape) and (max-height:520px) { .orders-panel { justify-self:start; } #orderList.belt .ob-name { font-size:7.5px; } }
+
   @media (orientation:portrait) { .hud { grid-template-columns:1fr 1fr; } .orders-panel { grid-column:1 / -1; } .joystick-zone { left:calc(max(12px,env(safe-area-inset-left)) + 10px); } }
   @media ((max-width:760px), (pointer:coarse)) and (orientation:landscape) and (min-height:421px) {
     .joystick-zone { left:calc(max(12px,env(safe-area-inset-left)) + 50px); bottom:calc(max(12px,env(safe-area-inset-bottom)) + 30px); }
@@ -199,6 +224,7 @@
       <button class="btn" id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menu">⋯</button>
       <div class="menu-panel" id="menuPanel" hidden>
         <button class="btn" id="helpBtn" type="button">Kontrol</button>
+        <button class="btn" id="labelBtn" type="button">Label stasiun: ON</button>
         <button class="btn" id="restartBtn" type="button">↻ Ulang</button>
       </div>
     </div>
@@ -224,7 +250,7 @@
         <div class="modal-icon">👩🏻‍🍳</div>
         <h2>Siap buka bakery?</h2>
         <p>Layani pesanan roti sebelum pelanggan kehabisan kesabaran. Ini prototipe P0: satu dapur, dua resep, satu ronde penuh.</p>
-        <div class="recipe-chips"><span class="chip">🍞 Plain bread</span><span class="chip">🥐 Salt bread</span><span class="chip">⏱️ 4 menit</span></div>
+        <div class="recipe-chips"><span class="chip">🍞 Shokupan</span><span class="chip">🥐 Salt bread</span><span class="chip">⏱️ 4 menit</span></div>
         <div class="controls-note" id="startControls">
           <div><b>Desktop:</b> WASD / tombol panah untuk bergerak, Space untuk interaksi.</div>
           <div><b>Mobile:</b> joystick di kiri bawah, tombol Aksi di kanan bawah. Disarankan landscape.</div>
@@ -239,7 +265,7 @@
         <div class="controls-note">
           <div><b>Gerak:</b> WASD / Arrow Keys, atau joystick virtual pada layar sentuh.</div>
           <div><b>Interaksi:</b> Space / tombol Aksi untuk mengambil, meletakkan, memulai proses, atau menyajikan.</div>
-          <div><b>Plain bread:</b> adonan → prep → uleni → oven → counter output.</div>
+          <div><b>Shokupan:</b> adonan → prep → uleni → oven → counter output.</div>
           <div><b>Salt bread:</b> adonan → prep → uleni → ambil mentega lalu tambahkan di prep → ambil garam lalu tambahkan di prep → oven → counter output.</div>
           <div><b>Counter:</b> tempat taruh item sementara, satu item per slot.</div>
           <div><b>Kesalahan:</b> item yang salah atau gosong dapat dibuang ke Trash. Order kedaluwarsa memberi penalti skor.</div>
@@ -292,7 +318,7 @@
   };
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
-  const els = Object.fromEntries(['timerText','scoreText','orderList','stationPrompt','inventoryText','toast','startScreen','helpScreen','resultsScreen','startBtn','restartBtn','helpBtn','menuBtn','menuPanel','closeHelpBtn','playAgainBtn','resultSummary','resultScore','resultServed','resultExpired','resultBurnt','starsText','actionBtn','actionHint','joyKnob','joystickZone'].map(id => [id, document.getElementById(id)]));
+  const els = Object.fromEntries(['timerText','scoreText','orderList','stationPrompt','inventoryText','toast','startScreen','helpScreen','resultsScreen','startBtn','restartBtn','helpBtn','menuBtn','menuPanel','closeHelpBtn','playAgainBtn','resultSummary','resultScore','resultServed','resultExpired','resultBurnt','starsText','actionBtn','actionHint','labelBtn','joyKnob','joystickZone'].map(id => [id, document.getElementById(id)]));
 
   let dpr = 1, compact = false;   // compact = HUD melayang (landscape pendek): teks canvas di pojok kiri atas disembunyikan
   // Aset SVG (assets/*.svg, lihat ASSET_PLAN §6). Gagal dimuat = pakai gambar prosedural.
@@ -346,6 +372,8 @@
   let score = 0, ordersServed = 0, ordersExpired = 0, burntCount = 0, streak = 0;
   let orders = [], orderSerial = 1, itemSerial = 1;
   let heldItem = null, currentToastTimeout = null, lastInteractionMessage = '';
+  let pendingDelta = 0, fxGen = 0, showLabels = true;
+  try { showLabels = localStorage.getItem('sbc_labels') !== '0'; } catch (e) {}
   let guideOn = false, guideIds = [], idleFor = 0, lastSig = '', lastServed = 0;   // petunjuk langkah berikutnya
   // Lightweight, client-side P0 hazard: visible spill patches briefly reduce movement speed.
   const HAZARD = { enabled:true, firstAt:24, intervalMin:26, intervalMax:36, warnSeconds:2.5, activeSeconds:7.5, slowFactor:0.62, slipSeconds:0.45 };
@@ -369,7 +397,7 @@
   function makeItem(type, mods = []) { return { id:itemSerial++, type, mods:[...mods] }; }
   function itemTitle(item) {
     if (!item) return 'Kosong';
-    const names = { dough:'Adonan mentah', butter:'Mentega', salt:'Garam', prepared_dough:'Adonan siap panggang', plain_bread:'Plain bread', salt_bread:'Salt bread', burnt_bread:'Roti gosong', failed_bread:'Roti gagal' };
+    const names = { dough:'Adonan mentah', butter:'Mentega', salt:'Garam', prepared_dough:'Adonan siap panggang', plain_bread:'Shokupan', salt_bread:'Salt bread', burnt_bread:'Roti gosong', failed_bread:'Roti gagal' };
     return names[item.type] || item.type;
   }
   function itemEmoji(item) {
@@ -388,6 +416,7 @@
     score = 0; ordersServed = 0; ordersExpired = 0; burntCount = 0; streak = 0;
     orders = []; orderSerial = 1; itemSerial = 1; heldItem = null;
     hazards = []; nextHazardAt = HAZARD.firstAt; nextHazardId = 1; slipUntil = 0; lastHazardToastAt = -99; feedback = [];
+    fxGen++; pendingDelta = 0; document.querySelectorAll('.order-fx').forEach(n => n.remove());
     guideOn = false; guideIds = []; idleFor = 0; lastSig = ''; lastServed = 0;
     player.x = 4.15; player.y = 6.15; player.facingX = 0; player.facingY = -1; player.walkCycle = 0;
     for (const s of stations) {
@@ -418,7 +447,7 @@
     orders.push({ id:orderSerial++, type, createdAt:elapsed, deadlineAt:elapsed+CONFIG.patienceSeconds, patience:CONFIG.patienceSeconds });
     renderOrders();
   }
-  function recipeName(type) { return type === 'salt_bread' ? 'Salt bread' : 'Plain bread'; }
+  function recipeName(type) { return type === 'salt_bread' ? 'Salt bread' : 'Shokupan'; }
   function recipeEmoji(type) { return type === 'salt_bread' ? '🥐' : '🍞'; }
   function spawnOrder() {
     nextOrderAt = elapsed + CONFIG.spawnMinSeconds + Math.random()*(CONFIG.spawnMaxSeconds-CONFIG.spawnMinSeconds);
@@ -449,6 +478,7 @@
     updateHazards(dt);
     for (let i=orders.length-1; i>=0; i--) {
       if (elapsed >= orders[i].deadlineAt) {
+        launchOrderFx(orders[i].id, 'crumple', -CONFIG.expiredPenalty);
         orders.splice(i,1); ordersExpired++; score -= CONFIG.expiredPenalty; streak=0;
         showToast(`Pesanan kedaluwarsa −${CONFIG.expiredPenalty} poin`, 1700);
       }
@@ -669,6 +699,7 @@
       streak++;
       const combo = streak >= 2 ? Math.min((streak-1)*CONFIG.comboBonusPerOrder,CONFIG.maxComboBonus) : 0;
       earned += combo; score += earned; ordersServed++;
+      launchOrderFx(order.id, 'gift', earned);
       orders.splice(idx,1); heldItem=null;
       addFeedback(player.x,player.y,`+${earned}`,'#2e8067');
       showToast(`Order selesai +${earned} poin${combo ? ` (combo +${combo})` : ''}!`,2000);
@@ -687,7 +718,7 @@
     document.body.classList.toggle('playing', mode === 'running');
     els.timerText.textContent = formatTime(roundLeft);
     els.timerText.classList.toggle('warning',roundLeft <= 30);
-    els.scoreText.textContent = Math.round(score).toLocaleString('id-ID');
+    els.scoreText.textContent = Math.round(score - pendingDelta).toLocaleString('id-ID');
     els.inventoryText.textContent = heldItem ? `${itemEmoji(heldItem)} ${itemTitle(heldItem)}${heldItem.mods?.length ? ` (${heldItem.mods.join(' + ')})` : ''}` : 'Kosong';
     renderOrders();
     const target = getTargetStation();
@@ -700,16 +731,70 @@
     if (icon && icon !== actionIconName) { actionIconName = icon; els.actionHint.querySelector('use').setAttribute('href', '#hud-' + icon); }
     els.actionBtn.setAttribute('aria-label', text);
   }
+  const BELT = { vert:null, B:56, G:6, boxes:new Map(), relayout:false };
+  const RING_D = 'M50 2H88A10 10 0 0 1 98 12V88A10 10 0 0 1 88 98H12A10 10 0 0 1 2 88V12A10 10 0 0 1 12 2H50';
+  const REDUCED = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const PAPER_SVG = '<svg viewBox="0 0 40 40"><polygon points="20,4 28,7 35,14 34,26 27,35 15,36 6,28 5,16 11,8" fill="#efe9de" stroke="#6B756F" stroke-width="2" stroke-linejoin="round"/><path d="M12 12L22 18L16 27M24 10L26 24L33 20M9 24L20 25" fill="none" stroke="#6B756F" stroke-width="1.3" stroke-linecap="round"/></svg>';
+  const GIFT_SVG = '<svg viewBox="0 0 40 40"><rect x="6" y="17" width="28" height="19" rx="2" fill="#C1443C" stroke="#1F4172" stroke-width="2"/><rect x="4" y="11" width="32" height="8" rx="2" fill="#d8605a" stroke="#1F4172" stroke-width="2"/><rect x="18" y="11" width="4" height="25" fill="#E2AD44"/><path d="M20 11C14 3 8 8 14 11M20 11C26 3 32 8 26 11" fill="none" stroke="#B9852D" stroke-width="2.2" stroke-linecap="round"/></svg>';
+  const slotPos = i => BELT.vert ? { x:0, y:i*(BELT.B+BELT.G) } : { x:i*(BELT.B+BELT.G), y:0 };
+  function layoutBelt() {
+    const B = compact ? 48 : 56, G = 6, el = els.orderList;
+    BELT.vert = compact; BELT.B = B; BELT.G = G;
+    el.classList.add('belt'); el.style.setProperty('--ob', B + 'px');
+    el.style.height = (BELT.vert ? 3*B + 2*G : B) + 'px'; el.style.width = BELT.vert ? B + 'px' : '';
+    el.querySelectorAll('.ob-slot, .order-empty').forEach(n => n.remove());
+    for (let i = CONFIG.maxOrders - 1; i >= 0; i--) { const d = document.createElement('div'); d.className = 'ob-slot'; const q = slotPos(i); d.style.transform = `translate(${q.x}px,${q.y}px)`; el.prepend(d); }
+  }
+  function makeBox(o) {
+    const b = document.createElement('div'); b.className = 'ob'; b.setAttribute('role','img'); b.setAttribute('aria-label', recipeName(o.type));
+    b.innerHTML = `<div class="ob-in"><span class="ob-name">${o.type === 'salt_bread' ? 'SALT' : 'SHOKUPAN'}</span><span class="ob-ico"></span></div><svg class="ring" viewBox="0 0 100 100" aria-hidden="true"><path class="trk" d="${RING_D}" pathLength="100"/><path class="bar" d="${RING_D}" pathLength="100" stroke-dasharray="100 100"/></svg>`;
+    const img = new Image(); img.alt = ''; img.src = `assets/item_${o.type}.svg`;
+    img.onerror = () => img.replaceWith(Object.assign(document.createElement('span'), { textContent:recipeEmoji(o.type) }));
+    b.querySelector('.ob-ico').appendChild(img);
+    return b;
+  }
   function renderOrders() {
-    // Selalu CONFIG.maxOrders slot: tinggi HUD tetap, layout tidak bergeser saat order datang/pergi.
-    let html = '';
-    for (let i = 0; i < CONFIG.maxOrders; i++) {
-      const o = orders[i];
-      if (!o) { html += '<div class="order-slot"></div>'; continue; }
-      const left = Math.max(0,o.deadlineAt-elapsed), ratio = Math.max(0,Math.min(1,left/o.patience));
-      html += `<div class="order-card${ratio<.3?' low':''}"><span class="order-emoji">${recipeEmoji(o.type)}</span><div><div class="order-name">${recipeName(o.type)}</div><div class="order-time">${left.toFixed(0)}s</div></div><div class="order-bar"><i class="${ratio<.3?'low':''}" style="transform:scaleX(${ratio})"></i></div></div>`;
-    }
-    els.orderList.innerHTML = html;
+    if (BELT.vert !== compact) { layoutBelt(); BELT.relayout = true; }
+    const live = new Set(orders.map(o => o.id));
+    for (const [id, b] of BELT.boxes) if (!live.has(id)) { b.remove(); BELT.boxes.delete(id); }
+    orders.forEach((o, i) => {
+      let b = BELT.boxes.get(o.id); const q = slotPos(i);
+      if (!b) {   // order baru masuk dari ujung kanan (portrait) / bawah (landscape HP), meluncur ke slotnya
+        b = makeBox(o); const far = (BELT.vert ? els.orderList.clientHeight : els.orderList.clientWidth) + BELT.B;
+        b.style.transition = 'none'; b.style.transform = BELT.vert ? `translate(${q.x}px,${far}px)` : `translate(${far}px,${q.y}px)`;
+        els.orderList.appendChild(b); BELT.boxes.set(o.id, b); b.offsetWidth; b.style.transition = '';
+      } else if (BELT.relayout) b.style.transition = 'none';
+      b.style.transform = `translate(${q.x}px,${q.y}px)`;
+      const ratio = Math.max(0, Math.min(1, (o.deadlineAt - elapsed) / o.patience));
+      b.querySelector('.bar').style.strokeDashoffset = Math.min(99, (1 - ratio) * 100);
+      b.classList.toggle('low', ratio < .3);
+      b.classList.toggle('s1', ratio < .5 && ratio >= .3); b.classList.toggle('s2', ratio < .3 && ratio >= .15); b.classList.toggle('s3', ratio < .15);
+    });
+    if (BELT.relayout) { els.orderList.offsetWidth; for (const b of BELT.boxes.values()) b.style.transition = ''; BELT.relayout = false; }
+  }
+  // Order selesai -> kado, kedaluwarsa -> kertas diremas; keduanya terbang ke skor. Skor di HUD baru berubah saat sampai (pendingDelta).
+  function launchOrderFx(id, kind, delta) {
+    const box = BELT.boxes.get(id); if (!box || REDUCED) return;
+    const r = box.getBoundingClientRect(), t = els.scoreText.getBoundingClientRect();
+    const fx = document.createElement('div'); fx.className = 'order-fx'; fx.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
+    const clone = box.cloneNode(true); clone.style.cssText = 'position:absolute;inset:0;transform:none;transition:none;animation:none;translate:none;rotate:none';
+    const icon = document.createElement('div'); icon.style.cssText = 'position:absolute;inset:6%;opacity:0'; icon.innerHTML = kind === 'gift' ? GIFT_SVG : PAPER_SVG;
+    fx.append(clone, icon); document.body.appendChild(fx);
+    const dx = t.left + t.width/2 - (r.left + r.width/2), dy = t.top + t.height/2 - (r.top + r.height/2);
+    clone.animate([{ opacity:1 }, { opacity:0 }], { duration:260, fill:'forwards' });
+    icon.animate([{ opacity:0 }, { opacity:1 }], { duration:260, fill:'forwards' });
+    const gen = fxGen; pendingDelta += delta;
+    fx.animate([
+      { transform:'translate(0,0) scale(1) rotate(0deg)' },
+      { transform:'translate(0,0) scale(.62) rotate(-14deg)', offset:.28 },
+      { transform:`translate(${dx}px,${dy}px) scale(.3) rotate(220deg)` }
+    ], { duration:950, easing:'cubic-bezier(.5,0,.9,.6)', fill:'forwards' }).onfinish = () => {
+      fx.remove(); if (gen !== fxGen) return;
+      pendingDelta -= delta; renderUI();
+      els.scoreText.animate(kind === 'gift'
+        ? [{ transform:'scale(1)' }, { transform:'scale(1.3)', color:'#2F5D50' }, { transform:'scale(1)' }]
+        : [{ transform:'translateX(0)' }, { transform:'translateX(-4px)', color:'#C1443C' }, { transform:'translateX(4px)' }, { transform:'translateX(0)' }], { duration:360 });
+    };
   }
   function formatTime(seconds) { const n=Math.ceil(Math.max(0,seconds)); return `${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`; }
   function resetJoystick() {
@@ -781,7 +866,7 @@
     const w=tileW*.82, h=tileH*.70, lift=29*sc, depth=22*sc;
     ctx.fillStyle='#3d30251b';ctx.beginPath();ctx.ellipse(p.x,p.y+5*sc,w*.62,h*.57,0,0,Math.PI*2);ctx.fill();
     const art=artFor(artKey(s),80,80,sc);
-    if(art){ctx.drawImage(art,p.x-40*sc,p.y+22*sc-72*sc,80*sc,80*sc);if(target===s)poly([[p.x,p.y-lift-h/2],[p.x+w/2,p.y-lift],[p.x,p.y-lift+h/2],[p.x-w/2,p.y-lift]],null,'#238b69',2.8*sc);}
+    if(art){ctx.drawImage(art,p.x-40*sc+ovenShake(s),p.y+22*sc-72*sc,80*sc,80*sc);if(target===s)poly([[p.x,p.y-lift-h/2],[p.x+w/2,p.y-lift],[p.x,p.y-lift+h/2],[p.x-w/2,p.y-lift]],null,'#238b69',2.8*sc);}
     else {
     // Solid cabinet sides + bevelled top. Geometry remains in the original isometric grid.
     poly([[p.x-w/2,p.y-lift],[p.x,p.y-lift+h/2],[p.x,p.y+depth],[p.x-w/2,p.y+depth-h/2]],shade(s.color,-32),'#6b4c3540',.9*sc);
@@ -823,11 +908,16 @@
       ctx.fillStyle='#c58b4f';ctx.beginPath();ctx.ellipse(p.x,topY-h*.02,w*.10,h*.065,0,0,Math.PI*2);ctx.fill();
       ctx.strokeStyle='#e9c28c';ctx.lineWidth=1*sc;ctx.beginPath();ctx.moveTo(p.x-w*.2,topY+h*.05);ctx.lineTo(p.x+w*.2,topY+h*.05);ctx.stroke();
     }
-    ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`800 ${Math.max(7,9.5*sc)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillStyle='#2a3d53';ctx.fillText(s.name,p.x,p.y+depth+8*sc);
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`800 ${Math.max(7,9.5*sc)}px ui-sans-serif,system-ui,sans-serif`;if(showLabels){ctx.fillStyle='#2a3d53';ctx.fillText(s.name,p.x,p.y+depth+8*sc);}
     if(s.id==='prep'&&s.processing)drawMiniBar(p.x,topY-24*sc,Math.max(0,1-s.timer/CONFIG.prepSeconds),'#2e8067',sc);
     if(s.id==='oven'&&s.status==='cooking')drawMiniBar(p.x,topY-24*sc,1-s.timer/CONFIG.cookSeconds,'#e2ad44',sc);
     if(s.id==='oven'&&s.status==='ready')drawMiniBar(p.x,topY-24*sc,1-s.readyTimer/CONFIG.readyBeforeBurnSeconds,'#c34f5a',sc);
     if(s.id==='prep'&&s.item?.type==='prepared_dough'&&(s.item.mods?.length===1||(!art&&s.item.mods?.length))){const t=s.item.mods.map(m=>m==='butter'?'B':'S').join(' · ');ctx.font=`800 ${Math.max(8,11*sc)}px ui-sans-serif,system-ui,sans-serif`;const tw=ctx.measureText(t).width+10*sc;ctx.fillStyle='#243b5ae6';roundRect(ctx,p.x-tw/2,topY-23*sc,tw,13*sc,6*sc);ctx.fill();ctx.fillStyle='#fffaf2';ctx.fillText(t,p.x,topY-16.5*sc);}
+  }
+  function ovenShake(s) {   // READY: geter pelan, makin kencang dan lebar mendekati gosong
+    if (REDUCED || s.id !== 'oven' || s.status !== 'ready') return 0;
+    const r = 1 - s.readyTimer / CONFIG.readyBeforeBurnSeconds;
+    return Math.sin(elapsed * (14 + 34*r)) * (0.4 + 2.4*r) * mapScale;
   }
   function drawGuide(s) {
     const p=project(s.x,s.y), sc=mapScale, w=tileW*.82, h=tileH*.70, lift=29*sc, pulse=.5+.5*Math.sin(elapsed*6);
@@ -969,6 +1059,9 @@
   els.closeHelpBtn.addEventListener('click',() => els.helpScreen.classList.add('hidden'));
   els.helpScreen.addEventListener('click',ev => { if(ev.target===els.helpScreen) els.helpScreen.classList.add('hidden'); });
   els.startScreen.addEventListener('click',ev => { if(ev.target===els.startScreen) startGame(); });
+  const syncLabelBtn = () => { els.labelBtn.textContent = 'Label stasiun: ' + (showLabels ? 'ON' : 'OFF'); };
+  els.labelBtn.addEventListener('click', () => { showLabels = !showLabels; try { localStorage.setItem('sbc_labels', showLabels ? '1' : '0'); } catch (e) {} syncLabelBtn(); closeMenu(); });
+  syncLabelBtn();
   setupJoystick();
   const ro = new ResizeObserver(() => resizeCanvas()); ro.observe(canvas);
   window.addEventListener('orientationchange',() => { keys.clear(); resetJoystick(); setTimeout(resizeCanvas,120); });

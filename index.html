@@ -324,7 +324,7 @@
   let dpr = 1, compact = false;   // compact = HUD melayang (landscape pendek): teks canvas di pojok kiri atas disembunyikan
   // Aset SVG (assets/*.svg, lihat ASSET_PLAN §6). Gagal dimuat = pakai gambar prosedural.
   const ART = { raw:{}, cache:new Map() };
-  const ART_KEYS = ['station_oven_empty','station_oven_cooking','station_oven_ready','station_oven_burnt','station_prep_empty','station_prep_dough','station_prep_prepared_plain','station_prep_prepared_salt','station_counter_idle','station_dough_idle','station_butter_idle','station_salt_idle','station_serve_idle','station_serve_down_idle','station_trash_idle','char_baker_dr_idle_0','char_baker_dr_idle_1','char_baker_dr_walk_0','char_baker_dr_walk_1','char_baker_dr_walk_2','char_baker_dr_walk_3','char_baker_dr_carry_idle_0','char_baker_dr_carry_idle_1','char_baker_dr_carry_walk_0','char_baker_dr_carry_walk_1','char_baker_dr_carry_walk_2','char_baker_dr_carry_walk_3','item_dough','item_prepared_dough','item_prepared_salt','item_butter','item_salt','item_plain_bread','item_salt_bread','item_burnt_bread','item_failed_bread'];
+  const ART_KEYS = ['station_oven_empty','station_oven_cooking','station_oven_ready','station_oven_burnt','station_prep_empty','station_prep_dough','station_prep_prepared_plain','station_prep_prepared_salt','station_counter_idle','station_dough_idle','station_butter_idle','station_salt_idle','station_serve_down_idle','station_trash_idle','char_baker_dr_idle_0','char_baker_dr_idle_1','char_baker_dr_walk_0','char_baker_dr_walk_1','char_baker_dr_walk_2','char_baker_dr_walk_3','char_baker_dr_carry_idle_0','char_baker_dr_carry_idle_1','char_baker_dr_carry_walk_0','char_baker_dr_carry_walk_1','char_baker_dr_carry_walk_2','char_baker_dr_carry_walk_3','item_dough','item_prepared_dough','item_prepared_salt','item_butter','item_salt','item_plain_bread','item_salt_bread','item_burnt_bread','item_failed_bread'];
   const ITEM_SCALE = 1; // item viewBox 32x24 = satuan peta; di HP mapScale ~0.78 -> ±25x19 px [Menebak, uji di HP]
   const CHAR_SCALE = 1; // viewBox 40x64 = satuan peta; 1 = sama skala dengan stasiun [Menebak, uji di HP]
   function loadArt(keys) {
@@ -362,7 +362,7 @@
       const m = s.item.mods || [];
       return `station_prep_prepared_${m.includes('butter') && m.includes('salt') ? 'salt' : 'plain'}`;
     }
-    if (s.id === 'serve2') return 'station_serve_down_idle';
+    if (s.id === 'serve') return 'station_serve_down_idle';
     if (s.type === 'counter') return 'station_counter_idle';
     return `station_${s.id}_idle`;
   }
@@ -388,7 +388,6 @@
     { id:'prep', type:'prep', name:'MEJA PREP', label:'Meja prep', x:3, y:1, emoji:'🧈', color:'#e6c49c', item:null, processing:false, timer:0 },
     { id:'oven', type:'oven', name:'OVEN', label:'Oven', x:5, y:1, emoji:'🔥', color:'#c17a69', item:null, status:'empty', timer:0, readyTimer:0 },
     { id:'serve', type:'serve', name:'COUNTER OUT', label:'Counter output', x:7, y:1, emoji:'🍞', color:'#c8a98a' },
-    { id:'serve2', type:'serve', name:'COUNTER OUT', label:'Counter output', x:7, y:3, emoji:'🍞', color:'#c8a98a' },
     { id:'butter', type:'crate', name:'MENTEGA', label:'Mentega', x:1, y:5, emoji:'🧈', color:'#f0d878' },
     { id:'salt', type:'crate', name:'GARAM', label:'Garam', x:3, y:5, emoji:'🧂', color:'#d7dce2' },
     { id:'counter1', type:'counter', name:'COUNTER', label:'Counter', x:2, y:3, emoji:'📥', color:'#d9c3a3', item:null },
@@ -535,7 +534,7 @@
     return {sx,sy};
   }
   function isBlocked(x,y) {
-    if (x < 0.42 || x > 7.58 || y < 0.42 || y > 6.58) return true;
+    if (x < 0.63 || x > 7.37 || y < 0.63 || y > 6.37) return true;
     for (const s of stations) {
       if (Math.abs(x-s.x) < 0.37 && Math.abs(y-s.y) < 0.37) return true;
     }
@@ -603,7 +602,7 @@
       if (h.type === 'dough') return !prep.item ? 'prep' : freeCounter();
       if (h.type === 'prepared_dough') return oven.status === 'empty' ? 'oven' : freeCounter();
       if (h.type === 'butter' || h.type === 'salt') return prep.item?.type === 'prepared_dough' ? (pm.includes(h.type) ? 'trash' : 'prep') : freeCounter();
-      if (h.type === 'plain_bread' || h.type === 'salt_bread') return orders.some(o => o.type === h.type) ? ['serve','serve2'] : 'trash';
+      if (h.type === 'plain_bread' || h.type === 'salt_bread') return orders.some(o => o.type === h.type) ? 'serve' : 'trash';
       return 'trash';
     }
     if (oven.status === 'ready' || oven.status === 'burnt') return 'oven';
@@ -849,8 +848,11 @@
   }
 // Hanya menggambar area yang bisa dijangkau (x 1..7, y 1..6) + dinding rendah + alas.
 // Digambar SEKALI ke canvas offscreen (cache), lalu ditempel satu drawImage per frame.
+// Hanya menggambar area yang bisa dijangkau (x 1..7, y 1..6) + dinding rendah + alas.
+// Digambar SEKALI ke canvas offscreen (cache), lalu ditempel satu drawImage per frame.
 let shell = null;
-const wallH = () => 38;              // tinggi dinding (satuan peta); 0 = tanpa dinding (HP landscape)
+const WALL_UNITS = 58;                              // tinggi dinding (satuan peta). Stasiun ±50 unit tinggi: di bawah ±55 stasiun tampak 'berdiri di atas' dinding
+const wallH = () => WALL_UNITS;                    // dinding selalu tampil, termasuk HP landscape
 function drawFloor() { if (!shell) buildShell(); ctx.drawImage(shell, 0, 0, canvasW, canvasH); }
 function buildShell() {
   shell = document.createElement('canvas');
@@ -893,7 +895,7 @@ function paintShell(g) {
     pl([q(t0 + u * .12, 19), q(t1 - u * .12, 19), q(t1 - u * .12, hTop - 3), q(t0 + u * .12, hTop - 3)], fill, INK, sc);
   };
   frame(A, D, .16, .30, '#fbe8c2'); frame(A, D, .58, .72, '#cfe3ee'); frame(A, B, .22, .36, '#f1c98a');
-  const ck = wl(A, B, .80, 25);                                              // jam dinding
+  const ck = wl(A, B, .80, 36);                                              // jam dinding
   g.beginPath(); g.arc(ck[0], ck[1], 7 * sc, 0, 7); g.fillStyle = '#fffaf2'; g.fill(); g.strokeStyle = INK; g.lineWidth = 1.6 * sc; g.stroke();
   g.beginPath(); g.moveTo(ck[0], ck[1]); g.lineTo(ck[0], ck[1] - 4 * sc); g.moveTo(ck[0], ck[1]); g.lineTo(ck[0] + 3.5 * sc, ck[1] + 1.5 * sc); g.stroke();
 }

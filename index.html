@@ -850,7 +850,7 @@
 // Hanya menggambar area yang bisa dijangkau (x 1..7, y 1..6) + dinding rendah + alas.
 // Digambar SEKALI ke canvas offscreen (cache), lalu ditempel satu drawImage per frame.
 let shell = null;
-const wallH = () => compact ? 0 : 38;              // tinggi dinding (satuan peta); 0 = tanpa dinding (HP landscape)
+const wallH = () => 38;              // tinggi dinding (satuan peta); 0 = tanpa dinding (HP landscape)
 function drawFloor() { if (!shell) buildShell(); ctx.drawImage(shell, 0, 0, canvasW, canvasH); }
 function buildShell() {
   shell = document.createElement('canvas');

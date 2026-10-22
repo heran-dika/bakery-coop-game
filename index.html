@@ -536,7 +536,7 @@
   function isBlocked(x,y) {
     if (x < 0.63 || x > 7.37 || y < 0.63 || y > 6.37) return true;
     for (const s of stations) {
-      if (Math.abs(x-s.x) < 0.37 && Math.abs(y-s.y) < 0.37) return true;
+      if (x > s.x-0.37 && x < s.x+0.56 && y > s.y-0.37 && y < s.y+0.56) return true;   // jejak kubus di layar bergeser ±0.15 ke depan dari titik tengah, jadi sisi depan/kanan diperlebar
     }
     return false;
   }

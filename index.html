@@ -535,12 +535,25 @@
     if (len > 1) { sx/=len; sy/=len; }
     return {sx,sy};
   }
-  function isBlocked(x,y) {
-    if (x < 0.63 || x > 7.37 || y < 0.63 || y > 6.37) return true;
-    for (const s of stations) {
-      if (x > s.x-0.52 && x < s.x+0.72 && y > s.y-0.52 && y < s.y+0.72) return true;   // persegi sejajar grid (karakter bisa menyelip di sepanjang sisi). Jejak kubus di layar bergeser ±0.15 ke depan; sisi depan/kanan +0.72, kiri/belakang -0.52 memberi ruang badan
+  // Kolisi: badan karakter = lingkaran (BODY_R) vs persegi jejak alas kubus (pusat bergeser +0.15 ke depan, setengah sisi 0.41).
+  // Tidak ada tolak per-sumbu: karakter didorong keluar dari kubus, jadi menyelip dan memutari sudut tanpa nyangkut.
+  const BODY_R = 0.16, REACH_MIN = 0.63, REACH_MAXX = 7.37, REACH_MAXY = 6.37;
+  const clampWorld = (x,y) => [Math.max(REACH_MIN, Math.min(REACH_MAXX, x)), Math.max(REACH_MIN, Math.min(REACH_MAXY, y))];
+  function resolveStations(x,y) {
+    for (let pass = 0; pass < 2; pass++) for (const s of stations) {
+      const cx = s.x + .15, cy = s.y + .15, h = .41, G = REACH_MIN + 2*BODY_R;
+      // celah antara kubus dan dinding yang lebih sempit dari badan dianggap padat (tidak bisa diselipi dari belakang)
+      const x0 = cx-h < G ? -9 : cx-h, x1 = cx+h > REACH_MAXX-2*BODY_R ? 9 : cx+h, y0 = cy-h < G ? -9 : cy-h, y1 = cy+h > REACH_MAXY-2*BODY_R ? 9 : cy+h;
+      const qx = Math.max(x0, Math.min(x, x1)), qy = Math.max(y0, Math.min(y, y1));
+      const dx = x - qx, dy = y - qy, d = Math.hypot(dx, dy);
+      if (d >= BODY_R) continue;
+      if (d > 1e-6) { x = qx + dx/d*BODY_R; y = qy + dy/d*BODY_R; }
+      else {   // titik pusat sudah di dalam persegi: keluar lewat sisi terdekat
+        const l = x-x0, r = x1-x, t = y-y0, b = y1-y, mn = Math.min(l,r,t,b);
+        if (mn === l) x = x0-BODY_R; else if (mn === r) x = x1+BODY_R; else if (mn === t) y = y0-BODY_R; else y = y1+BODY_R;
+      }
     }
-    return false;
+    return clampWorld(x, y);
   }
   function movePlayer(dt) {
     const {sx,sy} = getScreenInput();
@@ -560,15 +573,7 @@
     const oldX=player.x, oldY=player.y;
     const nx = player.x + dx*dt*factor;
     const ny = player.y + dy*dt*factor;
-    // Substeps reduce tunneling across station collision cells.
-    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(nx-player.x),Math.abs(ny-player.y))*8));
-    const sxStep = (nx-player.x)/steps, syStep=(ny-player.y)/steps;
-    for (let i=0;i<steps;i++) {
-      const tryX = player.x + sxStep;
-      if (!isBlocked(tryX,player.y)) player.x = tryX;
-      const tryY = player.y + syStep;
-      if (!isBlocked(player.x,tryY)) player.y = tryY;
-    }
+    [player.x, player.y] = resolveStations(...clampWorld(nx, ny));
     player.facingX = sx; player.facingY = sy; player.walkCycle += dt*12;
     for (const h of hazards) {
       if (h.state === 'active' && Math.hypot(player.x-h.x, player.y-h.y) < h.radius && Math.hypot(oldX-h.x,oldY-h.y) >= h.radius) {

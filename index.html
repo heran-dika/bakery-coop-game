@@ -83,7 +83,7 @@
     .order-name { font-size:10px; }
     .order-time { font-size:9px; }
     .order-bar { bottom:3px; left:6px; right:6px; }
-    canvas { height:clamp(250px,62vh,520px); min-height:250px; }
+    canvas { height:clamp(250px,62vh,520px); height:clamp(250px,calc(100svh - 280px),520px); min-height:250px; }   /* svh = tinggi layar saat bar Safari tampil; 280 = tinggi HUD+header+footer (terukur 270) */
     .station-prompt { bottom:8px; padding:7px 11px; font-size:11px; }
     .inventory-bar { padding-top:7px; font-size:10px; }
     .help-line { display:none; }

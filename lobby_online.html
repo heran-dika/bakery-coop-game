@@ -38,7 +38,7 @@ canvas{width:100%;height:240px;background:var(--panel);border-radius:10px;displa
   <div class="row"><input id="name" maxlength="16" placeholder="Nama (opsional)" autocomplete="off"></div>
   <div class="row" style="margin-top:8px">
     <button class="pri" id="bCreate" disabled>Buat room</button>
-    <input id="code" maxlength="4" placeholder="KODE" size="6" autocapitalize="characters" autocomplete="off">
+    <input id="code" maxlength="4" placeholder="KODE (kosong = masuk otomatis)" size="14" autocapitalize="characters" autocomplete="off">
     <button id="bJoin" disabled>Gabung</button>
   </div>
 </section>
@@ -55,7 +55,7 @@ canvas{width:100%;height:240px;background:var(--panel);border-radius:10px;displa
   <canvas id="cv"></canvas>
   <div class="stats">
     <div>Kamu<b id="sMe">-</b></div><div>Tick<b id="sTick">-</b></div><div>Snapshot/detik<b id="sRate">-</b></div>
-    <div>Skor<b id="sScore">-</b></div><div>Sisa waktu<b id="sLeft">-</b></div><div>Jeda snapshot<b id="sAge">-</b></div>
+    <div>Skor<b id="sScore">-</b></div><div>Sisa waktu<b id="sLeft">-</b></div><div>Jeda snapshot<b id="sAge">-</b></div><div>Ping (RTT)<b id="sPing">-</b></div>
   </div>
   <div class="row" style="margin-top:10px">
     <div class="pad"><span></span><button data-k="up">▲</button><span></span><button data-k="left">◀</button><button data-k="down">▼</button><button data-k="right">▶</button></div>
@@ -69,7 +69,7 @@ canvas{width:100%;height:240px;background:var(--panel);border-radius:10px;displa
 const $ = id => document.getElementById(id);
 const qs = new URLSearchParams(location.search), SERVER = qs.get('server') || '';
 const COLORS = { p1:'#c34f5a', p2:'#2e8067', p3:'#e2ad44', p4:'#7c5caa' };
-const ERR = { room_not_found:'Kode room tidak ditemukan.', room_full:'Room penuh (maks 4).', room_started:'Ronde sudah dimulai; tunggu ronde berikutnya.', already_in_room:'Kamu sudah ada di room.', server_full:'Server penuh.' };
+const ERR = { room_not_found:'Room tidak ditemukan (atau belum ada room terbuka).', room_full:'Room penuh (maks 4).', room_started:'Ronde sudah dimulai; tunggu ronde berikutnya.', already_in_room:'Kamu sudah ada di room.', server_full:'Server penuh.' };
 let sock, room = null, snap = null, lastSnapAt = 0, snapTimes = [], phase = 'menu', rid = 0;
 const keys = new Set();
 const setSt = (t, bad) => { $('st').textContent = t; $('st').classList.toggle('bad', !!bad); };
@@ -153,6 +153,10 @@ function drawGame() {
   for (const p of sn.players) { const [px, py] = P(p.x, p.y); c.fillStyle = COLORS[p.id]; c.beginPath(); c.arc(px, py, p.id === room.you ? 8 : 6, 0, 7); c.fill(); c.strokeStyle = '#243b5a'; c.lineWidth = 2; c.stroke(); c.fillStyle = '#243b5a'; c.fillText(p.id + (p.held ? ' ·' + p.held.type : ''), px, py - 12); }
   $('sMe').textContent = room.you; $('sTick').textContent = snap.tick; $('sScore').textContent = sn.score; $('sLeft').textContent = Math.ceil(sn.roundLeft) + ' s';
 }
+setInterval(() => {   // RTT: waktu bolak-balik pesan kecil ke server (beda dari jeda snapshot, yang hanya jarak antar-snapshot)
+  if (!sock || !sock.connected) return; const t = performance.now();
+  sock.timeout(2000).emit('net:ping', err => { $('sPing').textContent = err ? 'timeout' : Math.round(performance.now() - t) + ' ms'; });
+}, 2000);
 setInterval(() => {
   const n = performance.now(); snapTimes = snapTimes.filter(t => n - t < 1000);
   $('sRate').textContent = snapTimes.length; $('sAge').textContent = lastSnapAt ? Math.round(n - lastSnapAt) + ' ms' : '-';

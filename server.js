@@ -8,6 +8,8 @@
  *
  * Client -> server:  room:create {name} | room:join {code,name} | lobby:ready {ready} | room:leave
  *                    player:input {sx,sy} | station:interact {requestId} | room:rematch (host)
+ *                    net:ping (dengan ack; untuk mengukur RTT)
+ * room:join tanpa code = masuk room lobi terbuka tertua.
  * Server -> client:  room:state | round:countdown | round:started | world:snapshot | game:events | round:ended | error:msg
  */
 const http = require('node:http');
@@ -152,7 +154,8 @@ function createGameServer(opts) {
     }));
     sock.on('room:join', guard('lobby', p => {
       if (sock.data.room) return fail(sock, 'already_in_room');
-      const room = rooms.get(cleanCode(p.code));
+      const code = cleanCode(p.code);   // kode kosong = masuk room lobi terbuka tertua (quick join)
+      const room = code ? rooms.get(code) : [...rooms.values()].find(r => r.phase === 'lobby' && members(r).length < SLOTS.length);
       if (!room) return fail(sock, 'room_not_found');
       if (room.phase !== 'lobby') return fail(sock, 'room_started');
       if (members(room).length >= SLOTS.length) return fail(sock, 'room_full');
@@ -182,6 +185,7 @@ function createGameServer(opts) {
       if (q.length >= QUEUE_MAX) return;
       q.push(asRequestId(p.requestId) ?? `${m.slot}-srv-${room.tick}-${q.length}`);
     }));
+    sock.on('net:ping', (...a) => { const ack = a[a.length - 1]; if (typeof ack === 'function' && allow(sock, 'lobby')) ack(); });   // ukur RTT dari client
     sock.on('disconnect', () => { try { leave(sock); } catch (e) { o.log('leave error', e && e.message); } });
   });
 

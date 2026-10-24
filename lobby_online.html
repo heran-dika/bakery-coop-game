@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tes multiplayer – Bakery Co-op</title>
+<style>
+:root{--bg:#fffaf2;--panel:#f2dcbc;--card:#fffaf2;--ink:#243b5a;--line:#e6d8c6;--accent:#2e8067;--warn:#c34f5a;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#1b2433;--panel:#2a3a52;--card:#243247;--ink:#fffaf2;--line:#3e6387}}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+h1{font-size:18px;margin:0}h2{font-size:14px;margin:0 0 6px}
+.card{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input{font:inherit;padding:10px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);min-width:0}
+button{font:inherit;padding:10px 14px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);cursor:pointer}
+button.pri{background:var(--accent);border-color:var(--accent);color:#fffaf2}
+button:disabled{opacity:.45;cursor:not-allowed}
+.slot{display:flex;align-items:center;gap:8px;border:2px solid var(--line);border-radius:10px;padding:8px;font-size:14px;margin-top:6px}
+.slot.empty{border-style:dashed;opacity:.7}.slot b{flex:1}
+.dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--ink);flex:none}
+.code{font-size:26px;font-weight:800;letter-spacing:.15em}
+#st{font-size:13px;min-height:18px}
+#st.bad{color:var(--warn)}
+#cd{font-size:44px;font-weight:800;text-align:center}
+canvas{width:100%;height:240px;background:var(--panel);border-radius:10px;display:block}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;font-size:13px;margin-top:8px}
+.stats div{border:1px solid var(--line);border-radius:8px;padding:6px}
+.stats b{display:block;font-size:17px}
+#log{font:12px/1.4 ui-monospace,monospace;height:90px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px;margin-top:8px}
+.pad{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(2,56px);gap:6px;touch-action:none;user-select:none}
+.pad button{padding:0;font-size:20px}
+.hidden{display:none!important}
+</style></head><body><main>
+<h1>Tes multiplayer – Bakery Co-op</h1>
+<div id="st">Menghubungkan…</div>
+
+<section class="card" id="vMenu">
+  <h2>Masuk</h2>
+  <div class="row"><input id="name" maxlength="16" placeholder="Nama (opsional)" autocomplete="off"></div>
+  <div class="row" style="margin-top:8px">
+    <button class="pri" id="bCreate" disabled>Buat room</button>
+    <input id="code" maxlength="4" placeholder="KODE" size="6" autocapitalize="characters" autocomplete="off">
+    <button id="bJoin" disabled>Gabung</button>
+  </div>
+</section>
+
+<section class="card hidden" id="vLobby">
+  <div class="row" style="justify-content:space-between"><div>Kode room <div class="code" id="rcode">----</div></div><button id="bCopy">Salin</button></div>
+  <div id="slots"></div>
+  <div class="row" style="margin-top:10px"><button class="pri" id="bReady">Siap</button><button id="bLeave">Keluar</button></div>
+  <div id="cd"></div>
+</section>
+
+<section class="card hidden" id="vGame">
+  <h2>Ronde berjalan (tampilan uji, bukan game)</h2>
+  <canvas id="cv"></canvas>
+  <div class="stats">
+    <div>Kamu<b id="sMe">-</b></div><div>Tick<b id="sTick">-</b></div><div>Snapshot/detik<b id="sRate">-</b></div>
+    <div>Skor<b id="sScore">-</b></div><div>Sisa waktu<b id="sLeft">-</b></div><div>Jeda snapshot<b id="sAge">-</b></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div class="pad"><span></span><button data-k="up">▲</button><span></span><button data-k="left">◀</button><button data-k="down">▼</button><button data-k="right">▶</button></div>
+    <button class="pri" id="bAct" style="height:56px;min-width:90px">Aksi</button>
+    <button id="bRematch" class="hidden">Rematch (host)</button>
+  </div>
+  <div id="log" aria-live="polite"></div>
+</section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const qs = new URLSearchParams(location.search), SERVER = qs.get('server') || '';
+const COLORS = { p1:'#c34f5a', p2:'#2e8067', p3:'#e2ad44', p4:'#7c5caa' };
+const ERR = { room_not_found:'Kode room tidak ditemukan.', room_full:'Room penuh (maks 4).', room_started:'Ronde sudah dimulai; tunggu ronde berikutnya.', already_in_room:'Kamu sudah ada di room.', server_full:'Server penuh.' };
+let sock, room = null, snap = null, lastSnapAt = 0, snapTimes = [], phase = 'menu', rid = 0;
+const keys = new Set();
+const setSt = (t, bad) => { $('st').textContent = t; $('st').classList.toggle('bad', !!bad); };
+const log = t => { const l = $('log'), d = document.createElement('div'); d.textContent = t; l.appendChild(d); l.scrollTop = l.scrollHeight; while (l.children.length > 60) l.removeChild(l.firstChild); };
+const view = v => { for (const id of ['vMenu','vLobby','vGame']) $(id).classList.toggle('hidden', id !== v); };
+
+try { $('name').value = localStorage.getItem('sbc_name') || ''; } catch (e) {}
+const s = document.createElement('script'); s.src = (SERVER || '') + '/socket.io/socket.io.js';
+s.onerror = () => setSt('Server tidak terjangkau (socket.io.js gagal dimuat).', true);
+s.onload = init; document.head.appendChild(s);
+
+function init() {
+  sock = SERVER ? io(SERVER) : io();
+  sock.on('connect', () => { setSt('Terhubung. Buat room atau gabung dengan kode.'); $('bCreate').disabled = false; $('bJoin').disabled = false; });
+  sock.on('disconnect', () => { setSt('Koneksi terputus. Muat ulang halaman untuk masuk lagi.', true); $('bCreate').disabled = $('bJoin').disabled = true; });
+  sock.on('connect_error', () => setSt('Gagal terhubung ke server.', true));
+  sock.on('error:msg', e => setSt(ERR[e.code] || ('Error: ' + e.code), true));
+  sock.on('room:state', st => { room = st; phase = st.phase; renderRoom(); });
+  sock.on('round:countdown', c => { $('cd').textContent = c.seconds; });
+  sock.on('round:started', r => { log('round:started seed ' + r.seed + ', pemain ' + r.players.join(',')); view('vGame'); $('bRematch').classList.add('hidden'); });
+  sock.on('world:snapshot', m => { snap = m; const n = performance.now(); lastSnapAt = n; snapTimes.push(n); drawGame(); });
+  sock.on('game:events', m => { for (const e of m.events) if (e.type !== 'msg' || e.player === room.you) log(`[${m.tick}] ${e.type}${e.code ? ':' + e.code : ''}${e.player ? ' (' + e.player + ')' : ''}`); });
+  sock.on('round:ended', e => { log(`RONDE SELESAI: skor ${e.score}, ${e.stars} bintang`); setSt(`Ronde selesai: skor ${e.score}.`); });
+}
+
+$('bCreate').onclick = () => { const n = $('name').value; try { localStorage.setItem('sbc_name', n); } catch (e) {} sock.emit('room:create', { name: n }); };
+$('bJoin').onclick = () => { const n = $('name').value; try { localStorage.setItem('sbc_name', n); } catch (e) {} sock.emit('room:join', { code: $('code').value, name: n }); };
+$('bReady').onclick = () => { const me = room.players.find(p => p.id === room.you); sock.emit('lobby:ready', { ready: !(me && me.ready) }); };
+$('bLeave').onclick = () => { sock.emit('room:leave'); room = null; $('cd').textContent = ''; view('vMenu'); setSt('Kamu keluar dari room.'); };
+$('bCopy').onclick = async () => { try { await navigator.clipboard.writeText(room.code); setSt('Kode disalin.'); } catch (e) { setSt('Salin manual: ' + room.code); } };
+$('bRematch').onclick = () => sock.emit('room:rematch');
+$('bAct').onclick = () => sock.emit('station:interact', { requestId: Math.random().toString(36).slice(2, 8) + (++rid) });
+
+function renderRoom() {
+  if (!room) return;
+  if (room.phase === 'lobby' || room.phase === 'countdown') { view('vLobby'); snap = null; }
+  if (room.phase === 'ended') { $('bRematch').classList.toggle('hidden', !room.players.some(p => p.id === room.you && p.host)); }
+  $('rcode').textContent = room.code;
+  const el = $('slots'); el.innerHTML = '';
+  for (let i = 0; i < 4; i++) {
+    const p = room.players[i], d = document.createElement('div'); d.className = 'slot' + (p ? '' : ' empty');
+    if (p) {
+      d.innerHTML = '<span class="dot"></span><b></b><span></span>';
+      d.children[0].style.background = COLORS[p.id]; d.children[1].textContent = p.name + (p.host ? ' (host)' : '') + (p.id === room.you ? ' ← kamu' : '');
+      d.children[2].textContent = !p.connected ? 'terputus' : p.ready ? '✓ Siap' : '… belum siap';
+    } else d.innerHTML = '<span class="dot"></span><b>Menunggu pemain…</b>';
+    el.appendChild(d);
+  }
+  const me = room.players.find(p => p.id === room.you);
+  $('bReady').textContent = me && me.ready ? 'Batal siap' : 'Siap';
+  $('bReady').disabled = room.phase === 'countdown';
+  if (room.phase === 'lobby') { $('cd').textContent = ''; setSt(`Di room ${room.code}. Tunggu semua pemain masuk, baru tekan Siap.`); }
+  if (room.phase === 'countdown') setSt('Semua siap. Ronde dimulai…');
+}
+
+function sendInput() {
+  const sx = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0), sy = (keys.has('down') ? 1 : 0) - (keys.has('up') ? 1 : 0);
+  const l = Math.hypot(sx, sy) || 1; sock && sock.emit('player:input', { sx: sx / l, sy: sy / l });
+}
+const KEYMAP = { ArrowUp:'up', w:'up', ArrowDown:'down', s:'down', ArrowLeft:'left', a:'left', ArrowRight:'right', d:'right' };
+addEventListener('keydown', e => { if (e.target.tagName === 'INPUT') return; if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!e.repeat && phase === 'running') $('bAct').click(); return; } const k = KEYMAP[e.key.length === 1 ? e.key.toLowerCase() : e.key]; if (k) { e.preventDefault(); if (!keys.has(k)) { keys.add(k); sendInput(); } } });
+addEventListener('keyup', e => { const k = KEYMAP[e.key.length === 1 ? e.key.toLowerCase() : e.key]; if (k && keys.delete(k)) sendInput(); });
+const stopAll = () => { if (keys.size) { keys.clear(); sendInput(); } };
+addEventListener('blur', stopAll); document.addEventListener('visibilitychange', () => { if (document.hidden) stopAll(); });
+document.querySelectorAll('.pad [data-k]').forEach(b => {
+  const k = b.dataset.k;
+  b.addEventListener('pointerdown', e => { e.preventDefault(); b.setPointerCapture(e.pointerId); keys.add(k); sendInput(); });
+  const up = () => { if (keys.delete(k)) sendInput(); };
+  b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
+});
+
+function drawGame() {
+  if (!snap) return;
+  const sn = snap.snapshot; phase = sn.mode === 'running' ? 'running' : sn.mode;
+  const cv = $('cv'), d = devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  if (cv.width !== Math.round(W * d)) { cv.width = Math.round(W * d); cv.height = Math.round(H * d); }
+  const c = cv.getContext('2d'); c.setTransform(d, 0, 0, d, 0, 0); c.clearRect(0, 0, W, H);
+  const sc = Math.min(W / 9, H / 5), P = (x, y) => [W / 2 + (x - y) * sc * .5 * 1.0, 14 + (x + y) * sc * .25 + 6];
+  c.font = '10px system-ui'; c.textAlign = 'center';
+  for (const st of sn.stations) { const [px, py] = P(st.x, st.y); c.fillStyle = '#c8a98a'; c.fillRect(px - 8, py - 8, 16, 16); c.fillStyle = '#243b5a'; c.fillText(st.id, px, py + 20); }
+  for (const p of sn.players) { const [px, py] = P(p.x, p.y); c.fillStyle = COLORS[p.id]; c.beginPath(); c.arc(px, py, p.id === room.you ? 8 : 6, 0, 7); c.fill(); c.strokeStyle = '#243b5a'; c.lineWidth = 2; c.stroke(); c.fillStyle = '#243b5a'; c.fillText(p.id + (p.held ? ' ·' + p.held.type : ''), px, py - 12); }
+  $('sMe').textContent = room.you; $('sTick').textContent = snap.tick; $('sScore').textContent = sn.score; $('sLeft').textContent = Math.ceil(sn.roundLeft) + ' s';
+}
+setInterval(() => {
+  const n = performance.now(); snapTimes = snapTimes.filter(t => n - t < 1000);
+  $('sRate').textContent = snapTimes.length; $('sAge').textContent = lastSnapAt ? Math.round(n - lastSnapAt) + ' ms' : '-';
+}, 500);
+</script></body></html>

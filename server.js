@@ -8,9 +8,10 @@
  *
  * Client -> server:  room:create {name} | room:join {code,name} | lobby:ready {ready} | room:leave
  *                    player:input {sx,sy} | station:interact {requestId} | room:rematch (host)
+ *                    lobby:pos {x,y} | chat:send {text}
  *                    net:ping (dengan ack; untuk mengukur RTT)
  * room:join tanpa code = masuk room lobi terbuka tertua.
- * Server -> client:  room:state | round:countdown | round:started | world:snapshot | game:events | round:ended | error:msg
+ * Server -> client:  room:state | lobby:pos | chat:message | round:countdown | round:started | world:snapshot | game:events | round:ended | error:msg
  */
 const http = require('node:http');
 const { Server } = require('socket.io');
@@ -21,8 +22,12 @@ const TICK_HZ = 30;          // [Usulan awal]
 const SNAPSHOT_EVERY = 2;    // tick -> 15 snapshot per detik (§10.3)
 const SLOTS = ['p1', 'p2', 'p3', 'p4'];
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const LIMITS = { input: 80, interact: 12, lobby: 10 };   // maksimum event per detik per socket
+const LIMITS = { input: 80, interact: 12, lobby: 10, pos: 20, chat: 5 };   // maksimum event per detik per socket
 const QUEUE_MAX = 8;
+const LOBBY = { min: 0.6, maxX: 7.4, maxY: 6.4 };   // batas lantai lobi (sama dengan batas jangkau core); posisi lobi hanya kosmetik
+const lobbySpawn = slot => ({ x: 3.4 + Math.max(0, SLOTS.indexOf(slot)) * 0.8, y: 6.15 });
+const cleanChat = v => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) : '');
+const coord = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : null);
 
 const cleanName = v => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f<>&"']/g, '').trim().slice(0, 16) : '') || 'Baker';
 const cleanCode = v => (typeof v === 'string' ? v.trim().toUpperCase().slice(0, 4) : '');
@@ -73,7 +78,7 @@ function createGameServer(opts) {
     return {
       protocol: PROTOCOL, code: room.code, phase: room.phase, you: m.slot,
       countdown: room.phase === 'countdown' ? Math.ceil(room.countdownLeft) : null,
-      players: members(room).map(x => ({ id: x.slot, name: x.name, ready: x.ready, host: x.sid === room.hostId, connected: x.connected }))
+      players: members(room).map(x => ({ id: x.slot, name: x.name, ready: x.ready, host: x.sid === room.hostId, connected: x.connected, x: x.x, y: x.y }))
     };
   }
   function broadcastState(room) { for (const m of connected(room)) io.to(m.sid).emit('room:state', stateFor(room, m)); }
@@ -81,13 +86,13 @@ function createGameServer(opts) {
   // ---------- lobby ----------
   function joinRoom(sock, room, name) {
     const slot = SLOTS.find(s => !members(room).some(m => m.slot === s));
-    room.members.set(sock.id, { sid: sock.id, slot, name: cleanName(name), ready: false, connected: true });
+    room.members.set(sock.id, Object.assign({ sid: sock.id, slot, name: cleanName(name), ready: false, connected: true }, lobbySpawn(slot)));
     sock.join(room.code); sock.data.room = room.code;
     broadcastState(room);
   }
   function backToLobby(room) {
     room.phase = 'lobby'; room.game = null; room.inputs = {}; room.queues = {};
-    for (const m of room.members.values()) m.ready = false;
+    for (const m of room.members.values()) { m.ready = false; Object.assign(m, lobbySpawn(m.slot)); }
   }
   function leave(sock) {
     const room = roomOf(sock); sock.data.room = null;
@@ -116,8 +121,13 @@ function createGameServer(opts) {
     room.game = createGame({ seed, players: slots }); room.game.start();
     room.phase = 'running'; room.tick = 0; room.inputs = {}; room.queues = {};
     emitRoom(room, 'round:started', { protocol: PROTOCOL, seed, tickHz: TICK_HZ, players: slots, config: room.game.config });
-    emitRoom(room, 'world:snapshot', { tick: 0, snapshot: room.game.snapshot() });
+    emitRoom(room, 'world:snapshot', { tick: 0, snapshot: snap(room) });
     broadcastState(room);
+  }
+  function snap(room) {   // snapshot + stasiun target tiap pemain (untuk highlight dan ikon Aksi di client)
+    const s = room.game.snapshot(); s.targets = {};
+    for (const m of members(room)) s.targets[m.slot] = room.game.targetOf(m.slot);
+    return s;
   }
   function stepRoom(room, dt) {
     if (room.phase === 'countdown') {
@@ -137,7 +147,7 @@ function createGameServer(opts) {
     room.tick++;
     const ended = events.find(e => e.type === 'round:ended');
     if (events.length) emitRoom(room, 'game:events', { tick: room.tick, events });
-    if (ended || room.tick % SNAPSHOT_EVERY === 0) emitRoom(room, 'world:snapshot', { tick: room.tick, snapshot: room.game.snapshot() });
+    if (ended || room.tick % SNAPSHOT_EVERY === 0) emitRoom(room, 'world:snapshot', { tick: room.tick, snapshot: snap(room) });
     if (ended) { room.phase = 'ended'; emitRoom(room, 'round:ended', ended); broadcastState(room); }
   }
 
@@ -173,6 +183,18 @@ function createGameServer(opts) {
       backToLobby(room); broadcastState(room);
     }));
     sock.on('room:leave', guard('lobby', () => leave(sock)));
+    sock.on('lobby:pos', guard('pos', p => {   // posisi berjalan di lobi: kosmetik, diteruskan ke pemain lain
+      const room = roomOf(sock), m = memberOf(room, sock);
+      if (!m || (room.phase !== 'lobby' && room.phase !== 'countdown')) return;
+      const x = coord(p.x, LOBBY.min, LOBBY.maxX), y = coord(p.y, LOBBY.min, LOBBY.maxY);
+      if (x === null || y === null) return;
+      m.x = x; m.y = y; sock.to(room.code).emit('lobby:pos', { id: m.slot, x, y });
+    }));
+    sock.on('chat:send', guard('chat', p => {
+      const room = roomOf(sock), m = memberOf(room, sock), text = cleanChat(p.text);
+      if (!m || !text) return;
+      emitRoom(room, 'chat:message', { id: m.slot, name: m.name, text });
+    }));
     sock.on('player:input', guard('input', p => {
       const room = roomOf(sock), m = memberOf(room, sock);
       if (!m || room.phase !== 'running') return;

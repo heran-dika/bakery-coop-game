@@ -259,3 +259,72 @@ test('net:ping dijawab dengan ack (untuk RTT)', async () => {
   assert.equal(ok, true);
   await env.stop();
 });
+
+test('lobi berjalan: room:state memuat posisi; lobby:pos diteruskan ke pemain lain, dijepit, input rusak diabaikan', async () => {
+  const env = await boot();
+  const L = await lobbyOf(env, 2);
+  const [A, B] = L.cs;
+  const st = A.last('room:state');
+  assert.ok(st.players.every(p => Number.isFinite(p.x) && Number.isFinite(p.y)), 'posisi awal ada');
+  A.sock.emit('lobby:pos', { x: 4.25, y: 3.3 });
+  assert.ok(await until(() => B.last('lobby:pos')));
+  assert.deepEqual(B.last('lobby:pos'), { id: 'p1', x: 4.25, y: 3.3 });
+  assert.equal(A.all('lobby:pos').length, 0, 'tidak dikirim balik ke pengirim');
+  A.sock.emit('lobby:pos', { x: 999, y: -999 });
+  assert.ok(await until(() => B.last('lobby:pos').x === 7.4));
+  assert.equal(B.last('lobby:pos').y, 0.6);
+  const n = B.all('lobby:pos').length;
+  for (const bad of [{ x: 'a', y: 1 }, { x: NaN, y: 1 }, null, 5, [1, 2], { x: 1 }]) A.sock.emit('lobby:pos', bad);
+  await sleep(60);
+  assert.equal(B.all('lobby:pos').length, n, 'payload rusak tidak diteruskan');
+  assert.equal(L.room.members.get(A.sock.id).x, 7.4);
+  await env.stop();
+});
+
+test('chat: disiarkan ke seluruh room (termasuk pengirim), dibersihkan, dibatasi panjang dan laju, tidak bocor ke room lain', async () => {
+  const env = await boot();
+  const L = await lobbyOf(env, 2);
+  const other = await lobbyOf(env, 1, 'Orang lain');
+  const [A, B] = L.cs;
+  A.sock.emit('chat:send', { text: '  Halo <script>alert(1)</script>\n\tteman  ' });
+  assert.ok(await until(() => A.last('chat:message') && B.last('chat:message')));
+  const m = B.last('chat:message');
+  assert.equal(m.id, 'p1'); assert.equal(m.name, 'Rina');
+  assert.doesNotMatch(m.text, /[<>\n\t]/); assert.equal(m.text, 'Halo scriptalert(1)/script teman');
+  A.sock.emit('chat:send', { text: 'x'.repeat(500) });
+  assert.ok(await until(() => A.all('chat:message').length === 2));
+  assert.equal(A.last('chat:message').text.length, 80);
+  for (const bad of ['', '   ', 5, null, { text: 5 }, { text: '<>' }]) A.sock.emit('chat:send', bad);
+  await sleep(60);
+  assert.equal(A.all('chat:message').length, 2, 'kosong dan non-string ditolak');
+  for (let i = 0; i < 50; i++) B.sock.emit('chat:send', { text: 'spam ' + i });
+  await sleep(120);
+  assert.ok(B.all('chat:message').length <= 2 + 5 + 1, 'batas laju: ' + B.all('chat:message').length);
+  assert.equal(other.cs[0].all('chat:message').length, 0, 'room lain tidak menerima');
+  const lone = await env.client(); lone.sock.emit('chat:send', { text: 'halo' }); await sleep(50);
+  assert.equal(lone.all('chat:message').length, 0, 'di luar room diabaikan');
+  await env.stop();
+});
+
+test('snapshot memuat targets per pemain dari targetOf', async () => {
+  const env = await boot();
+  const L = await startRound(env, 2);
+  place(L.room, 'p1', 'oven'); place(L.room, 'p2', 'dough');
+  env.srv.advance(L.code, 0.2); await sleep(60);
+  const sn = L.cs[0].last('world:snapshot').snapshot;
+  assert.equal(sn.targets.p1, 'oven'); assert.equal(sn.targets.p2, 'dough');
+  assert.deepEqual(sn.targets, L.cs[1].last('world:snapshot').snapshot.targets);
+  await env.stop();
+});
+
+test('rematch mengembalikan posisi lobi ke titik awal', async () => {
+  const env = await boot();
+  const L = await startRound(env, 1);
+  env.srv.advance(L.code, 241);
+  assert.ok(await until(() => L.cs[0].last('round:ended')));
+  L.cs[0].sock.emit('room:rematch');
+  assert.ok(await until(() => L.room.phase === 'lobby'));
+  const m = L.room.members.get(L.cs[0].sock.id);
+  assert.deepEqual([m.x, m.y], [3.4, 6.15]);
+  await env.stop();
+});

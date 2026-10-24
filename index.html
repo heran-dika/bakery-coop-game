@@ -236,21 +236,34 @@
     .inventory-bar > div:first-child { font-size:10px; padding:5px 8px; }
     .toast { max-width:200px; font-size:11px; padding:6px 10px; }
   }
-  /* Mode online (S2b fase 1) */
+  /* Mode online (S2b): menu masuk, lobi berjalan, indikator ping */
   [hidden] { display:none !important; }
   .ol-row { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
   .ol-row input { flex:1; min-width:0; font:inherit; padding:10px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); }
-  .ol-slot { display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:10px; padding:7px 9px; font-size:13px; margin-top:5px; background:#fff; }
-  .ol-slot.empty { border-style:dashed; opacity:.65; }
-  .ol-slot b { flex:1; font-weight:800; }
-  .ol-dot { width:13px; height:13px; border-radius:50%; border:2px solid var(--ink); flex:none; }
-  .ol-code { font-size:24px; font-weight:900; letter-spacing:.14em; }
-  #olCd { font-size:34px; font-weight:900; text-align:center; }
   #olMsg { font-size:12px; min-height:16px; color:var(--muted); margin-top:6px; }
   #olMsg.bad { color:var(--red); }
-  #netStat { position:absolute; top:6px; left:50%; transform:translateX(-50%); z-index:3; pointer-events:none; font-size:10px; font-weight:800; padding:2px 8px; border-radius:999px; background:#ffffffd0; border:1px solid var(--line); color:var(--muted); font-variant-numeric:tabular-nums; }
-  #netStat.bad { color:var(--red); border-color:var(--red); }
+  #netStat { position:absolute; top:3px; left:5px; z-index:3; pointer-events:none; font-size:9px; line-height:1.3; font-weight:800; padding:0 6px; border-radius:999px; background:#ffffffc0; border:1px solid var(--line); color:var(--muted); font-variant-numeric:tabular-nums; }
+  #netStat.warn { color:#8a6212; background:#fff3c8; border-color:#e2ad44; }
+  #netStat.bad { color:var(--red); background:var(--red-t); border-color:var(--red); }
+  body.online .hud { }
+  @media (orientation:landscape) and (max-height:520px) { body.online .hud { top:calc(max(8px,env(safe-area-inset-top)) + 16px); } }
+  body.in-lobby .hud, body.in-lobby .inventory-bar { visibility:hidden; }
+  body.in-lobby .action-zone, body.in-lobby .station-prompt { display:none; }
+  #lobbyUi { position:absolute; inset:0; z-index:4; pointer-events:none; }
+  #lobbyUi > * { pointer-events:auto; }
+  .lb-bar { position:absolute; top:6px; left:50%; transform:translateX(-50%); display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:center; max-width:96%; background:#ffffffee; border:1px solid var(--line); border-radius:999px; padding:4px 8px; font-size:12px; font-weight:800; color:var(--ink); box-shadow:0 3px 10px #182c4720; }
+  .lb-btn { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:999px; padding:3px 10px; font:inherit; font-weight:800; min-height:30px; }
+  .lb-hint { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); pointer-events:none !important; font-size:11px; font-weight:800; color:var(--green); background:#ffffffd8; border:1px solid var(--line); border-radius:999px; padding:3px 10px; white-space:nowrap; }
+  #lbCd { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:72px; font-weight:900; color:#fff; text-shadow:0 3px 14px #182c47bb; pointer-events:none !important; }
+  #chatBox { position:absolute; top:46px; left:50%; transform:translateX(-50%); width:min(420px,94%); display:flex; flex-direction:column; gap:6px; background:#ffffffee; border:1px solid var(--line); border-radius:14px; padding:8px; box-shadow:0 6px 18px #182c4726; }
+  #chatLog { max-height:84px; overflow-y:auto; font-size:12px; display:flex; flex-direction:column; gap:3px; }
+  #chatLog div { border-left:3px solid var(--line); padding-left:5px; word-break:break-word; }
+  .chat-q { display:flex; flex-wrap:wrap; gap:5px; }
+  .chat-q button { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:999px; padding:3px 9px; font:inherit; font-size:11px; font-weight:800; }
+  .chat-row { display:flex; gap:6px; }
+  #chatIn { flex:1; min-width:0; font:inherit; font-size:16px; padding:6px 9px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); -webkit-user-select:text; user-select:text; }
 </style>
+</head></style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="hud-hand" viewBox="0 0 24 24"><path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V11M11 10.5V5a1.5 1.5 0 0 1 3 0v5.5M14 10.5V7a1.5 1.5 0 0 1 3 0v6.5c0 4-2.5 7-6 7-2.6 0-4-1.5-5.5-4L3.5 13.5a1.5 1.5 0 0 1 2.5-1.6L8 14"/></symbol><symbol id="hud-ambil" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 19h14"/></symbol><symbol id="hud-taruh" viewBox="0 0 24 24"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></symbol><symbol id="hud-uleni" viewBox="0 0 24 24"><rect x="5" y="9" width="14" height="6" rx="3"/><path d="M2 12h3M19 12h3"/></symbol><symbol id="hud-tambah" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol><symbol id="hud-oven" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2"/><rect x="7" y="10" width="10" height="7" rx="1"/><path d="M7 7h.01M10 7h.01"/></symbol><symbol id="hud-bell" viewBox="0 0 24 24"><path d="M4 18h16M6.5 18a5.5 5.5 0 0 1 11 0M12 9V7M10.5 7h3"/></symbol><symbol id="hud-trash" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 12h8l1-12M10 11v5M14 11v5"/></symbol></defs></svg>
@@ -326,18 +339,22 @@
       </div>
     </div>
     <div id="netStat" hidden></div>
+    <div id="lobbyUi" hidden>
+      <div class="lb-bar"><span>ROOM <b id="lbCode">----</b></span><button class="lb-btn" id="lbCopy" type="button">Salin</button><span id="lbReady">Siap 0/0</span><button class="lb-btn" id="chatBtn" type="button" aria-label="Chat">💬 Chat</button><button class="lb-btn" id="lbLeave" type="button">Keluar</button></div>
+      <div id="chatBox" hidden>
+        <div id="chatLog" aria-live="polite"></div>
+        <div class="chat-q"><button type="button" data-q="Halo!">Halo!</button><button type="button" data-q="Siap!">Siap!</button><button type="button" data-q="Tunggu ya…">Tunggu ya…</button><button type="button" data-q="Ayo mulai!">Ayo mulai!</button></div>
+        <div class="chat-row"><input id="chatIn" maxlength="80" placeholder="Ketik pesan…" autocomplete="off" enterkeyhint="send"><button class="lb-btn" id="chatSend" type="button">Kirim</button></div>
+      </div>
+      <div class="lb-hint">Jalan ke AREA SIAP untuk bersiap</div>
+      <div id="lbCd"></div>
+    </div>
     <div class="overlay hidden" id="onlineScreen">
       <div class="modal" style="text-align:left">
         <h2 style="text-align:center">Main online</h2>
         <div id="olMenu">
           <div class="ol-row"><input id="olName" maxlength="16" placeholder="Nama (opsional)" autocomplete="off"></div>
           <div class="ol-row"><button class="btn primary" id="olCreate" type="button" disabled>Buat room</button><input id="olCode" maxlength="4" placeholder="KODE (kosong = masuk otomatis)" autocapitalize="characters" autocomplete="off"><button class="btn" id="olJoin" type="button" disabled>Gabung</button></div>
-        </div>
-        <div id="olRoom" hidden>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><span class="panel-label">Kode room</span><div class="ol-code" id="olRcode">----</div></div><button class="btn" id="olCopy" type="button">Salin</button></div>
-          <div id="olSlots"></div>
-          <div class="ol-row"><button class="btn primary" id="olReady" type="button" style="flex:1">Siap</button><button class="btn" id="olLeave" type="button">Keluar</button></div>
-          <div id="olCd"></div>
         </div>
         <div id="olMsg" role="status"></div>
       </div>
@@ -791,7 +808,8 @@
   // Bagian ini hanya input, render, HUD, toast, dan efek. Paksa seed lewat ?seed=123 untuk mengulang ronde yang sama.
   const urlSeed = (() => { try { const v = new URLSearchParams(location.search).get('seed'); const n = v === null || v === '' ? NaN : Number(v); return Number.isFinite(n) ? n >>> 0 : null; } catch (e) { return null; } })();
   const _qs = new URLSearchParams(location.search), ONLINE = _qs.get('online') === '1', NET_SERVER = _qs.get('server') || '';
-  const NET = { sock:null, room:null, snap:null, view:new Map(), sx:0, sy:0, sentAt:0, snapTimes:[], ping:null, startAt:0, wasConnected:false };
+  const NET = { sock:null, room:null, snap:null, events:[], appliedTick:-1, view:new Map(), sx:0, sy:0, sentAt:0, px:0, py:0, posAt:0, padIn:false, ping:null, wasConnected:false };
+  if (ONLINE) document.body.classList.add('online');
   if (ONLINE && _qs.get('debug') === '1') window.__NET = NET;   // inspeksi dari konsol / tes
   let seed = urlSeed !== null ? urlSeed : (Math.random() * 4294967296) >>> 0;
   const game = BakeryCore.createGame({ seed });
@@ -1012,14 +1030,7 @@
     }
     return null;
   }
-  function update(dt) {
-    if (mode !== 'running') return;
-    const { sx, sy } = getScreenInput();
-    const events = game.step(dt, { p1:{ sx, sy } });
-    syncFromCore();
-    if (game.state.players[0].moving) player.walkCycle += dt*12;
-    const ended = handleEvents(events);
-    feedback = feedback.filter(f => elapsed - f.at < 1.1);
+  function trackGuide(dt) {
     const prep = stationById.prep, oven = stationById.oven;
     // Petunjuk: 10 detik tanpa kemajuan membuat pesanan -> stasiun langkah berikutnya berkedip sampai order disajikan.
     if (ordersServed !== lastServed) { lastServed = ordersServed; guideOn = false; idleFor = 0; }
@@ -1028,6 +1039,16 @@
     if (!orders.length) guideOn = false;
     else if (!guideOn && idleFor >= CONFIG.guideIdleSeconds) { guideOn = true; showToast('Bingung? Stasiun yang berkedip adalah langkah berikutnya.', 2600); }
     const g = guideOn ? nextGuide() : null; guideIds = g ? [].concat(g) : [];
+  }
+  function update(dt) {
+    if (mode !== 'running') return;
+    const { sx, sy } = getScreenInput();
+    const events = game.step(dt, { p1:{ sx, sy } });
+    syncFromCore();
+    if (game.state.players[0].moving) player.walkCycle += dt*12;
+    const ended = handleEvents(events);
+    feedback = feedback.filter(f => elapsed - f.at < 1.1);
+    trackGuide(dt);
     if (ended) { finishRound(ended.stars); return; }
     // Refresh HUD at a modest cadence instead of rebuilding DOM on every animation frame.
     uiRefreshElapsed += dt;
@@ -1045,7 +1066,7 @@
     return {sx,sy};
   }
   // Kolisi, gerak, dan pemilihan stasiun target dihitung di core (resolveStations, movePlayer, targetOf).
-  function getTargetStation() { if (ONLINE) return null; /* fase 2: dari snapshot.targets */ const id = game.targetOf('p1'); return id ? stationById[id] : null; }
+  function getTargetStation() { if (ONLINE) { const sn = NET.snap && NET.snap.snapshot, id = sn && sn.targets && NET.room && sn.targets[NET.room.you]; return id ? stationById[id] || null : null; } const id = game.targetOf('p1'); return id ? stationById[id] : null; }
   const VERB_ICON = { AMBIL:'ambil', TARUH:'taruh', ULENI:'uleni', TAMBAH:'tambah', PANGGANG:'oven', SAJIKAN:'bell', BUANG:'trash' };
   let actionIconName = 'ambil';
   const VERBS = [[/^Ambil/,'AMBIL'],[/^(Letakkan|Taruh)/,'TARUH'],[/^Mulai uleni/,'ULENI'],[/^Tambahkan/,'TAMBAH'],[/^Masukkan/,'PANGGANG'],[/^Sajikan/,'SAJIKAN'],[/^Buang/,'BUANG']];
@@ -1100,7 +1121,7 @@
   }
   function interact() {
     if (mode !== 'running' || paused()) return;
-    if (ONLINE) return;   // fase 2: station:interact
+    if (ONLINE) { if (NET.sock && NET.room) NET.sock.emit('station:interact', { requestId:NET.room.you + '-' + (++reqSerial) }); return; }   // server yang menjalankan aksinya
     const events = game.step(0, { p1:{ interact: ++reqSerial } });
     syncFromCore();
     const ended = handleEvents(events);
@@ -1108,7 +1129,9 @@
     renderUI();
   }
   function renderUI() {
-    document.body.classList.toggle('playing', mode === 'running');
+    document.body.classList.toggle('playing', mode === 'running' || mode === 'lobby');
+    document.body.classList.toggle('in-lobby', mode === 'lobby');
+    if (ONLINE) byId('lobbyUi').hidden = mode !== 'lobby';
     els.timerText.textContent = formatTime(roundLeft);
     els.timerText.classList.toggle('warning',roundLeft <= 30);
     paintScore();
@@ -1459,7 +1482,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   }
   function drawNameTag(pl) {
     const p = project(pl.x, pl.y), sc = mapScale, fs = Math.max(9, 11*sc);
-    const label = pl.name + (pl.connected === false ? ' (putus)' : '');
+    const label = pl.name + (pl.ready ? ' ✓' : '') + (pl.connected === false ? ' (putus)' : '');
     ctx.font = `800 ${fs}px ui-sans-serif,system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const w = ctx.measureText(label).width + 10*sc, h = fs*1.5, cy = p.y + 2*sc - 59*sc*CHAR_SCALE - 10*sc - (pl.held ? 26*sc*ITEM_SCALE : 0);
     ctx.globalAlpha = pl.connected === false ? .6 : 1;
@@ -1484,28 +1507,29 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function roundRect(c,x,y,w,h,r) { c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath(); }
   function drawBackground() {}   // langit dan dinding digambar di cache shell (drawFloor)
   function render() {
-    ctx.clearRect(0,0,canvasW,canvasH);drawBackground();drawFloor();drawHazards();
+    ctx.clearRect(0,0,canvasW,canvasH);drawBackground();drawFloor();if(mode==='lobby')drawPad();drawHazards();
     const target=mode==='running'?getTargetStation():null;
     // A small direction hint between the player and the active target.
     if(target){const p=project(player.x,player.y),q=project(target.x,target.y);ctx.strokeStyle='#2e806755';ctx.lineWidth=1.5*mapScale;ctx.setLineDash([3*mapScale,4*mapScale]);ctx.beginPath();ctx.moveTo(p.x,p.y-5*mapScale);ctx.lineTo(q.x,q.y-20*mapScale);ctx.stroke();ctx.setLineDash([]);}
     const views=playerViews();
     const actors=[...stations.map(s=>({depth:s.x+s.y,kind:'station',s})),...views.map(v=>({depth:v.x+v.y,kind:'player',v}))].sort((a,b)=>a.depth-b.depth);
     for(const a of actors){if(a.kind==='station'){drawStation(a.s,a.s===target);if(guideIds.includes(a.s.id))drawGuide(a.s);}else drawPlayer(a.v);}
-    for(const v of views) if(v.name) drawNameTag(v);
+    for(const v of views) if(v.name) { drawNameTag(v); drawBubble(v); }
     drawFeedback();
     // On-screen fallback hint for desktop.
     if(mode==='running' && canvasW>760 && !compact && !matchMedia('(pointer:coarse)').matches){ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle='#c9d6ea';ctx.font=`700 ${Math.max(10,11*mapScale)}px ui-sans-serif,system-ui,sans-serif`;ctx.fillText('WASD / ↑↓←→ bergerak  •  SPACE interaksi',canvasW-14,canvasH-26);}
   }
   function frame(now) {
     const dt=Math.min(.05,(now-lastFrame)/1000);lastFrame=now;
-    if(ONLINE){ if(mode==='running') updateOnline(dt); } else if(mode==='running' && !paused()) update(dt);
+    if(ONLINE){ if(mode==='running') updateOnline(dt); else if(mode==='lobby') updateLobby(dt); } else if(mode==='running' && !paused()) update(dt);
     requestAnimationFrame(frame);render();
   }
   function isTypingTarget(target) { return target && (target.tagName==='INPUT' || target.tagName==='TEXTAREA' || target.isContentEditable); }
   window.addEventListener('keydown', ev => {
     if(isTypingTarget(ev.target)) return;
     const key=ev.key.toLowerCase();
-    if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key) && !(ONLINE && mode!=='running')) ev.preventDefault();
+    if(ONLINE && mode==='lobby' && key==='enter'){ ev.preventDefault(); openChat(true); return; }
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key) && !(ONLINE && mode!=='running' && mode!=='lobby')) ev.preventDefault();
     if(key==='escape') { if(!els.helpScreen.classList.contains('hidden')) els.helpScreen.classList.add('hidden'); return; }
     if(key==='h' && mode==='running') { els.helpScreen.classList.remove('hidden'); return; }
     if(key===' ' || key==='enter') { if(!ev.repeat && mode==='running') interact(); return; }
@@ -1540,45 +1564,112 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   const ro = new ResizeObserver(() => resizeCanvas()); ro.observe(canvas);
   window.addEventListener('orientationchange',() => { keys.clear(); resetJoystick(); sendZero(); setTimeout(resizeCanvas,120); });
 
-  // ===== Mode online (S2b fase 1): lobi, socket, snapshot -> tampilan. Aktif hanya dengan ?online=1 =====
+  // ===== Mode online (S2b): lobi berjalan + chat (fase 1b), ronde dari snapshot server (fase 2). Aktif hanya dengan ?online=1 =====
   const byId = id => document.getElementById(id);
   const SLOT_COLORS = { p1:'#c34f5a', p2:'#2e8067', p3:'#e2ad44', p4:'#7c5caa' };
   const NET_ERR = { room_not_found:'Room tidak ditemukan (atau belum ada room terbuka).', room_full:'Room penuh (maks 4).', room_started:'Ronde sudah dimulai; tunggu ronde berikutnya.', already_in_room:'Kamu sudah ada di room.', server_full:'Server penuh.' };
+  const PAD = { x:4.2, y:3.3, h:.75 };   // AREA SIAP di lobi [Menebak: posisi disetel di HP]
+  // Lobi = dapur yang sama, jalan dengan kolisi core yang sama (core lokal tanpa order/hazard, hanya untuk gerak).
+  const lobbyCore = ONLINE ? BakeryCore.createGame({ config:{ roundSeconds:1e9, maxOrders:0, openingOrders:[], hazard:{ enabled:false } }, players:['me'] }) : null;
   function olMsg(text, bad) { const m = byId('olMsg'); m.textContent = text || ''; m.classList.toggle('bad', !!bad); }
-  function olView(v) { byId('olMenu').hidden = v !== 'menu'; byId('olRoom').hidden = v !== 'room'; }
-  function olShow() { els.onlineScreen.classList.remove('hidden'); }
+  function olShow(on) { els.onlineScreen.classList.toggle('hidden', !on); }
   function saveName() { try { localStorage.setItem('sbc_name', byId('olName').value); } catch (e) {} }
-  function myMember() { return NET.room && NET.room.players.find(p => p.id === NET.room.you); }
-  function renderSlots() {
-    const room = NET.room, el = byId('olSlots'); el.textContent = '';
-    for (let i = 0; i < 4; i++) {
-      const p = room.players[i], d = document.createElement('div'), dot = document.createElement('span'), nm = document.createElement('b'); d.className = 'ol-slot' + (p ? '' : ' empty'); dot.className = 'ol-dot'; d.append(dot, nm);
-      if (p) {
-        dot.style.background = SLOT_COLORS[p.id]; nm.textContent = p.name + (p.host ? ' (host)' : '') + (p.id === room.you ? ' ← kamu' : '');
-        const st = document.createElement('span'); st.textContent = !p.connected ? 'terputus' : p.ready ? '✓ Siap' : '… belum siap'; d.append(st);
-      } else nm.textContent = 'Menunggu pemain…';
-      el.appendChild(d);
-    }
-    byId('olRcode').textContent = room.code;
-    const me = myMember(); byId('olReady').textContent = me && me.ready ? 'Batal siap' : 'Siap'; byId('olReady').disabled = room.phase === 'countdown';
-    if (room.phase === 'lobby') { byId('olCd').textContent = ''; olMsg('Tunggu semua pemain masuk, lalu tekan Siap.'); }
-    else olMsg('Semua siap. Ronde dimulai…');
+  const meId = () => NET.room && NET.room.you;
+  const roomPlayer = id => NET.room && NET.room.players.find(q => q.id === id);
+  const myMember = () => roomPlayer(meId());
+  function viewFor(id, x, y) {
+    let d = NET.view.get(id);
+    if (!d) { d = { slot:id, x, y, tx:x, ty:y, walkCycle:0, moving:false, facingX:1, facingY:0, held:null, ready:false }; NET.view.set(id, d); }
+    return d;
+  }
+  function refreshMeta(d) {
+    const m = roomPlayer(d.slot);
+    d.name = m ? m.name : d.slot; d.connected = m ? m.connected : true; d.ready = mode === 'lobby' && !!(m && m.ready); d.you = d.slot === meId();
   }
   function refreshPlayAgain() {
     const me = myMember(), host = !!(me && me.host);
     els.playAgainBtn.disabled = !host; els.playAgainBtn.textContent = host ? 'Rematch' : 'Menunggu host…';
   }
+
+  // ---- lobi berjalan ----
+  function renderLobbyBar() {
+    const r = NET.room; if (!r) return;
+    const c = r.players.filter(p => p.connected);
+    byId('lbCode').textContent = r.code; byId('lbReady').textContent = `Siap ${c.filter(p => p.ready).length}/${c.length}`;
+    if (r.phase === 'lobby') byId('lbCd').textContent = '';
+  }
+  function enterLobby() {
+    resetGame(true); NET.view.clear(); NET.snap = null; NET.events = []; NET.sx = NET.sy = 0;
+    const me = myMember(), lp = lobbyCore.start().state.players[0];
+    if (me) { lp.x = me.x; lp.y = me.y; }
+    NET.px = lp.x; NET.py = lp.y; NET.posAt = 0; NET.padIn = false;
+    mode = 'lobby'; olShow(false); renderUI();
+  }
   function onRoomState() {
     const st = NET.room; if (!st) return;
     if (st.phase === 'lobby' || st.phase === 'countdown') {
-      if (mode !== 'menu') { NET.view.clear(); NET.snap = null; resetGame(true); }   // kembali dari hasil (rematch)
-      olShow(); olView('room'); renderSlots();
+      if (mode !== 'lobby') enterLobby();
+      for (const id of [...NET.view.keys()]) if (!st.players.some(p => p.id === id)) NET.view.delete(id);
+      for (const p of st.players) { const d = viewFor(p.id, p.x, p.y); if (p.id !== st.you) { d.tx = p.x; d.ty = p.y; } refreshMeta(d); }
+      const mm = myMember(); if (mm && st.phase === 'lobby') NET.padIn = !!mm.ready;   // server bisa mereset Siap (mis. countdown batal)
+      renderLobbyBar();
     } else if (st.phase === 'ended') refreshPlayAgain();
   }
+  function updateLobby(dt) {
+    const room = NET.room; if (!room) return;
+    elapsed += dt;
+    const typing = document.activeElement === byId('chatIn');
+    lobbyCore.step(dt, { me: typing ? { sx:0, sy:0 } : getScreenInput() });
+    const lp = lobbyCore.state.players[0], d = NET.view.get(room.you);
+    if (d) {
+      d.x = lp.x; d.y = lp.y; d.moving = lp.moving; d.facingX = lp.facingX; d.facingY = lp.facingY; if (lp.moving) d.walkCycle += dt * 12;
+      const now = performance.now();
+      if ((lp.x !== NET.px || lp.y !== NET.py) && now - NET.posAt >= 100) {   // maks 10/detik; posisi terakhir selalu terkirim
+        NET.sock.emit('lobby:pos', { x:+lp.x.toFixed(3), y:+lp.y.toFixed(3) }); NET.px = lp.x; NET.py = lp.y; NET.posAt = now;
+      }
+      const inside = room.phase === 'lobby' && Math.abs(lp.x - PAD.x) < PAD.h && Math.abs(lp.y - PAD.y) < PAD.h;
+      if (inside !== NET.padIn) { NET.padIn = inside; NET.sock.emit('lobby:ready', { ready:inside }); }
+    }
+    const k = 1 - Math.exp(-dt * 12);
+    for (const o of NET.view.values()) {
+      if (o.slot === room.you) continue;
+      const dx = o.tx - o.x, dy = o.ty - o.y;
+      if (Math.hypot(dx, dy) > .02) { o.x += dx * k; o.y += dy * k; o.moving = true; const sdx = dx - dy; if (Math.abs(sdx) > .01) o.facingX = sdx; o.walkCycle += dt * 12; } else o.moving = false;
+      refreshMeta(o);
+    }
+    refreshMeta(d || {});
+  }
+  function drawPad() {
+    const c = [[PAD.x - PAD.h, PAD.y - PAD.h], [PAD.x + PAD.h, PAD.y - PAD.h], [PAD.x + PAD.h, PAD.y + PAD.h], [PAD.x - PAD.h, PAD.y + PAD.h]].map(([x, y]) => { const p = project(x, y); return [p.x, p.y]; });
+    const pulse = .5 + .5 * Math.sin(elapsed * 5), sc = mapScale, q = project(PAD.x, PAD.y);
+    poly(c, `rgba(46,128,103,${.18 + .16 * pulse})`, '#2e8067', 2 * sc);
+    ctx.fillStyle = '#2e8067'; ctx.font = `900 ${Math.max(8, 11 * sc)}px ui-sans-serif,system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('AREA SIAP', q.x, q.y);
+  }
+  function drawBubble(pl) {
+    if (!pl.bubble || performance.now() > pl.bubble.until) return;
+    const p = project(pl.x, pl.y), sc = mapScale, fs = Math.max(9, 11 * sc), t = pl.bubble.t.length > 28 ? pl.bubble.t.slice(0, 27) + '…' : pl.bubble.t;
+    ctx.font = `700 ${fs}px ui-sans-serif,system-ui,sans-serif`;
+    const w = ctx.measureText(t).width + 14 * sc, h = fs * 1.7, cy = p.y + 2 * sc - 59 * sc * CHAR_SCALE - 10 * sc - fs * 1.5 - h / 2 - 3 * sc - (pl.held ? 26 * sc * ITEM_SCALE : 0);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fffaf2'; roundRect(ctx, p.x - w / 2, cy - h / 2, w, h, 6 * sc); ctx.fill();
+    ctx.strokeStyle = '#243b5a'; ctx.lineWidth = 1.5 * sc; ctx.stroke(); ctx.fillStyle = '#243b5a'; ctx.fillText(t, p.x, cy + .5 * sc);
+  }
+
+  // ---- chat ----
+  function openChat(focus) { byId('chatBox').hidden = false; if (focus) byId('chatIn').focus(); }
+  function closeChat() { byId('chatBox').hidden = true; byId('chatIn').blur(); }
+  function sendChat(text) { text = String(text || '').trim().slice(0, 80); if (text && NET.sock) NET.sock.emit('chat:send', { text }); }
+  function addChat(m) {
+    const log = byId('chatLog'), row = document.createElement('div'), b = document.createElement('b');
+    row.style.borderLeftColor = SLOT_COLORS[m.id] || 'var(--line)'; b.textContent = m.name + ': '; row.append(b, document.createTextNode(m.text));
+    log.appendChild(row); log.scrollTop = log.scrollHeight; while (log.children.length > 40) log.removeChild(log.firstChild);
+    const d = NET.view.get(m.id); if (d) d.bubble = { t:m.text, until:performance.now() + 4500 };
+  }
+
+  // ---- ronde (fase 2) ----
   function leaveRoom() {
     if (NET.sock) NET.sock.emit('room:leave');
-    NET.room = null; NET.view.clear(); NET.snap = null; NET.sx = NET.sy = 0;
-    resetGame(true); olShow(); olView('menu'); olMsg('Kamu keluar dari room.');
+    NET.room = null; NET.view.clear(); NET.snap = null; NET.events = []; NET.sx = NET.sy = 0;
+    resetGame(true); closeChat(); olShow(true); olMsg('Kamu keluar dari room.');
   }
   function sendZero() {
     if (!ONLINE || !NET.sock || !NET.sock.connected || (!NET.sx && !NET.sy)) return;
@@ -1592,33 +1683,50 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     if ((sx || sy) && now - NET.sentAt < 33) return;
     NET.sock.emit('player:input', { sx, sy }); NET.sx = sx; NET.sy = sy; NET.sentAt = now;
   }
+  // Snapshot -> variabel yang dibaca render dan HUD (menggantikan bindState/syncFromCore di solo).
+  function applySnapshot(sn) {
+    stations = sn.stations; stationById = Object.fromEntries(stations.map(st => [st.id, st]));
+    for (const st of stations) Object.assign(st, STATION_VIEW[st.id]);
+    orders = sn.orders; hazards = sn.hazards;
+    score = sn.score; ordersServed = sn.ordersServed; ordersExpired = sn.ordersExpired; burntCount = sn.burntCount; roundLeft = sn.roundLeft;
+    const mine = sn.players.find(p => p.id === meId()); heldItem = mine ? mine.held : null;
+  }
+  // Event ditahan sampai snapshot yang memuatnya diterapkan, supaya orders di client sudah berubah saat efek/toast dipicu.
+  function processEvents(batches) {
+    const mine = meId(), evs = batches.flatMap(b => b.events).filter(e => e.type !== 'msg' || e.player === mine);
+    handleEvents(evs);
+  }
   function updateOnline(dt) {
-    const sn = NET.snap && NET.snap.snapshot;
     elapsed += dt;
+    const m = NET.snap, sn = m && m.snapshot, room = NET.room;
+    if (sn && m.tick !== NET.appliedTick) {
+      NET.appliedTick = m.tick; applySnapshot(sn);
+      const due = NET.events.filter(b => b.tick <= m.tick); NET.events = NET.events.filter(b => b.tick > m.tick);
+      processEvents(due);
+    }
     if (sn) {
       elapsed += (sn.elapsed - elapsed) * Math.min(1, dt * 2);   // koreksi pelan ke jam server
-      const k = 1 - Math.exp(-dt * 14), room = NET.room;
+      const k = 1 - Math.exp(-dt * 14);
       for (const sp of sn.players) {
-        let d = NET.view.get(sp.id);
-        if (!d) { d = { slot:sp.id, x:sp.x, y:sp.y, walkCycle:0 }; NET.view.set(sp.id, d); }
+        const d = viewFor(sp.id, sp.x, sp.y);
         if (Math.hypot(sp.x - d.x, sp.y - d.y) > 1.5) { d.x = sp.x; d.y = sp.y; } else { d.x += (sp.x - d.x) * k; d.y += (sp.y - d.y) * k; }
         d.facingX = sp.facingX; d.facingY = sp.facingY; d.held = sp.held;
         d.moving = !!sp.moving || Math.hypot(sp.x - d.x, sp.y - d.y) > .03;
         if (d.moving) d.walkCycle += dt * 12;
-        const m = room && room.players.find(q => q.id === sp.id);
-        d.name = m ? m.name : sp.id; d.connected = m ? m.connected : true; d.you = !!room && sp.id === room.you;
+        refreshMeta(d);
       }
-      roundLeft = sn.roundLeft; score = sn.score;
-      const me = NET.view.get(room && room.you); heldItem = me ? me.held : null;
+      const me = NET.view.get(room && room.you); if (me) { player.x = me.x; player.y = me.y; player.facingX = me.facingX; player.facingY = me.facingY; }
     }
+    feedback = feedback.filter(f => elapsed - f.at < 1.1);
+    trackGuide(dt);
     sendInput();
     uiRefreshElapsed += dt;
     if (uiRefreshElapsed >= 0.15) { uiRefreshElapsed = 0; renderUI(); }
   }
-  function renderNetStat() {
-    const n = els.netStat, rate = NET.snapTimes.length, running = mode === 'running', settled = running && performance.now() - NET.startAt > 2500;
-    n.textContent = `${NET.ping == null ? '… ms' : NET.ping + ' ms'} · ${running ? rate : '–'}/dtk`;
-    n.classList.toggle('bad', (NET.ping != null && NET.ping > 150) || (settled && rate < 12));
+  function renderNetStat() {   // hanya RTT: <=70 ms normal, 71-100 kuning, >100 atau timeout merah
+    const n = els.netStat, p = NET.ping;
+    n.textContent = p === null ? '… ms' : p === Infinity ? 'timeout' : p + ' ms';
+    n.classList.toggle('warn', p !== null && p > 70 && p <= 100); n.classList.toggle('bad', p === Infinity || (p !== null && p > 100));
   }
   function connectNet() {
     const sock = NET.sock = NET_SERVER ? io(NET_SERVER) : io();
@@ -1627,22 +1735,27 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
       NET.wasConnected = true; byId('olCreate').disabled = byId('olJoin').disabled = false; els.netStat.hidden = false;
     });
     sock.on('disconnect', () => {
-      NET.room = null; NET.snap = null; NET.view.clear(); NET.sx = NET.sy = 0; NET.ping = null;
+      NET.room = null; NET.snap = null; NET.events = []; NET.view.clear(); NET.sx = NET.sy = 0; NET.ping = null;
       byId('olCreate').disabled = byId('olJoin').disabled = true;
-      resetGame(true); olShow(); olView('menu'); olMsg('Koneksi terputus. Menyambung ulang…', true);
+      resetGame(true); olShow(true); olMsg('Koneksi terputus. Menyambung ulang…', true);
     });
     sock.on('connect_error', () => olMsg('Gagal terhubung ke server.', true));
     sock.on('error:msg', e => olMsg(NET_ERR[e.code] || ('Error: ' + e.code), true));
     sock.on('room:state', st => { NET.room = st; onRoomState(); });
-    sock.on('round:countdown', c => { byId('olCd').textContent = c.seconds; });
-    sock.on('round:started', () => {
-      resetGame(true); NET.view.clear(); NET.snap = null; NET.sx = NET.sy = 0; NET.sentAt = 0; NET.snapTimes.length = 0; NET.startAt = performance.now();
+    sock.on('lobby:pos', p => { const d = NET.view.get(p.id); if (d && p.id !== meId()) { d.tx = p.x; d.ty = p.y; } });
+    sock.on('chat:message', addChat);
+    sock.on('round:countdown', c => { byId('lbCd').textContent = c.seconds; });
+    sock.on('round:started', r => {
+      resetGame(true); closeChat(); Object.assign(CONFIG, r.config);   // aturan dari server, bukan salinan di HTML
+      NET.view.clear(); NET.snap = null; NET.events = []; NET.appliedTick = -1; NET.sx = NET.sy = 0; NET.sentAt = 0;
       mode = 'running'; roundLeft = CONFIG.roundSeconds; score = 0;
-      els.onlineScreen.classList.add('hidden'); els.resultsScreen.classList.add('hidden');
+      olShow(false); els.resultsScreen.classList.add('hidden');
       showToast('Ronde dimulai!', 1500); renderUI();
     });
-    sock.on('world:snapshot', m => { NET.snap = m; NET.snapTimes.push(performance.now()); });
+    sock.on('world:snapshot', m => { NET.snap = m; });
+    sock.on('game:events', m => { NET.events.push(m); if (NET.events.length > 200) NET.events.shift(); });
     sock.on('round:ended', e => {
+      if (NET.snap) { applySnapshot(NET.snap.snapshot); processEvents(NET.events); NET.events = []; }
       score = e.score; ordersServed = e.ordersServed; ordersExpired = e.ordersExpired; burntCount = e.burntCount;
       finishRound(e.stars); refreshPlayAgain();
     });
@@ -1650,17 +1763,22 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function initOnline() {
     els.startScreen.classList.add('hidden'); els.restartBtn.textContent = 'Keluar room';
     try { byId('olName').value = localStorage.getItem('sbc_name') || ''; } catch (e) {}
-    olShow(); olView('menu'); olMsg('Menghubungkan…');
+    olShow(true); olMsg('Menghubungkan…');
     byId('olCreate').onclick = () => { saveName(); NET.sock.emit('room:create', { name:byId('olName').value }); };
     byId('olJoin').onclick = () => { saveName(); NET.sock.emit('room:join', { code:byId('olCode').value, name:byId('olName').value }); };
-    byId('olReady').onclick = () => { const me = myMember(); NET.sock.emit('lobby:ready', { ready:!(me && me.ready) }); };
-    byId('olLeave').onclick = leaveRoom;
-    byId('olCopy').onclick = async () => { try { await navigator.clipboard.writeText(NET.room.code); olMsg('Kode disalin.'); } catch (e) { olMsg('Salin manual: ' + NET.room.code); } };
-    setInterval(() => { const n = performance.now(); NET.snapTimes = NET.snapTimes.filter(x => n - x < 1000); renderNetStat(); }, 500);
-    setInterval(() => {   // RTT: bolak-balik pesan kecil (beda dari jarak antar-snapshot)
+    byId('lbLeave').onclick = leaveRoom;
+    byId('lbCopy').onclick = async () => { try { await navigator.clipboard.writeText(NET.room.code); showToast('Kode room disalin.', 1200); } catch (e) { showToast('Kode room: ' + NET.room.code, 2500); } };
+    byId('chatBtn').onclick = () => { if (byId('chatBox').hidden) openChat(!matchMedia('(pointer:coarse)').matches); else closeChat(); };
+    byId('chatSend').onclick = () => { const i = byId('chatIn'); sendChat(i.value); i.value = ''; };
+    byId('chatIn').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); byId('chatSend').onclick(); } else if (ev.key === 'Escape') closeChat(); });
+    byId('chatIn').addEventListener('focus', () => { keys.clear(); resetJoystick(); });
+    document.querySelectorAll('#chatBox [data-q]').forEach(b => { b.onclick = () => sendChat(b.dataset.q); });
+    if (_qs.get('debug') === '1') NET.dbg = () => ({ stations, orders, hazards, heldItem, score, mode, lobbyCore });
+    setInterval(() => {   // RTT: bolak-balik pesan kecil
       if (!NET.sock || !NET.sock.connected) return; const t0 = performance.now();
-      NET.sock.timeout(2000).emit('net:ping', err => { NET.ping = err ? null : Math.round(performance.now() - t0); renderNetStat(); });
+      NET.sock.timeout(2000).emit('net:ping', err => { NET.ping = err ? Infinity : Math.round(performance.now() - t0); renderNetStat(); });
     }, 2000);
+    renderNetStat();
     const s = document.createElement('script'); s.src = NET_SERVER + '/socket.io/socket.io.js';
     s.onerror = () => olMsg('Server tidak terjangkau (socket.io.js gagal dimuat).', true);
     s.onload = connectNet; document.head.appendChild(s);

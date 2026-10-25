@@ -364,7 +364,7 @@
           <div class="chat-row"><input id="chatIn" maxlength="80" placeholder="Ketik pesan…" autocomplete="off" enterkeyhint="send"><button class="lb-btn" id="chatSend" type="button">Kirim</button></div>
         </div>
       </div>
-      <div class="lb-hint">Jalan ke AREA SIAP untuk bersiap</div>
+      <div class="lb-hint" id="lbHint">Jalan ke AREA SIAP untuk bersiap</div>
       <div id="lbCd"></div>
     </div>
     <div class="overlay hidden" id="onlineScreen">
@@ -929,7 +929,7 @@
   // Bagian ini hanya input, render, HUD, toast, dan efek. Paksa seed lewat ?seed=123 untuk mengulang ronde yang sama.
   const urlSeed = (() => { try { const v = new URLSearchParams(location.search).get('seed'); const n = v === null || v === '' ? NaN : Number(v); return Number.isFinite(n) ? n >>> 0 : null; } catch (e) { return null; } })();
   const _qs = new URLSearchParams(location.search), ONLINE = _qs.get('online') === '1', NET_SERVER = _qs.get('server') || '';
-  const NET = { sock:null, room:null, snap:null, events:[], appliedTick:-1, view:new Map(), sx:0, sy:0, sentAt:0, px:0, py:0, posAt:0, padIn:false, ping:null, wasConnected:false, offline:false };
+  const NET = { sock:null, room:null, snap:null, events:[], appliedTick:-1, view:new Map(), sx:0, sy:0, sentAt:0, px:0, py:0, posAt:0, padIn:false, ping:null, wasConnected:false, offline:false, lastRejoin:null };
   if (ONLINE) document.body.classList.add('online');
   if (ONLINE && _qs.get('debug') === '1') window.__NET = NET;   // inspeksi dari konsol / tes
   let seed = urlSeed !== null ? urlSeed : (Math.random() * 4294967296) >>> 0;
@@ -1745,8 +1745,11 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   // ---- lobi berjalan ----
   function renderLobbyBar() {
     const r = NET.room; if (!r) return;
-    const c = r.players.filter(p => p.connected);
-    byId('lbCode').textContent = r.code; byId('lbReady').textContent = `Siap ${c.filter(p => p.ready).length}/${c.length}`;
+    const away = r.players.filter(p => !p.connected), me = myMember();   // pemain putus ikut dihitung: ronde menunggu dia kembali dan siap (slot dilepas setelah 60 dtk)
+    byId('lbCode').textContent = r.code; byId('lbReady').textContent = `Siap ${r.players.filter(p => p.ready).length}/${r.players.length}`;
+    byId('lbHint').textContent = r.phase === 'countdown' ? 'Ronde segera dimulai…'
+      : away.length ? `Menunggu ${away.map(p => p.name).join(', ')} tersambung lagi (maks 60 dtk)…`
+      : me && me.ready ? 'Siap! Menunggu pemain lain…' : 'Jalan ke AREA SIAP untuk bersiap';
     if (r.phase === 'lobby') byId('lbCd').textContent = '';
   }
   function enterLobby() {
@@ -1886,9 +1889,22 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     n.classList.toggle('warn', !NET.offline && p !== null && p > 70 && p <= 100); n.classList.toggle('bad', NET.offline || p === Infinity || (p !== null && p > 100));
   }
   // Rejoin: token dari server disimpan per tab (sessionStorage). Koneksi pulih atau halaman dimuat ulang -> room:rejoin otomatis.
-  const REJOIN_KEY = 'sbc_rejoin';
-  function getRejoin() { try { const v = JSON.parse(sessionStorage.getItem(REJOIN_KEY) || 'null'); return v && v.code && v.token ? v : null; } catch (e) { return null; } }
-  function setRejoin(v) { try { if (v) sessionStorage.setItem(REJOIN_KEY, JSON.stringify(v)); else sessionStorage.removeItem(REJOIN_KEY); } catch (e) {} }
+  const REJOIN_KEY = 'sbc_rejoin', REJOIN_TTL = 30 * 60 * 1000;
+  // sessionStorage = tab ini (boleh mengambil alih sesi lama). localStorage = cadangan bila tab ditutup atau browser dibuka ulang
+  // (hanya diterima server bila sesi lama sudah putus, supaya tab kedua di perangkat yang sama tidak merebut slot tab pertama).
+  function getRejoin() {
+    try {
+      const s = JSON.parse(sessionStorage.getItem(REJOIN_KEY) || 'null'); if (s && s.code && s.token) return { code:s.code, token:s.token, takeover:true };
+      const l = JSON.parse(localStorage.getItem(REJOIN_KEY) || 'null'); if (l && l.code && l.token && Date.now() - (l.at || 0) < REJOIN_TTL) return { code:l.code, token:l.token, takeover:false };
+    } catch (e) {}
+    return null;
+  }
+  function setRejoin(v, sessionOnly) {
+    try {
+      if (v) { sessionStorage.setItem(REJOIN_KEY, JSON.stringify(v)); localStorage.setItem(REJOIN_KEY, JSON.stringify({ code:v.code, token:v.token, at:Date.now() })); }
+      else { sessionStorage.removeItem(REJOIN_KEY); if (!sessionOnly) localStorage.removeItem(REJOIN_KEY); }
+    } catch (e) {}
+  }
   function setOffline(on) { NET.offline = on; byId('gameFrame').classList.toggle('offline', on); renderNetStat(); }
   function dropToMenu(msg, bad) {
     NET.room = null; NET.snap = null; NET.events = []; NET.view.clear(); NET.sx = NET.sy = 0;
@@ -1899,6 +1915,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     sock.on('connect', () => {
       byId('olCreate').disabled = byId('olJoin').disabled = false; els.netStat.hidden = false;
       const rj = getRejoin();
+      NET.lastRejoin = rj;
       if (rj) { olMsg('Menyambung kembali ke room ' + rj.code + '…'); sock.emit('room:rejoin', rj); }
       else olMsg(NET.wasConnected ? 'Terhubung kembali. Buat room atau gabung lagi.' : 'Terhubung. Buat room atau gabung dengan kode.');
       NET.wasConnected = true;
@@ -1910,9 +1927,11 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     });
     sock.on('connect_error', () => olMsg('Gagal terhubung ke server.', true));
     sock.on('error:msg', e => {
+      if (e.code === 'rejoin_busy') { olMsg('Sesi sebelumnya di room ini masih tercatat di server (tab atau perangkat lain, atau belum ketahuan putus). Tunggu ±20 detik lalu muat ulang halaman, atau buat/gabung room baru.'); return; }
       if (e.code === 'rejoin_failed' || e.code === 'session_replaced') {
-        setRejoin(null); setOffline(false);
-        dropToMenu(e.code === 'rejoin_failed' ? 'Room sudah tidak ada atau slotmu sudah dilepas. Buat atau gabung room baru.' : 'Sesi ini dipakai di tab atau perangkat lain.', true); return;
+        const replaced = e.code === 'session_replaced', quiet = !replaced && NET.lastRejoin && NET.lastRejoin.takeover === false;   // cadangan lokal yang basi bukan kesalahan pemain
+        setRejoin(null, replaced); setOffline(false);
+        dropToMenu(replaced ? 'Sesi ini dipakai di tab atau perangkat lain.' : quiet ? 'Room sebelumnya sudah tidak ada. Buat atau gabung room baru.' : 'Room sudah tidak ada atau slotmu sudah dilepas. Buat atau gabung room baru.', !quiet); return;
       }
       olMsg(NET_ERR[e.code] || ('Error: ' + e.code), true);
     });

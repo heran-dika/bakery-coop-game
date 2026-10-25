@@ -103,12 +103,13 @@ function createGameServer(opts) {
     const m = room.members.get(sock.id); if (!m) return;
     const hold = room.phase === 'running' || room.phase === 'ended';   // slot tetap ada sampai ronde selesai (§10.6)
     if (explicit) { m.token = null; if (hold) m.connected = false; else room.members.delete(sock.id); }   // keluar sengaja = tidak bisa masuk lagi
-    else { m.connected = false; m.dropLeft = GRACE.lobby; }              // putus: slot ditahan, bisa rejoin dengan token
+    else { m.connected = false; m.dropLeft = GRACE.lobby; if (!hold) m.ready = false; }   // putus: slot ditahan, bisa rejoin dengan token; di lobi harus berdiri di area siap lagi
     room.inputs[m.slot] = { sx: 0, sy: 0 }; if (room.queues[m.slot]) room.queues[m.slot].length = 0;   // karakter diam, tanpa aksi tertinggal
     if (room.phase === 'countdown') backToLobby(room);
     if (!members(room).length) { rooms.delete(room.code); return; }
     const c = connected(room);
     if (room.hostId === sock.id && c.length) { room.hostId = c[0].sid; m.dropHost = !explicit; }   // host sementara pindah; kembali ke pemilik asli bila ia rejoin
+    maybeStartCountdown(room);   // pemain keluar sengaja bisa membuat sisanya sudah siap semua
     broadcastState(room);
   }
   function rejoin(sock, p) {
@@ -116,6 +117,7 @@ function createGameServer(opts) {
     const room = rooms.get(cleanCode(p.code)), token = typeof p.token === 'string' && p.token.length <= 64 ? p.token : null;
     const m = room && token && members(room).find(x => x.token === token);
     if (!m) return fail(sock, 'rejoin_failed');
+    if (p.takeover === false && m.connected) return fail(sock, 'rejoin_busy');   // pemulihan dari penyimpanan lokal tidak boleh merebut sesi yang masih hidup (mis. tab kedua di perangkat yang sama)
     const oldSid = m.sid, old = io.sockets.sockets.get(oldSid);
     if (old && old.id !== sock.id) { old.data.room = null; old.leave(room.code); old.emit('error:msg', { code: 'session_replaced' }); }   // sesi lama (belum ketahuan putus) dilepas
     room.members.delete(oldSid); m.sid = sock.id; m.connected = true; m.dropLeft = 0; room.members.set(sock.id, m);
@@ -130,8 +132,8 @@ function createGameServer(opts) {
     } else if (room.phase === 'ended' && room.result) sock.emit('round:ended', room.result);
   }
   function maybeStartCountdown(room) {
-    const c = connected(room);
-    if (room.phase === 'lobby' && c.length >= o.minPlayers && c.every(m => m.ready)) {
+    const all = members(room);   // slot putus yang ditahan ikut dihitung: ronde menunggu dia kembali dan siap, atau slotnya dilepas
+    if (room.phase === 'lobby' && all.length >= o.minPlayers && all.every(m => m.connected && m.ready)) {
       room.phase = 'countdown'; room.countdownLeft = o.countdownSeconds; room.lastCountdownShown = null;
       broadcastState(room);
     }
@@ -163,7 +165,7 @@ function createGameServer(opts) {
     if (room.phase === 'lobby' || room.phase === 'countdown') {   // slot lobi yang putus terlalu lama dilepas
       let changed = false;
       for (const m of members(room)) if (!m.connected && (m.dropLeft -= dt) <= 0) { room.members.delete(m.sid); changed = true; }
-      if (changed) broadcastState(room);
+      if (changed) { maybeStartCountdown(room); broadcastState(room); }
     }
     if (room.phase === 'countdown') {
       room.countdownLeft -= dt;

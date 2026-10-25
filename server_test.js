@@ -206,12 +206,18 @@ test('disconnect di tengah ronde: ronde jalan terus sampai selesai; rematch kemb
   await env.stop();
 });
 
-test('host keluar di lobby: host dipindah ke pemain lain', async () => {
+test('host putus di lobi: host dipindah, slot ditahan 60 detik, lalu dilepas', async () => {
   const env = await boot();
   const L = await lobbyOf(env, 2);
   L.cs[0].sock.close();
-  assert.ok(await until(() => L.cs[1].last('room:state').players.length === 1));
-  assert.equal(L.cs[1].last('room:state').players[0].host, true);
+  assert.ok(await until(() => L.cs[1].last('room:state').players.some(p => !p.connected)));
+  const st = L.cs[1].last('room:state');
+  assert.equal(st.players.length, 2, 'slot yang putus masih ditahan');
+  assert.equal(st.players.find(p => p.id === 'p2').host, true, 'host pindah ke pemain terhubung');
+  env.srv.advance(L.code, 30); await sleep(30);
+  assert.equal(L.room.members.size, 2, 'belum 60 detik');
+  env.srv.advance(L.code, 31);
+  assert.ok(await until(() => L.cs[1].last('room:state').players.length === 1), 'dilepas setelah 60 detik');
   await env.stop();
 });
 
@@ -326,5 +332,130 @@ test('rematch mengembalikan posisi lobi ke titik awal', async () => {
   assert.ok(await until(() => L.room.phase === 'lobby'));
   const m = L.room.members.get(L.cs[0].sock.id);
   assert.deepEqual([m.x, m.y], [3.4, 6.15]);
+  await env.stop();
+});
+
+const tokenOf = c => c.last('room:state').token;
+
+test('rejoin di lobi: socket baru dengan token mengambil slot yang sama; host dan posisi terjaga', async () => {
+  const env = await boot();
+  const L = await lobbyOf(env, 2);
+  const [A, B] = L.cs;
+  assert.ok(tokenOf(A) && tokenOf(B) && tokenOf(A) !== tokenOf(B), 'tiap pemain punya token sendiri');
+  assert.equal(A.last('room:state').players.every(p => p.token === undefined), true, 'token tidak bocor ke pemain lain');
+  B.sock.emit('lobby:pos', { x: 5.5, y: 2.5 }); await sleep(40);
+  const tok = tokenOf(B), code = L.code;
+  B.sock.close();
+  assert.ok(await until(() => A.last('room:state').players.find(p => p.id === 'p2').connected === false));
+  const B2 = await env.client(); B2.sock.emit('room:rejoin', { code, token: tok });
+  assert.ok(await until(() => B2.last('room:state')));
+  const s2 = B2.last('room:state');
+  assert.equal(s2.you, 'p2'); assert.equal(s2.token, tok);
+  const me = s2.players.find(p => p.id === 'p2'); assert.deepEqual([me.x, me.y], [5.5, 2.5], 'posisi lobi terjaga');
+  assert.ok(await until(() => A.last('room:state').players.find(p => p.id === 'p2').connected === true));
+  assert.equal(A.last('room:state').players.find(p => p.id === 'p1').host, true, 'host tidak berubah');
+  assert.equal(L.room.members.size, 2);
+  await env.stop();
+});
+
+test('rejoin ditolak: token salah, kode salah, token pemain yang keluar sengaja, token room lain', async () => {
+  const env = await boot();
+  const L = await lobbyOf(env, 2); const O = await lobbyOf(env, 1, 'Orang lain');
+  const [A, B] = L.cs; const tokB = tokenOf(B);
+  const tryJoin = async (code, token) => { const c = await env.client(); c.sock.emit('room:rejoin', { code, token }); await until(() => c.last('error:msg') || c.last('room:state'), 300); return c; };
+  for (const [code, tok] of [[L.code, 'salah'], ['ZZZZ', tokB], [O.code, tokB], [L.code, 123], [L.code, 'x'.repeat(100)], [L.code, undefined]]) {
+    const c = await tryJoin(code, tok); assert.equal(c.last('error:msg') && c.last('error:msg').code, 'rejoin_failed', `${code}/${String(tok).slice(0, 5)}`); assert.equal(c.last('room:state'), null);
+  }
+  B.sock.emit('room:leave'); await until(() => L.room.members.size === 1);
+  const c = await tryJoin(L.code, tokB); assert.equal(c.last('error:msg').code, 'rejoin_failed', 'keluar sengaja tidak bisa dibatalkan');
+  assert.equal(L.room.members.size, 1);
+  await env.stop();
+});
+
+test('rejoin saat sesi lama belum ketahuan putus: sesi lama dilepas, slot tidak dobel', async () => {
+  const env = await boot();
+  const L = await lobbyOf(env, 2); const [A, B] = L.cs; const tok = tokenOf(B);
+  const B2 = await env.client(); B2.sock.emit('room:rejoin', { code: L.code, token: tok });
+  assert.ok(await until(() => B2.last('room:state')));
+  assert.ok(await until(() => B.last('error:msg') && B.last('error:msg').code === 'session_replaced'));
+  assert.equal(L.room.members.size, 2); assert.equal(B2.last('room:state').you, 'p2');
+  B.sock.emit('chat:send', { text: 'dari sesi lama' }); await sleep(60);
+  assert.equal(A.all('chat:message').length, 0, 'sesi lama tidak lagi menjadi anggota room');
+  B.sock.close(); await sleep(60);
+  assert.equal(L.room.members.get(B2.sock.id).connected, true, 'putusnya sesi lama tidak menjatuhkan sesi baru');
+  await env.stop();
+});
+
+test('rejoin di tengah ronde: karakter diam saat putus, ronde dilanjutkan dengan snapshot, aksi bekerja lagi', async () => {
+  const env = await boot();
+  const L = await startRound(env, 2); const [A, B] = L.cs; const tok = tokenOf(B), code = L.code;
+  B.sock.emit('player:input', { sx: 1, sy: 0 }); await sleep(40); env.srv.advance(code, 0.3);
+  B.sock.close();
+  assert.ok(await until(() => A.last('room:state').players.find(p => p.id === 'p2').connected === false));
+  const p2 = L.room.game.state.players[1]; const x0 = p2.x, y0 = p2.y;
+  env.srv.advance(code, 3); await sleep(30);
+  assert.ok(Math.abs(p2.x - x0) < 1e-9 && Math.abs(p2.y - y0) < 1e-9, 'karakter yang putus tidak bergerak sendiri');
+  assert.ok(L.room.game.state.elapsed > 3, 'ronde tetap jalan untuk pemain lain');
+  const B2 = await env.client(); B2.sock.emit('room:rejoin', { code, token: tok });
+  assert.ok(await until(() => B2.last('round:started') && B2.last('world:snapshot')));
+  assert.equal(B2.last('round:started').resumed, true); assert.deepEqual(B2.last('round:started').players, ['p1', 'p2']);
+  assert.equal(B2.last('round:started').seed, A.last('round:started').seed);
+  assert.equal(A.all('round:started').length, 1, 'pemain lain tidak menerima round:started ulang');
+  assert.equal(B2.last('world:snapshot').snapshot.targets.p2 !== undefined, true);
+  env.srv.advance(code, 0.5); await sleep(30);
+  assert.ok(Math.abs(p2.x - x0) < 1e-9, 'tidak ada input tertinggal setelah rejoin');
+  place(L.room, 'p2', 'dough'); B2.sock.emit('station:interact', { requestId: 'r1' }); await sleep(30); env.srv.advance(code, 0.2); await sleep(30);
+  assert.equal(p2.held && p2.held.type, 'dough', 'B bisa beraksi lagi');
+  await env.stop();
+});
+
+test('semua putus saat ronde: simulasi dijeda, room dihapus setelah 120 detik; kembali tepat waktu melanjutkan', async () => {
+  const env = await boot();
+  const L = await startRound(env, 1); const A = L.cs[0], tok = tokenOf(A), code = L.code;
+  env.srv.advance(code, 5); const e0 = L.room.game.state.elapsed;
+  A.sock.close(); assert.ok(await until(() => L.room.members.values().next().value.connected === false));
+  env.srv.advance(code, 100); await sleep(20);
+  assert.ok(Math.abs(L.room.game.state.elapsed - e0) < 0.1, 'jam ronde berhenti saat tidak ada pemain terhubung');
+  const A2 = await env.client(); A2.sock.emit('room:rejoin', { code, token: tok });
+  assert.ok(await until(() => A2.last('round:started')));
+  env.srv.advance(code, 1); await sleep(20);
+  assert.ok(L.room.game.state.elapsed > e0 + 0.9, 'ronde lanjut setelah kembali');
+  A2.sock.close(); assert.ok(await until(() => !L.room.members.values().next().value.connected));
+  env.srv.advance(code, 119); assert.equal(env.srv.rooms.size, 1);
+  env.srv.advance(code, 2); assert.equal(env.srv.rooms.size, 0, 'room dihapus setelah 120 detik tanpa pemain');
+  await env.stop();
+});
+
+test('rejoin setelah ronde selesai menerima hasil; countdown dibatalkan bila ada yang putus', async () => {
+  const env = await boot();
+  const L = await startRound(env, 2); const [A, B] = L.cs; const tok = tokenOf(B), code = L.code;
+  B.sock.close(); assert.ok(await until(() => A.last('room:state').players.find(p => p.id === 'p2').connected === false));
+  env.srv.advance(code, 241); assert.ok(await until(() => A.last('round:ended')));
+  const B2 = await env.client(); B2.sock.emit('room:rejoin', { code, token: tok });
+  assert.ok(await until(() => B2.last('round:ended') && B2.last('room:state')));
+  assert.equal(B2.last('round:ended').score, A.last('round:ended').score); assert.equal(B2.last('room:state').phase, 'ended');
+  await env.stop();
+  const env2 = await boot({ minPlayers: 2 });
+  const M = await lobbyOf(env2, 2);
+  for (const c of M.cs) c.sock.emit('lobby:ready', { ready: true });
+  assert.ok(await until(() => M.room.phase === 'countdown'));
+  M.cs[1].sock.close();
+  assert.ok(await until(() => M.room.phase === 'lobby'), 'countdown batal');
+  assert.equal(M.room.members.size, 2, 'slot yang putus tetap ditahan');
+  await env2.stop();
+});
+
+test('host yang putus lalu rejoin mendapatkan kembali hak host; host yang keluar sengaja tidak', async () => {
+  const env = await boot();
+  const L = await lobbyOf(env, 2); const [A, B] = L.cs; const tok = tokenOf(A);
+  A.sock.close();
+  assert.ok(await until(() => B.last('room:state').players.find(p => p.id === 'p2').host === true));
+  const A2 = await env.client(); A2.sock.emit('room:rejoin', { code: L.code, token: tok });
+  assert.ok(await until(() => A2.last('room:state')));
+  assert.ok(await until(() => B.last('room:state').players.find(p => p.id === 'p1').host === true), 'host kembali ke pemilik asli');
+  assert.equal(B.last('room:state').players.filter(p => p.host).length, 1, 'tetap satu host');
+  A2.sock.emit('room:leave');
+  assert.ok(await until(() => B.last('room:state').players.length === 1));
+  assert.equal(B.last('room:state').players[0].host, true);
   await env.stop();
 });

@@ -8,12 +8,13 @@
  *
  * Client -> server:  room:create {name} | room:join {code,name} | lobby:ready {ready} | room:leave
  *                    player:input {sx,sy} | station:interact {requestId} | room:rematch (host)
- *                    lobby:pos {x,y} | chat:send {text}
+ *                    room:rejoin {code,token} | lobby:pos {x,y} | chat:send {text}
  *                    net:ping (dengan ack; untuk mengukur RTT)
  * room:join tanpa code = masuk room lobi terbuka tertua.
  * Server -> client:  room:state | lobby:pos | chat:message | round:countdown | round:started | world:snapshot | game:events | round:ended | error:msg
  */
 const http = require('node:http');
+const { randomUUID } = require('node:crypto');
 const { Server } = require('socket.io');
 const { createGame } = require('./core.js');
 
@@ -24,6 +25,7 @@ const SLOTS = ['p1', 'p2', 'p3', 'p4'];
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const LIMITS = { input: 80, interact: 12, lobby: 10, pos: 20, chat: 5 };   // maksimum event per detik per socket
 const QUEUE_MAX = 8;
+const GRACE = { lobby: 60, empty: 120 };   // detik: slot lobi yang putus ditahan; room tanpa pemain terhubung dihapus setelah ini [Usulan awal]
 const LOBBY = { min: 0.6, maxX: 7.4, maxY: 6.4 };   // batas lantai lobi (sama dengan batas jangkau core); posisi lobi hanya kosmetik
 const lobbySpawn = slot => ({ x: 3.4 + Math.max(0, SLOTS.indexOf(slot)) * 0.8, y: 6.15 });
 const cleanChat = v => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) : '');
@@ -76,7 +78,7 @@ function createGameServer(opts) {
 
   function stateFor(room, m) {
     return {
-      protocol: PROTOCOL, code: room.code, phase: room.phase, you: m.slot,
+      protocol: PROTOCOL, code: room.code, phase: room.phase, you: m.slot, token: m.token || null,   // token rejoin: hanya dikirim ke pemilik slot
       countdown: room.phase === 'countdown' ? Math.ceil(room.countdownLeft) : null,
       players: members(room).map(x => ({ id: x.slot, name: x.name, ready: x.ready, host: x.sid === room.hostId, connected: x.connected, x: x.x, y: x.y }))
     };
@@ -86,7 +88,7 @@ function createGameServer(opts) {
   // ---------- lobby ----------
   function joinRoom(sock, room, name) {
     const slot = SLOTS.find(s => !members(room).some(m => m.slot === s));
-    room.members.set(sock.id, Object.assign({ sid: sock.id, slot, name: cleanName(name), ready: false, connected: true }, lobbySpawn(slot)));
+    room.members.set(sock.id, Object.assign({ sid: sock.id, slot, name: cleanName(name), ready: false, connected: true, token: randomUUID(), dropLeft: 0 }, lobbySpawn(slot)));
     sock.join(room.code); sock.data.room = room.code;
     broadcastState(room);
   }
@@ -94,17 +96,38 @@ function createGameServer(opts) {
     room.phase = 'lobby'; room.game = null; room.inputs = {}; room.queues = {};
     for (const m of room.members.values()) { m.ready = false; Object.assign(m, lobbySpawn(m.slot)); }
   }
-  function leave(sock) {
+  function leave(sock, explicit) {
     const room = roomOf(sock); sock.data.room = null;
     if (!room) return;
     sock.leave(room.code);
     const m = room.members.get(sock.id); if (!m) return;
-    if (room.phase === 'running' || room.phase === 'ended') m.connected = false;   // slot tetap ada sampai ronde selesai (§10.6)
-    else room.members.delete(sock.id);
+    const hold = room.phase === 'running' || room.phase === 'ended';   // slot tetap ada sampai ronde selesai (§10.6)
+    if (explicit) { m.token = null; if (hold) m.connected = false; else room.members.delete(sock.id); }   // keluar sengaja = tidak bisa masuk lagi
+    else { m.connected = false; m.dropLeft = GRACE.lobby; }              // putus: slot ditahan, bisa rejoin dengan token
+    room.inputs[m.slot] = { sx: 0, sy: 0 }; if (room.queues[m.slot]) room.queues[m.slot].length = 0;   // karakter diam, tanpa aksi tertinggal
     if (room.phase === 'countdown') backToLobby(room);
-    if (!connected(room).length) { rooms.delete(room.code); return; }
-    if (room.hostId === sock.id) room.hostId = connected(room)[0].sid;
+    if (!members(room).length) { rooms.delete(room.code); return; }
+    const c = connected(room);
+    if (room.hostId === sock.id && c.length) { room.hostId = c[0].sid; m.dropHost = !explicit; }   // host sementara pindah; kembali ke pemilik asli bila ia rejoin
     broadcastState(room);
+  }
+  function rejoin(sock, p) {
+    if (sock.data.room) return fail(sock, 'already_in_room');
+    const room = rooms.get(cleanCode(p.code)), token = typeof p.token === 'string' && p.token.length <= 64 ? p.token : null;
+    const m = room && token && members(room).find(x => x.token === token);
+    if (!m) return fail(sock, 'rejoin_failed');
+    const oldSid = m.sid, old = io.sockets.sockets.get(oldSid);
+    if (old && old.id !== sock.id) { old.data.room = null; old.leave(room.code); old.emit('error:msg', { code: 'session_replaced' }); }   // sesi lama (belum ketahuan putus) dilepas
+    room.members.delete(oldSid); m.sid = sock.id; m.connected = true; m.dropLeft = 0; room.members.set(sock.id, m);
+    room.inputs[m.slot] = { sx: 0, sy: 0 };
+    if (room.hostId === oldSid || m.dropHost || !members(room).some(x => x.sid === room.hostId && x.connected)) room.hostId = sock.id;
+    m.dropHost = false;
+    sock.join(room.code); sock.data.room = room.code;
+    broadcastState(room);
+    if (room.phase === 'running') {   // lanjutkan ronde: info ronde + snapshot terbaru hanya ke pemain ini
+      sock.emit('round:started', { protocol: PROTOCOL, seed: room.seed, tickHz: TICK_HZ, players: room.slots, config: room.game.config, resumed: true });
+      sock.emit('world:snapshot', { tick: room.tick, snapshot: snap(room) });
+    } else if (room.phase === 'ended' && room.result) sock.emit('round:ended', room.result);
   }
   function maybeStartCountdown(room) {
     const c = connected(room);
@@ -118,6 +141,7 @@ function createGameServer(opts) {
   function startRound(room) {
     const seed = (Math.random() * 4294967296) >>> 0;
     const slots = members(room).map(m => m.slot);
+    room.seed = seed; room.slots = slots; room.result = null;
     room.game = createGame({ seed, players: slots }); room.game.start();
     room.phase = 'running'; room.tick = 0; room.inputs = {}; room.queues = {};
     emitRoom(room, 'round:started', { protocol: PROTOCOL, seed, tickHz: TICK_HZ, players: slots, config: room.game.config });
@@ -130,6 +154,17 @@ function createGameServer(opts) {
     return s;
   }
   function stepRoom(room, dt) {
+    if (!connected(room).length) {   // semua putus: simulasi dijeda; room dihapus bila tak ada yang kembali
+      room.emptyLeft = (room.emptyLeft == null ? GRACE.empty : room.emptyLeft) - dt;
+      if (room.emptyLeft <= 0) rooms.delete(room.code);
+      return;
+    }
+    room.emptyLeft = GRACE.empty;
+    if (room.phase === 'lobby' || room.phase === 'countdown') {   // slot lobi yang putus terlalu lama dilepas
+      let changed = false;
+      for (const m of members(room)) if (!m.connected && (m.dropLeft -= dt) <= 0) { room.members.delete(m.sid); changed = true; }
+      if (changed) broadcastState(room);
+    }
     if (room.phase === 'countdown') {
       room.countdownLeft -= dt;
       const shown = Math.ceil(room.countdownLeft);
@@ -148,7 +183,7 @@ function createGameServer(opts) {
     const ended = events.find(e => e.type === 'round:ended');
     if (events.length) emitRoom(room, 'game:events', { tick: room.tick, events });
     if (ended || room.tick % SNAPSHOT_EVERY === 0) emitRoom(room, 'world:snapshot', { tick: room.tick, snapshot: snap(room) });
-    if (ended) { room.phase = 'ended'; emitRoom(room, 'round:ended', ended); broadcastState(room); }
+    if (ended) { room.phase = 'ended'; room.result = ended; emitRoom(room, 'round:ended', ended); broadcastState(room); }
   }
 
   // ---------- socket ----------
@@ -165,7 +200,7 @@ function createGameServer(opts) {
     sock.on('room:join', guard('lobby', p => {
       if (sock.data.room) return fail(sock, 'already_in_room');
       const code = cleanCode(p.code);   // kode kosong = masuk room lobi terbuka tertua (quick join)
-      const room = code ? rooms.get(code) : [...rooms.values()].find(r => r.phase === 'lobby' && members(r).length < SLOTS.length);
+      const room = code ? rooms.get(code) : [...rooms.values()].find(r => r.phase === 'lobby' && members(r).length < SLOTS.length && connected(r).length > 0);
       if (!room) return fail(sock, 'room_not_found');
       if (room.phase !== 'lobby') return fail(sock, 'room_started');
       if (members(room).length >= SLOTS.length) return fail(sock, 'room_full');
@@ -182,7 +217,8 @@ function createGameServer(opts) {
       for (const m of [...room.members.values()]) if (!m.connected) room.members.delete(m.sid);
       backToLobby(room); broadcastState(room);
     }));
-    sock.on('room:leave', guard('lobby', () => leave(sock)));
+    sock.on('room:leave', guard('lobby', () => leave(sock, true)));
+    sock.on('room:rejoin', guard('lobby', p => rejoin(sock, p)));
     sock.on('lobby:pos', guard('pos', p => {   // posisi berjalan di lobi: kosmetik, diteruskan ke pemain lain
       const room = roomOf(sock), m = memberOf(room, sock);
       if (!m || (room.phase !== 'lobby' && room.phase !== 'countdown')) return;

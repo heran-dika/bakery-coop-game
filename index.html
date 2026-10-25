@@ -251,19 +251,33 @@
   body.in-lobby .action-zone, body.in-lobby .station-prompt { display:none; }
   #lobbyUi { position:absolute; inset:0; z-index:4; pointer-events:none; }
   #lobbyUi > * { pointer-events:auto; }
-  .lb-bar { position:absolute; top:6px; left:50%; transform:translateX(-50%); display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:center; max-width:96%; background:#ffffffee; border:1px solid var(--line); border-radius:999px; padding:4px 8px; font-size:12px; font-weight:800; color:var(--ink); box-shadow:0 3px 10px #182c4720; }
+  .lb-bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:center; max-width:96%; background:#ffffffee; border:1px solid var(--line); border-radius:999px; padding:4px 8px; font-size:12px; font-weight:800; color:var(--ink); box-shadow:0 3px 10px #182c4720; }
   .lb-btn { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:999px; padding:3px 10px; font:inherit; font-weight:800; min-height:30px; }
   .lb-hint { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); pointer-events:none !important; font-size:11px; font-weight:800; color:var(--green); background:#ffffffd8; border:1px solid var(--line); border-radius:999px; padding:3px 10px; white-space:nowrap; }
   #lbCd { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:72px; font-weight:900; color:#fff; text-shadow:0 3px 14px #182c47bb; pointer-events:none !important; }
-  #chatBox { position:absolute; top:46px; left:50%; transform:translateX(-50%); width:min(420px,94%); display:flex; flex-direction:column; gap:6px; background:#ffffffee; border:1px solid var(--line); border-radius:14px; padding:8px; box-shadow:0 6px 18px #182c4726; }
-  #chatLog { max-height:84px; overflow-y:auto; font-size:12px; display:flex; flex-direction:column; gap:3px; }
+  #chatBox { width:100%; display:flex; flex-direction:column; gap:6px; background:#ffffffee; border:1px solid var(--line); border-radius:14px; padding:8px; box-shadow:0 6px 18px #182c4726; }
+  #chatLog { max-height:52px; overflow-y:auto; font-size:12px; display:flex; flex-direction:column; gap:3px; }
   #chatLog div { border-left:3px solid var(--line); padding-left:5px; word-break:break-word; }
   .chat-q { display:flex; flex-wrap:wrap; gap:5px; }
   .chat-q button { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:999px; padding:3px 9px; font:inherit; font-size:11px; font-weight:800; }
   .chat-row { display:flex; gap:6px; }
   #chatIn { flex:1; min-width:0; font:inherit; font-size:16px; padding:6px 9px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); -webkit-user-select:text; user-select:text; }
+  #lobbyTop { position:absolute; top:6px; left:50%; transform:translateX(-50%); width:min(420px,96%); display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none; }
+  #lobbyTop > * { pointer-events:auto; }
+  .chat-head { display:flex; justify-content:space-between; align-items:center; font-size:12px; }
+  #chatClose { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:999px; width:30px; height:30px; font-weight:900; line-height:1; }
+  .game-frame.offline canvas { filter:grayscale(.7) brightness(.85); }
+  /* Online: HUD (waktu, skor, orderan) pindah ke band kosong di atas lantai; kalau terlalu sempit, melayang di sudut seperti layout HP landscape */
+  @media (orientation:portrait), (min-height:521px) {
+    body.online .hud { position:absolute; top:20px; left:8px; width:min(calc(100% - 16px), 372px); margin:0; z-index:3; pointer-events:none; grid-template-columns:70px 70px 1fr; gap:5px; align-items:start; }
+    body.online .stat, body.online .orders-panel { background:#ffffffe0; min-height:0; padding:4px 7px; border-radius:12px; }
+    body.online .orders-panel { grid-column:auto; }
+    body.online .stat-label, body.online .panel-label { font-size:8px; margin-bottom:2px; }
+    body.online .stat-value { font-size:19px; }
+  }
+  /* HUD keluar dari alur halaman, jadi kanvas portrait diperpanjang. --chrome = tinggi header + bar tangan + catatan kaki + padding [Menebak, setel di HP] */
+  @media (orientation:portrait) { body.online canvas { height:clamp(250px, calc(100svh - var(--chrome,150px)), 600px); } }
 </style>
-</head></style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="hud-hand" viewBox="0 0 24 24"><path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V11M11 10.5V5a1.5 1.5 0 0 1 3 0v5.5M14 10.5V7a1.5 1.5 0 0 1 3 0v6.5c0 4-2.5 7-6 7-2.6 0-4-1.5-5.5-4L3.5 13.5a1.5 1.5 0 0 1 2.5-1.6L8 14"/></symbol><symbol id="hud-ambil" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 19h14"/></symbol><symbol id="hud-taruh" viewBox="0 0 24 24"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></symbol><symbol id="hud-uleni" viewBox="0 0 24 24"><rect x="5" y="9" width="14" height="6" rx="3"/><path d="M2 12h3M19 12h3"/></symbol><symbol id="hud-tambah" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol><symbol id="hud-oven" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2"/><rect x="7" y="10" width="10" height="7" rx="1"/><path d="M7 7h.01M10 7h.01"/></symbol><symbol id="hud-bell" viewBox="0 0 24 24"><path d="M4 18h16M6.5 18a5.5 5.5 0 0 1 11 0M12 9V7M10.5 7h3"/></symbol><symbol id="hud-trash" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 12h8l1-12M10 11v5M14 11v5"/></symbol></defs></svg>
@@ -278,6 +292,7 @@
       <div class="menu-panel" id="menuPanel" hidden>
         <button class="btn" id="helpBtn" type="button">Kontrol</button>
         <button class="btn" id="labelBtn" type="button">Label stasiun: ON</button>
+        <button class="btn" id="soundBtn" type="button">Suara: ON</button>
         <button class="btn" id="restartBtn" type="button">↻ Ulang</button>
       </div>
     </div>
@@ -340,11 +355,14 @@
     </div>
     <div id="netStat" hidden></div>
     <div id="lobbyUi" hidden>
-      <div class="lb-bar"><span>ROOM <b id="lbCode">----</b></span><button class="lb-btn" id="lbCopy" type="button">Salin</button><span id="lbReady">Siap 0/0</span><button class="lb-btn" id="chatBtn" type="button" aria-label="Chat">💬 Chat</button><button class="lb-btn" id="lbLeave" type="button">Keluar</button></div>
-      <div id="chatBox" hidden>
-        <div id="chatLog" aria-live="polite"></div>
-        <div class="chat-q"><button type="button" data-q="Halo!">Halo!</button><button type="button" data-q="Siap!">Siap!</button><button type="button" data-q="Tunggu ya…">Tunggu ya…</button><button type="button" data-q="Ayo mulai!">Ayo mulai!</button></div>
-        <div class="chat-row"><input id="chatIn" maxlength="80" placeholder="Ketik pesan…" autocomplete="off" enterkeyhint="send"><button class="lb-btn" id="chatSend" type="button">Kirim</button></div>
+      <div id="lobbyTop">
+        <div class="lb-bar"><span>ROOM <b id="lbCode">----</b></span><button class="lb-btn" id="lbCopy" type="button">Salin</button><span id="lbReady">Siap 0/0</span><button class="lb-btn" id="chatBtn" type="button" aria-label="Chat">💬 Chat</button><button class="lb-btn" id="lbLeave" type="button">Keluar</button></div>
+        <div id="chatBox" hidden>
+          <div class="chat-head"><b>Chat</b><button type="button" id="chatClose" aria-label="Tutup chat">✕</button></div>
+          <div id="chatLog" aria-live="polite"></div>
+          <div class="chat-q"><button type="button" data-q="Halo!">Halo!</button><button type="button" data-q="Siap!">Siap!</button><button type="button" data-q="Tunggu ya…">Tunggu ya…</button><button type="button" data-q="Ayo mulai!">Ayo mulai!</button></div>
+          <div class="chat-row"><input id="chatIn" maxlength="80" placeholder="Ketik pesan…" autocomplete="off" enterkeyhint="send"><button class="lb-btn" id="chatSend" type="button">Kirim</button></div>
+        </div>
       </div>
       <div class="lb-hint">Jalan ke AREA SIAP untuk bersiap</div>
       <div id="lbCd"></div>
@@ -802,13 +820,116 @@
 // ===== END core.js =====
 </script>
 <script>
+// ===== BEGIN audio.js (semua bunyi game, dibuat dari kode WebAudio tanpa file; draf dengar: audio_mockup.html) =====
+(function (root) {
+  'use strict';
+  let ctx = null, master = null, noiseBuf = null;
+  let volume = 0.6, off = false;
+  try {
+    const v = localStorage.getItem('sbc_vol'); if (v !== null && v !== '' && Number.isFinite(+v)) volume = Math.min(1, Math.max(0, +v));
+    off = localStorage.getItem('sbc_sound') === '0';
+  } catch (e) {}
+  const forced = (() => { try { return new URLSearchParams(location.search).get('mute') === '1'; } catch (e) { return false; } })();   // ?mute=1
+  const isMuted = () => forced || off;
+  function applyVol() { if (master) master.gain.value = isMuted() ? 0 : volume * volume; }
+
+  function ensure() {
+    try {
+      if (!ctx) {
+        const AC = root.AudioContext || root.webkitAudioContext; if (!AC) return null;
+        ctx = new AC();
+        const comp = ctx.createDynamicsCompressor();          // mencegah pecah saat bunyi bertumpuk
+        master = ctx.createGain(); master.connect(comp); comp.connect(ctx.destination);
+        noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        applyVol();
+      }
+      if (ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    } catch (e) { ctx = null; return null; }
+  }
+  function envelope(g, t, attack, dur, peak) {
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + attack + dur);
+  }
+  function tone(t, f, dur, o) {
+    o = o || {};
+    const type = o.type || 'sine', vol = o.vol === undefined ? 0.25 : o.vol, attack = o.attack || 0.006;
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = type; osc.frequency.setValueAtTime(f, t);
+    if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + attack + dur);
+    envelope(g, t, attack, dur, vol);
+    osc.connect(g); g.connect(master); osc.start(t); osc.stop(t + attack + dur + 0.05);
+  }
+  function noise(t, dur, o) {
+    o = o || {};
+    const type = o.type || 'bandpass', vol = o.vol === undefined ? 0.15 : o.vol, attack = o.attack || 0.004;
+    const src = ctx.createBufferSource(), flt = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = noiseBuf; flt.type = type; flt.Q.value = o.q || 1;
+    flt.frequency.setValueAtTime(o.f || 1500, t);
+    if (o.to) flt.frequency.exponentialRampToValueAtTime(o.to, t + attack + dur);
+    envelope(g, t, attack, dur, vol);
+    src.connect(flt); flt.connect(g); g.connect(master); src.start(t); src.stop(t + attack + dur + 0.05);
+  }
+  // Dentingan logam: bagian nada tidak harmonis (1 : 2,76 : 5,4), nada tinggi lebih cepat hilang, plus klik pukulan.
+  function bell(t, f) {
+    [[1, 1, 1.3], [2.76, .55, .55], [5.4, .3, .26]].forEach(r => tone(t, f * r[0], r[2], { vol: .22 * r[1], attack: 0.002 }));
+    noise(t, .03, { vol: .05, type: 'highpass', f: 5000, q: .7, attack: .001 });
+  }
+
+  const SND = {
+    ovenReady: t => bell(t, 2093),
+    ovenWarn: t => { [0, .2, .4].forEach(d => tone(t + d, 988, .1, { type: 'triangle', vol: .2 })); },
+    ovenBurnt: t => { tone(t, 230, .7, { type: 'sawtooth', vol: .14, to: 70 }); noise(t, .6, { vol: .14, f: 900, to: 300, q: .8 }); },
+    orderWarn: t => { tone(t, 660, .09, { type: 'triangle', vol: .1 }); tone(t + .2, 660, .09, { type: 'triangle', vol: .1 }); },
+    orderDone: (t, lvl) => { const k = Math.pow(2, ((lvl || 1) - 1) * 2 / 12); [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(t + i * .075, f * k, .28, { type: 'triangle', vol: .22 })); tone(t + .32, 2093 * k, .3, { vol: .07 }); },
+    orderExpired: t => { tone(t, 392, .2, { type: 'square', vol: .09 }); tone(t + .2, 311, .4, { type: 'square', vol: .09, to: 277 }); },
+    orderNew: t => { tone(t, 784, .09, { type: 'triangle', vol: .14 }); tone(t + .1, 1047, .14, { type: 'triangle', vol: .14 }); },
+    pick: t => { tone(t, 520, .08, { vol: .2, to: 900 }); },
+    place: t => { tone(t, 300, .1, { vol: .26, to: 170 }); noise(t, .05, { vol: .12, type: 'lowpass', f: 700 }); },
+    trash: t => { noise(t, .28, { vol: .2, f: 2600, to: 350, q: .9 }); tone(t, 210, .22, { vol: .1, to: 90 }); },
+    knead: t => { [0, .22, .44, .66].forEach(d => { tone(t + d, 150, .1, { vol: .28, to: 85 }); noise(t + d, .06, { vol: .1, type: 'lowpass', f: 380 }); }); },
+    kneadDone: t => { tone(t, 659, .12, { type: 'triangle', vol: .2 }); tone(t + .12, 880, .2, { type: 'triangle', vol: .2 }); tone(t + .12, 1760, .15, { vol: .05 }); },
+    fail: t => { tone(t, 170, .16, { type: 'square', vol: .1, to: 130 }); tone(t + .1, 150, .18, { type: 'square', vol: .09, to: 110 }); },
+    spill: t => { noise(t, .35, { vol: .2, f: 1900, to: 600, q: .7 }); tone(t + .3, 1250, .09, { vol: .12, to: 520 }); },
+    slip: t => { tone(t, 950, .4, { vol: .18, to: 220 }); tone(t + .42, 180, .2, { type: 'square', vol: .1, to: 380 }); noise(t + .42, .08, { vol: .08, type: 'lowpass', f: 600 }); },
+    beep: t => { tone(t, 523, .16, { type: 'triangle', vol: .24 }); },                                   // satu bip hitung mundur (3, 2, 1)
+    go: t => { tone(t, 1047, .55, { type: 'triangle', vol: .26 }); tone(t, 1319, .55, { vol: .12 }); },   // nada mulai ronde
+    roundEnd: t => { [523, 659, 784].forEach(f => tone(t, f, 1.3, { vol: .14 })); tone(t + .05, 1568, .9, { vol: .08 }); tone(t + .5, 1047, .8, { type: 'triangle', vol: .12 }); },
+    click: t => { tone(t, 1180, .04, { vol: .12 }); },
+    join: t => { tone(t, 698, .12, { vol: .18 }); tone(t + .12, 880, .2, { vol: .18 }); }
+  };
+  // Jeda minimum per jenis bunyi (detik) supaya 4 pemain tidak menumpuk bunyi yang sama.
+  const COOL = { ovenReady: .25, ovenWarn: .8, ovenBurnt: .5, orderWarn: .5, orderDone: .15, orderExpired: .3, orderNew: .4, pick: .06, place: .06, trash: .12, knead: .6, kneadDone: .4, fail: .3, spill: .5, slip: .5, beep: .3, go: .5, roundEnd: 1, click: .05, join: .3 };
+  const last = {}, recent = [];
+  function play(name, arg) {
+    if (isMuted()) return;
+    const f = SND[name]; if (!f) return;
+    const c = ensure(); if (!c || c.state !== 'running') return;     // belum ada sentuhan pemain: diam
+    const now = c.currentTime;
+    if (last[name] !== undefined && now - last[name] < (COOL[name] || .1)) return;
+    while (recent.length && now - recent[0] > .25) recent.shift();
+    if (recent.length >= 8) return;                                   // pengaman: maksimum 8 bunyi per seperempat detik
+    last[name] = now; recent.push(now);
+    try { f(now + 0.02, arg); } catch (e) {}
+  }
+  function setMuted(v) { off = !!v; try { localStorage.setItem('sbc_sound', off ? '0' : '1'); } catch (e) {} applyVol(); }
+  const unlock = () => { ensure(); };
+  ['pointerdown', 'touchend', 'keydown', 'click'].forEach(ev => document.addEventListener(ev, unlock, { passive: true }));
+  root.BakeryAudio = { ensure, play, setMuted, isMuted };
+})(window);
+// ===== END audio.js =====
+</script>
+<script>
 (() => {
   'use strict';
   // Logika game (aturan, skor, order, oven, hazard, kolisi) ada di core.js (BakeryCore, disisipkan di atas).
   // Bagian ini hanya input, render, HUD, toast, dan efek. Paksa seed lewat ?seed=123 untuk mengulang ronde yang sama.
   const urlSeed = (() => { try { const v = new URLSearchParams(location.search).get('seed'); const n = v === null || v === '' ? NaN : Number(v); return Number.isFinite(n) ? n >>> 0 : null; } catch (e) { return null; } })();
   const _qs = new URLSearchParams(location.search), ONLINE = _qs.get('online') === '1', NET_SERVER = _qs.get('server') || '';
-  const NET = { sock:null, room:null, snap:null, events:[], appliedTick:-1, view:new Map(), sx:0, sy:0, sentAt:0, px:0, py:0, posAt:0, padIn:false, ping:null, wasConnected:false };
+  const NET = { sock:null, room:null, snap:null, events:[], appliedTick:-1, view:new Map(), sx:0, sy:0, sentAt:0, px:0, py:0, posAt:0, padIn:false, ping:null, wasConnected:false, offline:false };
   if (ONLINE) document.body.classList.add('online');
   if (ONLINE && _qs.get('debug') === '1') window.__NET = NET;   // inspeksi dari konsol / tes
   let seed = urlSeed !== null ? urlSeed : (Math.random() * 4294967296) >>> 0;
@@ -934,6 +1055,28 @@
     clearTimeout(currentToastTimeout);
     currentToastTimeout = setTimeout(() => els.toast.classList.remove('show'), ms);
   }
+  // ---- bunyi ----
+  const isMine = e => !e.player || e.player === (ONLINE ? meId() : 'p1');   // bunyi aksi pribadi hanya untuk pemain ini
+  const SFX_PICK = new Set(['picked', 'prep_took', 'counter_took', 'oven_took']);
+  const SFX_PLACE = new Set(['prep_placed', 'counter_placed', 'mod_added', 'oven_started']);
+  const SFX_FAIL = new Set(['hands_full', 'too_far', 'need_dough', 'prep_busy', 'empty_hands_to_knead', 'mod_present', 'prep_in_use', 'oven_needs_prepared', 'oven_cooking', 'oven_empty_hands', 'counter_both_full', 'counter_empty', 'serve_need_bread', 'serve_no_order', 'trash_empty_hands']);
+  function sfxForMsg(e) {
+    if (SFX_PICK.has(e.code)) BakeryAudio.play('pick');
+    else if (SFX_PLACE.has(e.code)) BakeryAudio.play('place');
+    else if (e.code === 'kneading_started') BakeryAudio.play('knead');
+    else if (SFX_FAIL.has(e.code)) BakeryAudio.play('fail');
+  }
+  // Peringatan berbasis waktu (tidak ada event di core): order hampir kedaluwarsa dan oven hampir gosong, masing-masing sekali.
+  const warned = { orders: new Set(), oven: new Set() };
+  function audioWatch() {
+    if (mode !== 'running') return;
+    for (const o of orders) {
+      const left = o.deadlineAt - elapsed;
+      if (left > 0 && left <= 8 && !warned.orders.has(o.id)) { warned.orders.add(o.id); BakeryAudio.play('orderWarn'); }
+    }
+    const ov = stationById.oven;
+    if (ov && ov.status === 'ready' && ov.item && ov.readyTimer > 0 && ov.readyTimer <= 3 && !warned.oven.has(ov.item.id)) { warned.oven.add(ov.item.id); BakeryAudio.play('ovenWarn'); }
+  }
   function resetGame(toMenu=true) {
     mode = toMenu ? 'menu' : 'running';
     if (urlSeed === null) seed = (Math.random() * 4294967296) >>> 0;
@@ -942,6 +1085,7 @@
     uiRefreshElapsed = 0; feedback = [];
     fxGen++; pendingDelta = 0; BELT.holds.length = 0; document.querySelectorAll('.order-fx, .score-chip').forEach(n => n.remove()); chipActive = 0;
     guideOn = false; guideIds = []; idleFor = 0; lastSig = ''; lastServed = 0;
+    warned.orders.clear(); warned.oven.clear();
     player.walkCycle = 0;
     bindState();
     keys.clear(); resetJoystick();
@@ -958,13 +1102,14 @@
     els.startScreen.classList.add('hidden');
     els.resultsScreen.classList.add('hidden');
     showToast('Shift dimulai! Cek pesanan di atas.', 2200);
+    BakeryAudio.play('go');
     canvas.focus?.();
   }
   function recipeName(type) { return type === 'salt_bread' ? 'Salt bread' : 'Shokupan'; }
   function recipeEmoji(type) { return type === 'salt_bread' ? '🥐' : '🍞'; }
   function finishRound(stars) {
     if (mode !== 'running') return;
-    mode = 'results';
+    mode = 'results'; BakeryAudio.play('roundEnd');
     els.starsText.textContent = '★'.repeat(stars) + '☆'.repeat(3-stars);
     els.resultSummary.textContent = stars === 3 ? 'Bakery berjalan seperti mesin! Target tiga bintang tercapai.' : stars === 2 ? 'Shift cukup rapi. Coba kurangi order terlambat untuk mencapai tiga bintang.' : stars === 1 ? 'Bakery tetap buka, tetapi masih ada ruang untuk koordinasi yang lebih baik.' : 'Hari yang berat di dapur. Atur urutan kerja dan awasi oven di shift berikutnya.';
     els.resultScore.textContent = Math.round(score);
@@ -979,20 +1124,20 @@
     let ended = null, ordersChanged = false;
     for (const e of events) {
       switch (e.type) {
-        case 'order:spawned': ordersChanged = true; showToast(`Pesanan baru: ${recipeName(e.recipe)}!`, 1400); break;
-        case 'order:expired': ordersChanged = true; launchOrderFx(e.order, 'crumple', -e.penalty, e.index); showToast(`Pesanan kedaluwarsa −${e.penalty} poin`, 1700); break;
+        case 'order:spawned': ordersChanged = true; BakeryAudio.play('orderNew'); showToast(`Pesanan baru: ${recipeName(e.recipe)}!`, 1400); break;
+        case 'order:expired': ordersChanged = true; BakeryAudio.play('orderExpired'); launchOrderFx(e.order, 'crumple', -e.penalty, e.index); showToast(`Pesanan kedaluwarsa −${e.penalty} poin`, 1700); break;
         case 'order:completed':
-          ordersChanged = true; launchOrderFx(e.order, 'gift', e.earned, e.index);
+          ordersChanged = true; BakeryAudio.play('orderDone', 1 + Math.min(5, Math.round((e.combo || 0) / 10))); launchOrderFx(e.order, 'gift', e.earned, e.index);
           addFeedback(e.x, e.y, `+${e.earned}`, '#2e8067');
           showToast(`Order selesai +${e.earned} poin${e.combo ? ` (combo +${e.combo})` : ''}!`, 2000); break;
-        case 'item:trashed': launchTrashFx(-e.penalty); break;
-        case 'dough:prepared': showToast('Adonan siap! Bisa langsung dipanggang atau ditambah mentega + garam.', 2400); break;
-        case 'oven:ready': showToast('TING! Roti matang. Ambil dari oven!', 1800); break;
-        case 'oven:burnt': showToast('Oven berasap! Rotinya gosong — buang ke Trash.', 2200); break;
-        case 'hazard:spawned': showToast('Awas! Ada tumpahan di lantai.', 1500); break;
-        case 'hazard:slip': addFeedback(e.x, e.y, 'OOPS!', '#c34f5a'); break;
+        case 'item:trashed': if (isMine(e)) BakeryAudio.play('trash'); launchTrashFx(-e.penalty); break;
+        case 'dough:prepared': BakeryAudio.play('kneadDone'); showToast('Adonan siap! Bisa langsung dipanggang atau ditambah mentega + garam.', 2400); break;
+        case 'oven:ready': BakeryAudio.play('ovenReady'); showToast('TING! Roti matang. Ambil dari oven!', 1800); break;
+        case 'oven:burnt': BakeryAudio.play('ovenBurnt'); showToast('Oven berasap! Rotinya gosong — buang ke Trash.', 2200); break;
+        case 'hazard:spawned': BakeryAudio.play('spill'); showToast('Awas! Ada tumpahan di lantai.', 1500); break;
+        case 'hazard:slip': if (isMine(e)) BakeryAudio.play('slip'); addFeedback(e.x, e.y, 'OOPS!', '#c34f5a'); break;
         case 'round:ended': ended = e; break;
-        case 'msg': { const m = messageFor(e); if (m) showToast(m[0], m[1]); break; }
+        case 'msg': { sfxForMsg(e); const m = messageFor(e); if (m) showToast(m[0], m[1]); break; }
       }
     }
     if (ordersChanged) renderOrders();
@@ -1048,7 +1193,7 @@
     if (game.state.players[0].moving) player.walkCycle += dt*12;
     const ended = handleEvents(events);
     feedback = feedback.filter(f => elapsed - f.at < 1.1);
-    trackGuide(dt);
+    audioWatch(); trackGuide(dt);
     if (ended) { finishRound(ended.stars); return; }
     // Refresh HUD at a modest cadence instead of rebuilding DOM on every animation frame.
     uiRefreshElapsed += dt;
@@ -1121,7 +1266,7 @@
   }
   function interact() {
     if (mode !== 'running' || paused()) return;
-    if (ONLINE) { if (NET.sock && NET.room) NET.sock.emit('station:interact', { requestId:NET.room.you + '-' + (++reqSerial) }); return; }   // server yang menjalankan aksinya
+    if (ONLINE) { if (NET.sock && NET.sock.connected && NET.room) NET.sock.emit('station:interact', { requestId:NET.room.you + '-' + (++reqSerial) }); return; }   // server yang menjalankan aksinya
     const events = game.step(0, { p1:{ interact: ++reqSerial } });
     syncFromCore();
     const ended = handleEvents(events);
@@ -1154,7 +1299,7 @@
   const GIFT_SVG = '<svg viewBox="0 0 40 40"><rect x="6" y="17" width="28" height="19" rx="2" fill="#C1443C" stroke="#1F4172" stroke-width="2"/><rect x="4" y="11" width="32" height="8" rx="2" fill="#d8605a" stroke="#1F4172" stroke-width="2"/><rect x="18" y="11" width="4" height="25" fill="#E2AD44"/><path d="M20 11C14 3 8 8 14 11M20 11C26 3 32 8 26 11" fill="none" stroke="#B9852D" stroke-width="2.2" stroke-linecap="round"/></svg>';
   const slotPos = i => BELT.vert ? { x:0, y:i*(BELT.B+BELT.G) } : { x:i*(BELT.B+BELT.G), y:0 };
   function layoutBelt() {
-    const B = compact ? 48 : 56, G = 6, el = els.orderList;
+    const B = (compact || ONLINE) ? 48 : 56, G = 6, el = els.orderList;
     BELT.vert = compact; BELT.B = B; BELT.G = G;
     el.classList.add('belt'); el.style.setProperty('--ob', B + 'px');
     el.style.height = (BELT.vert ? 3*B + 2*G : B) + 'px'; el.style.width = BELT.vert ? B + 'px' : '';
@@ -1560,6 +1705,12 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   const syncLabelBtn = () => { els.labelBtn.textContent = 'Label stasiun: ' + (showLabels ? 'ON' : 'OFF'); };
   els.labelBtn.addEventListener('click', () => { showLabels = !showLabels; try { localStorage.setItem('sbc_labels', showLabels ? '1' : '0'); } catch (e) {} syncLabelBtn(); closeMenu(); });
   syncLabelBtn();
+  const soundBtn = document.getElementById('soundBtn');
+  const syncSoundBtn = () => { soundBtn.textContent = 'Suara: ' + (BakeryAudio.isMuted() ? 'OFF' : 'ON'); };
+  soundBtn.addEventListener('click', () => { BakeryAudio.setMuted(!BakeryAudio.isMuted()); syncSoundBtn(); closeMenu(); });
+  syncSoundBtn();
+  // Klik tombol menu/lobi/hasil berbunyi tik kecil. Tombol Aksi di dalam game dikecualikan (sudah punya bunyi sendiri).
+  document.addEventListener('click', ev => { const b = ev.target.closest && ev.target.closest('button'); if (b && b.id !== 'actionBtn' && b.id !== 'soundBtn') BakeryAudio.play('click'); }, true);
   setupJoystick();
   const ro = new ResizeObserver(() => resizeCanvas()); ro.observe(canvas);
   window.addEventListener('orientationchange',() => { keys.clear(); resetJoystick(); sendZero(); setTimeout(resizeCanvas,120); });
@@ -1607,6 +1758,9 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   }
   function onRoomState() {
     const st = NET.room; if (!st) return;
+    const nConn = st.players.filter(p => p.connected).length;   // teman masuk lobi: dua nada naik
+    if (NET.prevConn != null && nConn > NET.prevConn && st.phase === 'lobby') BakeryAudio.play('join');
+    NET.prevConn = nConn;
     if (st.phase === 'lobby' || st.phase === 'countdown') {
       if (mode !== 'lobby') enterLobby();
       for (const id of [...NET.view.keys()]) if (!st.players.some(p => p.id === id)) NET.view.delete(id);
@@ -1624,11 +1778,12 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     if (d) {
       d.x = lp.x; d.y = lp.y; d.moving = lp.moving; d.facingX = lp.facingX; d.facingY = lp.facingY; if (lp.moving) d.walkCycle += dt * 12;
       const now = performance.now();
-      if ((lp.x !== NET.px || lp.y !== NET.py) && now - NET.posAt >= 100) {   // maks 10/detik; posisi terakhir selalu terkirim
+      const live = NET.sock && NET.sock.connected;
+      if (live && (lp.x !== NET.px || lp.y !== NET.py) && now - NET.posAt >= 100) {   // maks 10/detik; posisi terakhir selalu terkirim
         NET.sock.emit('lobby:pos', { x:+lp.x.toFixed(3), y:+lp.y.toFixed(3) }); NET.px = lp.x; NET.py = lp.y; NET.posAt = now;
       }
       const inside = room.phase === 'lobby' && Math.abs(lp.x - PAD.x) < PAD.h && Math.abs(lp.y - PAD.y) < PAD.h;
-      if (inside !== NET.padIn) { NET.padIn = inside; NET.sock.emit('lobby:ready', { ready:inside }); }
+      if (live && inside !== NET.padIn) { NET.padIn = inside; NET.sock.emit('lobby:ready', { ready:inside }); }
     }
     const k = 1 - Math.exp(-dt * 12);
     for (const o of NET.view.values()) {
@@ -1667,8 +1822,9 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
 
   // ---- ronde (fase 2) ----
   function leaveRoom() {
+    setRejoin(null); setOffline(false);
     if (NET.sock) NET.sock.emit('room:leave');
-    NET.room = null; NET.view.clear(); NET.snap = null; NET.events = []; NET.sx = NET.sy = 0;
+    NET.prevConn = null; NET.room = null; NET.view.clear(); NET.snap = null; NET.events = []; NET.sx = NET.sy = 0;
     resetGame(true); closeChat(); olShow(true); olMsg('Kamu keluar dari room.');
   }
   function sendZero() {
@@ -1676,6 +1832,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     NET.sock.emit('player:input', { sx:0, sy:0 }); NET.sx = NET.sy = 0; NET.sentAt = performance.now();
   }
   function sendInput() {   // hanya saat berubah, maks ±30/detik; nol langsung dikirim. Overlay Kontrol terbuka = input nol.
+    if (!NET.sock || !NET.sock.connected) return;
     let { sx, sy } = paused() ? { sx:0, sy:0 } : getScreenInput();
     sx = Math.round(sx * 100) / 100; sy = Math.round(sy * 100) / 100;
     if (sx === NET.sx && sy === NET.sy) return;
@@ -1718,50 +1875,70 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
       const me = NET.view.get(room && room.you); if (me) { player.x = me.x; player.y = me.y; player.facingX = me.facingX; player.facingY = me.facingY; }
     }
     feedback = feedback.filter(f => elapsed - f.at < 1.1);
-    trackGuide(dt);
+    audioWatch(); trackGuide(dt);
     sendInput();
     uiRefreshElapsed += dt;
     if (uiRefreshElapsed >= 0.15) { uiRefreshElapsed = 0; renderUI(); }
   }
   function renderNetStat() {   // hanya RTT: <=70 ms normal, 71-100 kuning, >100 atau timeout merah
     const n = els.netStat, p = NET.ping;
-    n.textContent = p === null ? '… ms' : p === Infinity ? 'timeout' : p + ' ms';
-    n.classList.toggle('warn', p !== null && p > 70 && p <= 100); n.classList.toggle('bad', p === Infinity || (p !== null && p > 100));
+    n.textContent = NET.offline ? 'putus' : p === null ? '… ms' : p === Infinity ? 'timeout' : p + ' ms';
+    n.classList.toggle('warn', !NET.offline && p !== null && p > 70 && p <= 100); n.classList.toggle('bad', NET.offline || p === Infinity || (p !== null && p > 100));
+  }
+  // Rejoin: token dari server disimpan per tab (sessionStorage). Koneksi pulih atau halaman dimuat ulang -> room:rejoin otomatis.
+  const REJOIN_KEY = 'sbc_rejoin';
+  function getRejoin() { try { const v = JSON.parse(sessionStorage.getItem(REJOIN_KEY) || 'null'); return v && v.code && v.token ? v : null; } catch (e) { return null; } }
+  function setRejoin(v) { try { if (v) sessionStorage.setItem(REJOIN_KEY, JSON.stringify(v)); else sessionStorage.removeItem(REJOIN_KEY); } catch (e) {} }
+  function setOffline(on) { NET.offline = on; byId('gameFrame').classList.toggle('offline', on); renderNetStat(); }
+  function dropToMenu(msg, bad) {
+    NET.room = null; NET.snap = null; NET.events = []; NET.view.clear(); NET.sx = NET.sy = 0;
+    resetGame(true); closeChat(); olShow(true); olMsg(msg, bad);
   }
   function connectNet() {
     const sock = NET.sock = NET_SERVER ? io(NET_SERVER) : io();
     sock.on('connect', () => {
-      olMsg(NET.wasConnected ? 'Terhubung kembali. Masuk room lagi (reconnect ronde belum ada).' : 'Terhubung. Buat room atau gabung dengan kode.');
-      NET.wasConnected = true; byId('olCreate').disabled = byId('olJoin').disabled = false; els.netStat.hidden = false;
+      byId('olCreate').disabled = byId('olJoin').disabled = false; els.netStat.hidden = false;
+      const rj = getRejoin();
+      if (rj) { olMsg('Menyambung kembali ke room ' + rj.code + '…'); sock.emit('room:rejoin', rj); }
+      else olMsg(NET.wasConnected ? 'Terhubung kembali. Buat room atau gabung lagi.' : 'Terhubung. Buat room atau gabung dengan kode.');
+      NET.wasConnected = true;
     });
     sock.on('disconnect', () => {
-      NET.room = null; NET.snap = null; NET.events = []; NET.view.clear(); NET.sx = NET.sy = 0; NET.ping = null;
-      byId('olCreate').disabled = byId('olJoin').disabled = true;
-      resetGame(true); olShow(true); olMsg('Koneksi terputus. Menyambung ulang…', true);
+      NET.ping = null; NET.sx = NET.sy = 0; byId('olCreate').disabled = byId('olJoin').disabled = true;
+      if (getRejoin() && NET.room) { setOffline(true); showToast('Koneksi terputus. Menyambung ulang…', 8000); return; }   // state ditahan; rejoin otomatis saat tersambung
+      dropToMenu('Koneksi terputus. Menyambung ulang…', true);
     });
     sock.on('connect_error', () => olMsg('Gagal terhubung ke server.', true));
-    sock.on('error:msg', e => olMsg(NET_ERR[e.code] || ('Error: ' + e.code), true));
-    sock.on('room:state', st => { NET.room = st; onRoomState(); });
+    sock.on('error:msg', e => {
+      if (e.code === 'rejoin_failed' || e.code === 'session_replaced') {
+        setRejoin(null); setOffline(false);
+        dropToMenu(e.code === 'rejoin_failed' ? 'Room sudah tidak ada atau slotmu sudah dilepas. Buat atau gabung room baru.' : 'Sesi ini dipakai di tab atau perangkat lain.', true); return;
+      }
+      olMsg(NET_ERR[e.code] || ('Error: ' + e.code), true);
+    });
+    sock.on('room:state', st => { if (st.token) setRejoin({ code:st.code, token:st.token }); if (NET.offline) setOffline(false); NET.room = st; onRoomState(); });
     sock.on('lobby:pos', p => { const d = NET.view.get(p.id); if (d && p.id !== meId()) { d.tx = p.x; d.ty = p.y; } });
     sock.on('chat:message', addChat);
-    sock.on('round:countdown', c => { byId('lbCd').textContent = c.seconds; });
+    sock.on('round:countdown', c => { byId('lbCd').textContent = c.seconds; BakeryAudio.play('beep'); });
     sock.on('round:started', r => {
       resetGame(true); closeChat(); Object.assign(CONFIG, r.config);   // aturan dari server, bukan salinan di HTML
       NET.view.clear(); NET.snap = null; NET.events = []; NET.appliedTick = -1; NET.sx = NET.sy = 0; NET.sentAt = 0;
       mode = 'running'; roundLeft = CONFIG.roundSeconds; score = 0;
       olShow(false); els.resultsScreen.classList.add('hidden');
-      showToast('Ronde dimulai!', 1500); renderUI();
+      showToast(r.resumed ? 'Tersambung kembali.' : 'Ronde dimulai!', 1500); if (!r.resumed) BakeryAudio.play('go'); renderUI();
     });
     sock.on('world:snapshot', m => { NET.snap = m; });
     sock.on('game:events', m => { NET.events.push(m); if (NET.events.length > 200) NET.events.shift(); });
     sock.on('round:ended', e => {
-      if (NET.snap) { applySnapshot(NET.snap.snapshot); processEvents(NET.events); NET.events = []; }
+      if (NET.snap && mode === 'running') { applySnapshot(NET.snap.snapshot); processEvents(NET.events); NET.events = []; }
       score = e.score; ordersServed = e.ordersServed; ordersExpired = e.ordersExpired; burntCount = e.burntCount;
-      finishRound(e.stars); refreshPlayAgain();
+      if (mode !== 'results') mode = 'running';   // muat ulang halaman lalu rejoin ke room yang sudah selesai: tetap tampilkan hasil
+      olShow(false); finishRound(e.stars); refreshPlayAgain();
     });
   }
   function initOnline() {
     els.startScreen.classList.add('hidden'); els.restartBtn.textContent = 'Keluar room';
+    byId('gameFrame').prepend(document.querySelector('.hud'));   // HUD ke dalam kanvas (band di atas lantai)
     try { byId('olName').value = localStorage.getItem('sbc_name') || ''; } catch (e) {}
     olShow(true); olMsg('Menghubungkan…');
     byId('olCreate').onclick = () => { saveName(); NET.sock.emit('room:create', { name:byId('olName').value }); };
@@ -1769,6 +1946,8 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     byId('lbLeave').onclick = leaveRoom;
     byId('lbCopy').onclick = async () => { try { await navigator.clipboard.writeText(NET.room.code); showToast('Kode room disalin.', 1200); } catch (e) { showToast('Kode room: ' + NET.room.code, 2500); } };
     byId('chatBtn').onclick = () => { if (byId('chatBox').hidden) openChat(!matchMedia('(pointer:coarse)').matches); else closeChat(); };
+    byId('chatClose').onclick = closeChat;
+    canvas.addEventListener('pointerdown', () => { if (mode === 'lobby') closeChat(); });
     byId('chatSend').onclick = () => { const i = byId('chatIn'); sendChat(i.value); i.value = ''; };
     byId('chatIn').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); byId('chatSend').onclick(); } else if (ev.key === 'Escape') closeChat(); });
     byId('chatIn').addEventListener('focus', () => { keys.clear(); resetJoystick(); });

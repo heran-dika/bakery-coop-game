@@ -459,3 +459,122 @@ test('host yang putus lalu rejoin mendapatkan kembali hak host; host yang keluar
   assert.equal(B.last('room:state').players[0].host, true);
   await env.stop();
 });
+
+test('mulai ronde menunggu pemain yang putus: 3 pemain, 1 putus, 2 siap -> tidak mulai; kembali dan siap -> mulai', async () => {
+  const env = await boot();
+  const L = await lobbyOf(env, 3); const [A, B, C] = L.cs, tokC = tokenOf(C);
+  C.sock.close(); assert.ok(await until(() => A.last('room:state').players.find(p => p.id === 'p3').connected === false));
+  A.sock.emit('lobby:ready', { ready: true }); B.sock.emit('lobby:ready', { ready: true });
+  assert.ok(await until(() => A.last('room:state').players.filter(p => p.ready).length === 2));
+  env.srv.advance(L.code, 10); await sleep(60);
+  assert.equal(L.room.phase, 'lobby', 'tidak mulai selama slot yang putus masih ditahan');
+  const C2 = await env.client(); C2.sock.emit('room:rejoin', { code: L.code, token: tokC });
+  assert.ok(await until(() => C2.last('room:state')));
+  assert.equal(C2.last('room:state').players.find(p => p.id === 'p3').ready, false, 'yang kembali belum siap');
+  env.srv.advance(L.code, 3); await sleep(40); assert.equal(L.room.phase, 'lobby', 'masih menunggu dia siap');
+  C2.sock.emit('lobby:ready', { ready: true });
+  assert.ok(await until(() => L.room.phase === 'countdown'));
+  env.srv.advance(L.code, 1.2);
+  assert.ok(await until(() => A.last('round:started') && C2.last('round:started')));
+  assert.deepEqual(A.last('round:started').players, ['p1', 'p2', 'p3']);
+  await env.stop();
+});
+
+test('slot putus yang kedaluwarsa dilepas: pemain tersisa yang sudah siap langsung mulai tanpa dia', async () => {
+  const env = await boot();
+  const L = await lobbyOf(env, 3); const [A, B, C] = L.cs;
+  C.sock.close(); assert.ok(await until(() => A.last('room:state').players.find(p => p.id === 'p3').connected === false));
+  A.sock.emit('lobby:ready', { ready: true }); B.sock.emit('lobby:ready', { ready: true });
+  assert.ok(await until(() => A.last('room:state').players.filter(p => p.ready).length === 2));
+  env.srv.advance(L.code, 59); await sleep(30); assert.equal(L.room.phase, 'lobby');
+  env.srv.advance(L.code, 2);
+  assert.ok(await until(() => L.room.phase === 'countdown'), 'setelah 60 detik slot dilepas dan countdown jalan');
+  env.srv.advance(L.code, 1.2);
+  assert.ok(await until(() => A.last('round:started')));
+  assert.deepEqual(A.last('round:started').players, ['p1', 'p2'], 'ronde hanya untuk pemain yang ada');
+  await env.stop();
+});
+
+test('pemain yang putus kehilangan status siap; keluar sengaja oleh pemain belum-siap memulai countdown sisanya', async () => {
+  const env = await boot();
+  const L = await lobbyOf(env, 2); const [A, B] = L.cs;
+  A.sock.emit('lobby:ready', { ready: true });
+  assert.ok(await until(() => A.last('room:state').players.find(p => p.id === 'p1').ready));
+  A.sock.close(); assert.ok(await until(() => B.last('room:state').players.find(p => p.id === 'p1').connected === false));
+  assert.equal(B.last('room:state').players.find(p => p.id === 'p1').ready, false, 'siap hilang saat putus');
+  await env.stop();
+  const env2 = await boot();
+  const M = await lobbyOf(env2, 3); const [X, Y, Z] = M.cs;
+  X.sock.emit('lobby:ready', { ready: true }); Y.sock.emit('lobby:ready', { ready: true }); await sleep(60);
+  assert.equal(M.room.phase, 'lobby');
+  Z.sock.emit('room:leave');
+  assert.ok(await until(() => M.room.phase === 'countdown'), 'sisa pemain yang sudah siap mulai setelah yang belum siap keluar');
+  await env2.stop();
+});
+
+test('rejoin dari penyimpanan lokal (takeover:false) ditolak selama sesi lama masih hidup, diterima setelah putus', async () => {
+  const env = await boot();
+  const L = await lobbyOf(env, 2); const [A, B] = L.cs, tok = tokenOf(B);
+  const T = await env.client(); T.sock.emit('room:rejoin', { code: L.code, token: tok, takeover: false });
+  assert.ok(await until(() => T.last('error:msg')));
+  assert.equal(T.last('error:msg').code, 'rejoin_busy'); assert.equal(T.last('room:state'), null);
+  assert.equal(L.room.members.get(B.sock.id).connected, true, 'sesi lama tidak terganggu');
+  B.sock.close(); assert.ok(await until(() => A.last('room:state').players.find(p => p.id === 'p2').connected === false));
+  const T2 = await env.client(); T2.sock.emit('room:rejoin', { code: L.code, token: tok, takeover: false });
+  assert.ok(await until(() => T2.last('room:state'))); assert.equal(T2.last('room:state').you, 'p2');
+  await env.stop();
+});
+
+test('kick: hanya host, hanya di lobi; yang di-kick keluar, tidak bisa rejoin/gabung lagi; sisa yang siap langsung mulai', async () => {
+  const env = await boot();
+  const L = await lobbyOf(env, 3); const [A, B, C] = L.cs, tokC = tokenOf(C);
+  const J = async (c, code, cid) => { c.sock.emit('room:join', { code, name: 'x', cid }); await sleep(60); };
+  B.sock.emit('room:kick', { slot: 'p3' });
+  assert.ok(await until(() => B.last('error:msg') && B.last('error:msg').code === 'not_host'));
+  assert.equal(L.room.members.size, 3, 'non-host tidak bisa kick');
+  A.sock.emit('room:kick', { slot: 'p1' }); A.sock.emit('room:kick', { slot: 'zz' }); A.sock.emit('room:kick', {}); A.sock.emit('room:kick', { slot: 5 }); await sleep(60);
+  assert.equal(L.room.members.size, 3, 'tidak bisa kick diri sendiri / slot tidak ada / payload rusak');
+  A.sock.emit('lobby:ready', { ready: true }); B.sock.emit('lobby:ready', { ready: true }); await sleep(60);
+  A.sock.emit('room:kick', { slot: 'p3' });
+  assert.ok(await until(() => C.last('room:kicked')), 'yang di-kick menerima room:kicked');
+  assert.equal(L.room.members.size, 2); assert.ok(await until(() => L.room.phase === 'countdown'), 'dua pemain tersisa sudah siap -> countdown');
+  const C2 = await env.client(); C2.sock.emit('room:rejoin', { code: L.code, token: tokC });
+  assert.ok(await until(() => C2.last('error:msg'))); assert.equal(C2.last('error:msg').code, 'rejoin_failed', 'token lama tidak berlaku');
+  await env.stop();
+});
+
+test('kick memblokir id perangkat: tidak bisa gabung lagi (kode atau quick join), perangkat lain tetap bisa; kick pemain yang putus; tidak saat ronde', async () => {
+  const env = await boot();
+  const a = await env.client(); a.sock.emit('room:create', { name: 'Host', cid: 'host1' }); assert.ok(await until(() => a.last('room:state')));
+  const code = a.last('room:state').code;
+  const b = await env.client(); b.sock.emit('room:join', { code, name: 'Bad', cid: 'bad-device' }); assert.ok(await until(() => b.last('room:state')));
+  a.sock.emit('room:kick', { slot: 'p2' }); assert.ok(await until(() => b.last('room:kicked')));
+  const b2 = await env.client(); b2.sock.emit('room:join', { code, name: 'Bad', cid: 'bad-device' });
+  assert.ok(await until(() => b2.last('error:msg'))); assert.equal(b2.last('error:msg').code, 'kicked');
+  const b3 = await env.client(); b3.sock.emit('room:join', { name: 'Bad', cid: 'bad-device' });
+  assert.ok(await until(() => b3.last('error:msg'))); assert.equal(b3.last('error:msg').code, 'room_not_found', 'quick join melewati room yang memblokirnya');
+  const g = await env.client(); g.sock.emit('room:join', { code, name: 'Baik', cid: 'other' }); assert.ok(await until(() => g.last('room:state')));
+  g.sock.close(); assert.ok(await until(() => a.last('room:state').players.some(p => !p.connected)));
+  a.sock.emit('room:kick', { slot: 'p2' }); assert.ok(await until(() => a.last('room:state').players.length === 1), 'slot yang putus pun bisa di-kick');
+  a.sock.emit('lobby:ready', { ready: true }); assert.ok(await until(() => env.srv.rooms.get(code).phase === 'countdown'));
+  env.srv.advance(code, 1.2); assert.ok(await until(() => a.last('round:started')));
+  const n = env.srv.rooms.get(code).members.size; a.sock.emit('room:kick', { slot: 'p1' }); await sleep(60);
+  assert.equal(env.srv.rooms.get(code).members.size, n, 'kick saat ronde tidak diizinkan');
+  await env.stop();
+});
+
+test('co-op: selalu minimal 2 order aktif (order baru langsung dibuat setelah disajikan atau kedaluwarsa)', async () => {
+  const env = await boot();
+  const L = await startRound(env, 1); const st = L.room.game.state; let min = 9;
+  assert.equal(L.cs[0].last('round:started').config.minOrders, 2);
+  for (let i = 0; i < 400; i++) { env.srv.advance(L.code, 0.5); min = Math.min(min, st.orders.length); if (st.mode !== 'running') break; }
+  assert.equal(min >= 2, true, 'jumlah order minimum selama ronde: ' + min);
+  await env.stop();
+  const env2 = await boot(); const L2 = await startRound(env2, 1); const s2 = L2.room.game.state;
+  assert.equal(s2.orders.length, 2);
+  s2.players[0].held = { id: 99, type: s2.orders[0].type, mods: [] };
+  await act(env2, L2, 0, 'serve');
+  assert.equal(s2.ordersServed, 1, 'order disajikan'); assert.equal(s2.orders.length >= 2, true, 'order pengganti langsung dibuat: ' + s2.orders.length);
+  assert.equal(L2.cs[0].all('game:events').flatMap(e => e.events).some(e => e.type === 'order:spawned' && e.refill === true), true, 'event pengganti ditandai refill');
+  await env2.stop();
+});

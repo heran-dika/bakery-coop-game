@@ -12,6 +12,7 @@
   const DEFAULT_CONFIG = {
     roundSeconds: 240,
     maxOrders: 3,
+    minOrders: 0,             // >0: order baru langsung dibuat bila order aktif kurang dari ini (dipakai server co-op; solo tetap 0)
     patienceSeconds: 45,
     openingOrders: ['plain_bread', 'salt_bread'],
     openingNextOrderAt: 13,
@@ -141,11 +142,11 @@
 
     const makeItem = (type, mods) => ({ id: s.itemSerial++, type, mods: (mods || []).slice() });
 
-    function pushOrder(type, ev) {
+    function pushOrder(type, ev, extra) {
       if (s.orders.length >= cfg.maxOrders) return null;
       const o = { id: s.orderSerial++, type, createdAt: s.elapsed, deadlineAt: s.elapsed + cfg.patienceSeconds, patience: cfg.patienceSeconds };
       s.orders.push(o);
-      ev.push({ type: 'order:spawned', order: o.id, recipe: type });
+      ev.push(Object.assign({ type: 'order:spawned', order: o.id, recipe: type }, extra));
       return o;
     }
 
@@ -358,6 +359,7 @@
           ev.push({ type: 'order:expired', order: o.id, index: i, recipe: o.type, penalty: cfg.expiredPenalty, score: s.score });
         }
       }
+      while (s.orders.length < cfg.minOrders && s.orders.length < cfg.maxOrders) pushOrder(rng() < 0.5 ? 'plain_bread' : 'salt_bread', ev, { refill: true });
       const prep = byId.prep;
       if (prep && prep.processing) {
         prep.timer -= dt;

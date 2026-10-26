@@ -8,7 +8,7 @@
  *
  * Client -> server:  room:create {name} | room:join {code,name} | lobby:ready {ready} | room:leave
  *                    player:input {sx,sy} | station:interact {requestId} | room:rematch (host)
- *                    room:rejoin {code,token} | lobby:pos {x,y} | chat:send {text}
+ *                    room:rejoin {code,token,takeover} | room:kick {slot} (host) | lobby:pos {x,y} | chat:send {text}
  *                    net:ping (dengan ack; untuk mengukur RTT)
  * room:join tanpa code = masuk room lobi terbuka tertua.
  * Server -> client:  room:state | lobby:pos | chat:message | round:countdown | round:started | world:snapshot | game:events | round:ended | error:msg
@@ -29,6 +29,7 @@ const GRACE = { lobby: 60, empty: 120 };   // detik: slot lobi yang putus ditaha
 const LOBBY = { min: 0.6, maxX: 7.4, maxY: 6.4 };   // batas lantai lobi (sama dengan batas jangkau core); posisi lobi hanya kosmetik
 const lobbySpawn = slot => ({ x: 3.4 + Math.max(0, SLOTS.indexOf(slot)) * 0.8, y: 6.15 });
 const cleanChat = v => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) : '');
+const cleanCid = v => (typeof v === 'string' ? v.replace(/[^\w-]/g, '').slice(0, 24) : '');   // id perangkat acak dari client (hanya untuk daftar blokir kick; bukan identitas tepercaya)
 const coord = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : null);
 
 const cleanName = v => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f<>&"']/g, '').trim().slice(0, 16) : '') || 'Baker';
@@ -53,7 +54,7 @@ function createGameServer(opts) {
       res.end(JSON.stringify({ ok: true, protocol: PROTOCOL, rooms: rooms.size }));
     } else { res.writeHead(404); res.end(); }
   });
-  const io = new Server(httpServer, { cors: { origin: o.origins }, maxHttpBufferSize: 4096, pingInterval: 10000, pingTimeout: 8000 });
+  const io = new Server(httpServer, { cors: { origin: o.origins }, maxHttpBufferSize: 4096, pingInterval: 5000, pingTimeout: 5000 });
   const rooms = new Map();
 
   // ---------- util ----------
@@ -86,9 +87,9 @@ function createGameServer(opts) {
   function broadcastState(room) { for (const m of connected(room)) io.to(m.sid).emit('room:state', stateFor(room, m)); }
 
   // ---------- lobby ----------
-  function joinRoom(sock, room, name) {
+  function joinRoom(sock, room, name, cid) {
     const slot = SLOTS.find(s => !members(room).some(m => m.slot === s));
-    room.members.set(sock.id, Object.assign({ sid: sock.id, slot, name: cleanName(name), ready: false, connected: true, token: randomUUID(), dropLeft: 0 }, lobbySpawn(slot)));
+    room.members.set(sock.id, Object.assign({ sid: sock.id, slot, name: cleanName(name), ready: false, connected: true, token: randomUUID(), dropLeft: 0, cid: cleanCid(cid) }, lobbySpawn(slot)));
     sock.join(room.code); sock.data.room = room.code;
     broadcastState(room);
   }
@@ -144,7 +145,7 @@ function createGameServer(opts) {
     const seed = (Math.random() * 4294967296) >>> 0;
     const slots = members(room).map(m => m.slot);
     room.seed = seed; room.slots = slots; room.result = null;
-    room.game = createGame({ seed, players: slots }); room.game.start();
+    room.game = createGame({ seed, players: slots, config: { minOrders: 2 } }); room.game.start();   // co-op: selalu ada minimal 2 order aktif
     room.phase = 'running'; room.tick = 0; room.inputs = {}; room.queues = {};
     emitRoom(room, 'round:started', { protocol: PROTOCOL, seed, tickHz: TICK_HZ, players: slots, config: room.game.config });
     emitRoom(room, 'world:snapshot', { tick: 0, snapshot: snap(room) });
@@ -196,17 +197,18 @@ function createGameServer(opts) {
     sock.on('room:create', guard('lobby', p => {
       if (sock.data.room) return fail(sock, 'already_in_room');
       if (rooms.size >= o.maxRooms) return fail(sock, 'server_full');
-      const room = { code: newCode(), hostId: sock.id, phase: 'lobby', members: new Map(), game: null, inputs: {}, queues: {}, tick: 0, countdownLeft: 0 };
-      rooms.set(room.code, room); joinRoom(sock, room, p.name);
+      const room = { code: newCode(), hostId: sock.id, banned: new Set(), phase: 'lobby', members: new Map(), game: null, inputs: {}, queues: {}, tick: 0, countdownLeft: 0 };
+      rooms.set(room.code, room); joinRoom(sock, room, p.name, p.cid);
     }));
     sock.on('room:join', guard('lobby', p => {
       if (sock.data.room) return fail(sock, 'already_in_room');
       const code = cleanCode(p.code);   // kode kosong = masuk room lobi terbuka tertua (quick join)
-      const room = code ? rooms.get(code) : [...rooms.values()].find(r => r.phase === 'lobby' && members(r).length < SLOTS.length && connected(r).length > 0);
+      const room = code ? rooms.get(code) : [...rooms.values()].find(r => r.phase === 'lobby' && members(r).length < SLOTS.length && connected(r).length > 0 && !r.banned.has(cleanCid(p.cid)));
       if (!room) return fail(sock, 'room_not_found');
+      if (cleanCid(p.cid) && room.banned.has(cleanCid(p.cid))) return fail(sock, 'kicked');
       if (room.phase !== 'lobby') return fail(sock, 'room_started');
       if (members(room).length >= SLOTS.length) return fail(sock, 'room_full');
-      joinRoom(sock, room, p.name);
+      joinRoom(sock, room, p.name, p.cid);
     }));
     sock.on('lobby:ready', guard('lobby', p => {
       const room = roomOf(sock), m = memberOf(room, sock);
@@ -221,6 +223,19 @@ function createGameServer(opts) {
     }));
     sock.on('room:leave', guard('lobby', () => leave(sock, true)));
     sock.on('room:rejoin', guard('lobby', p => rejoin(sock, p)));
+    sock.on('room:kick', guard('lobby', p => {   // hanya host, hanya di lobi/countdown; yang di-kick tidak bisa masuk lagi ke room ini
+      const room = roomOf(sock), me = memberOf(room, sock);
+      if (!me || room.hostId !== sock.id) return fail(sock, 'not_host');
+      if (room.phase !== 'lobby' && room.phase !== 'countdown') return fail(sock, 'kick_not_allowed');
+      const target = typeof p.slot === 'string' ? members(room).find(x => x.slot === p.slot) : null;
+      if (!target || target.sid === sock.id) return;
+      if (target.cid) room.banned.add(target.cid);
+      const ts = io.sockets.sockets.get(target.sid);
+      room.members.delete(target.sid); target.token = null;
+      if (ts && target.connected) { ts.data.room = null; ts.leave(room.code); ts.emit('room:kicked', {}); }
+      if (room.phase === 'countdown') backToLobby(room);
+      maybeStartCountdown(room); broadcastState(room);
+    }));
     sock.on('lobby:pos', guard('pos', p => {   // posisi berjalan di lobi: kosmetik, diteruskan ke pemain lain
       const room = roomOf(sock), m = memberOf(room, sock);
       if (!m || (room.phase !== 'lobby' && room.phase !== 'countdown')) return;

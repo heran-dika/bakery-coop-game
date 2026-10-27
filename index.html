@@ -242,7 +242,7 @@
   .ol-row input { flex:1; min-width:0; font:inherit; padding:10px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); }
   #olMsg { font-size:12px; min-height:16px; color:var(--muted); margin-top:6px; }
   #olMsg.bad { color:var(--red); }
-  #netStat { position:absolute; top:3px; left:5px; z-index:3; pointer-events:none; font-size:9px; line-height:1.3; font-weight:800; padding:0 6px; border-radius:999px; background:#ffffffc0; border:1px solid var(--line); color:var(--muted); font-variant-numeric:tabular-nums; }
+  #netStat { position:absolute; top:3px; left:5px; z-index:3; pointer-events:none; font-size:8px; line-height:1.4; font-weight:400; padding:0 6px; border-radius:999px; background:#ffffffc0; border:1px solid var(--line); color:var(--muted); font-variant-numeric:tabular-nums; }
   #netStat.warn { color:#8a6212; background:#fff3c8; border-color:#e2ad44; }
   #netStat.bad { color:var(--red); background:var(--red-t); border-color:var(--red); }
   body.online .hud { }
@@ -256,7 +256,7 @@
   .lb-hint { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); pointer-events:none !important; font-size:11px; font-weight:800; color:var(--green); background:#ffffffd8; border:1px solid var(--line); border-radius:999px; padding:3px 10px; white-space:nowrap; }
   #lbCd { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:72px; font-weight:900; color:#fff; text-shadow:0 3px 14px #182c47bb; pointer-events:none !important; }
   #chatBox { width:100%; display:flex; flex-direction:column; gap:6px; background:#ffffffee; border:1px solid var(--line); border-radius:14px; padding:8px; box-shadow:0 6px 18px #182c4726; }
-  #chatLog { max-height:52px; overflow-y:auto; font-size:12px; display:flex; flex-direction:column; gap:3px; }
+  #chatLog { flex:1 1 auto; min-height:0; padding-right:32px; overflow-y:auto; font-size:12px; display:flex; flex-direction:column; gap:3px; }
   #chatLog div { border-left:3px solid var(--line); padding-left:5px; word-break:break-word; }
   .chat-q { display:flex; flex-wrap:wrap; gap:5px; }
   .chat-q button { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:999px; padding:3px 9px; font:inherit; font-size:11px; font-weight:800; }
@@ -291,6 +291,20 @@
   #qchatMenu button { border:1.5px solid var(--blue); background:#fff; color:var(--blue); border-radius:999px; padding:8px 14px; font:inherit; font-size:13px; font-weight:900; box-shadow:0 4px 12px #182c4726; white-space:nowrap; touch-action:none; }
   @media (pointer:coarse), (max-width:760px) { #qchat { left:22px; bottom:calc(max(12px,env(safe-area-inset-bottom)) + 160px); } }
   @media (orientation:landscape) and (max-height:520px) { #qchat { left:calc(max(12px,env(safe-area-inset-left)) + 62px); bottom:172px; } }
+  /* ping: di header, sebelum tulisan "P0 vector kitchen" (HP landscape pendek: melayang di pojok kanvas) */
+  #netStat.inline { position:static; display:inline-block; margin-right:6px; vertical-align:1px; padding:0 5px; }
+  /* chat: tanpa judul, log memakai sisa tinggi, template satu baris yang bisa digeser, tinggi tetap supaya lantai masih terlihat */
+  #chatBox { position:relative; height:clamp(150px, 30svh, 260px); background:#ffffffeb; }
+  #chatClose { position:absolute; top:6px; right:6px; z-index:1; }
+  .chat-q { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; flex:none; }
+  .chat-q button { flex:none; }
+  .chat-row { flex:none; }
+  /* HP landscape pendek: bar di tengah atas, chat dan daftar pemain jadi kolom di sisi kanan setinggi layar */
+  @media (orientation:landscape) and (max-height:520px) {
+    #lobbyTop { display:contents; }
+    .lb-bar { position:absolute; top:6px; left:50%; transform:translateX(-50%); pointer-events:auto; }
+    #chatBox, #playersBox { position:absolute; right:8px; top:46px; bottom:10px; width:min(300px,44%); height:auto; pointer-events:auto; }
+  }
 </style>
 </head>
 <body>
@@ -376,7 +390,7 @@
       <div id="lobbyTop">
         <div class="lb-bar"><span>ROOM <b id="lbCode">----</b></span><button class="lb-btn" id="lbCopy" type="button">Salin</button><button class="lb-btn" id="lbReady" type="button" title="Daftar pemain">Siap 0/0</button><button class="lb-btn" id="chatBtn" type="button" aria-label="Chat">💬 Chat</button><button class="lb-btn" id="lbLeave" type="button">Keluar</button></div>
         <div id="chatBox" hidden>
-          <div class="chat-head"><b>Chat</b><button type="button" id="chatClose" aria-label="Tutup chat">✕</button></div>
+          <button type="button" id="chatClose" aria-label="Tutup chat">✕</button>
           <div id="chatLog" aria-live="polite"></div>
           <div class="chat-q"><button type="button" data-q="Halo!">Halo!</button><button type="button" data-q="Siap!">Siap!</button><button type="button" data-q="Tunggu ya…">Tunggu ya…</button><button type="button" data-q="Ayo mulai!">Ayo mulai!</button></div>
           <div class="chat-row"><input id="chatIn" maxlength="80" placeholder="Ketik pesan…" autocomplete="off" enterkeyhint="send"><button class="lb-btn" id="chatSend" type="button">Kirim</button></div>
@@ -953,7 +967,7 @@
   // Bagian ini hanya input, render, HUD, toast, dan efek. Paksa seed lewat ?seed=123 untuk mengulang ronde yang sama.
   const urlSeed = (() => { try { const v = new URLSearchParams(location.search).get('seed'); const n = v === null || v === '' ? NaN : Number(v); return Number.isFinite(n) ? n >>> 0 : null; } catch (e) { return null; } })();
   const _qs = new URLSearchParams(location.search), ONLINE = _qs.get('online') === '1', NET_SERVER = _qs.get('server') || '';
-  const NET = { sock:null, room:null, snap:null, events:[], appliedTick:-1, view:new Map(), sx:0, sy:0, sentAt:0, px:0, py:0, posAt:0, padIn:false, ping:null, wasConnected:false, offline:false, lastRejoin:null };
+  const NET = { sock:null, room:null, snap:null, events:[], appliedTick:-1, view:new Map(), sx:0, sy:0, sentAt:0, px:0, py:0, posAt:0, padIn:false, ping:null, wasConnected:false, offline:false, lastRejoin:null, chatCode:null };
   if (ONLINE) document.body.classList.add('online');
   if (ONLINE && _qs.get('debug') === '1') window.__NET = NET;   // inspeksi dari konsol / tes
   let seed = urlSeed !== null ? urlSeed : (Math.random() * 4294967296) >>> 0;
@@ -1446,7 +1460,7 @@
   }
   function resizeCanvas() {
     shell = null;
-    const r=canvas.getBoundingClientRect(); dpr=Math.min(window.devicePixelRatio||1,2); ART.cache.clear(); compact=!!window.matchMedia?.('(orientation:landscape) and (max-height:520px)').matches;
+    const r=canvas.getBoundingClientRect(); dpr=Math.min(window.devicePixelRatio||1,2); ART.cache.clear(); compact=!!window.matchMedia?.('(orientation:landscape) and (max-height:520px)').matches; if (ONLINE) placeNetStat();
     canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr));
     ctx.setTransform(dpr,0,0,dpr,0,0); canvasW=r.width; canvasH=r.height;
     mapScale=Math.min(1.18,canvasW/700,canvasH/(340+wallH()+14));
@@ -1799,10 +1813,11 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     const me = myMember(), lp = lobbyCore.start().state.players[0];
     if (me) { lp.x = me.x; lp.y = me.y; }
     NET.px = lp.x; NET.py = lp.y; NET.posAt = 0; NET.padIn = false;
-    mode = 'lobby'; olShow(false); renderUI();
+    mode = 'lobby'; olShow(false); renderUI(); openChat(false);   // chat terbuka secara default (tanpa memunculkan keyboard)
   }
   function onRoomState() {
     const st = NET.room; if (!st) return;
+    if (NET.chatCode !== st.code) { byId('chatLog').textContent = ''; NET.chatCode = st.code; }   // room baru = riwayat chat baru
     const nConn = st.players.filter(p => p.connected).length;   // teman masuk lobi: dua nada naik
     if (NET.prevConn != null && nConn > NET.prevConn && st.phase === 'lobby') BakeryAudio.play('join');
     NET.prevConn = nConn;
@@ -1925,6 +1940,11 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     uiRefreshElapsed += dt;
     if (uiRefreshElapsed >= 0.15) { uiRefreshElapsed = 0; renderUI(); }
   }
+  function placeNetStat() {   // portrait/desktop: di baris subjudul header; HP landscape pendek (header disembunyikan): melayang di kanvas
+    const host = compact ? byId('gameFrame') : document.querySelector('.subtitle'), n = els.netStat;
+    if (host && n.parentElement !== host) host.insertBefore(n, host.firstChild);
+    n.classList.toggle('inline', !compact);
+  }
   function renderNetStat() {   // hanya RTT: <=70 ms normal, 71-100 kuning, >100 atau timeout merah
     const n = els.netStat, p = NET.ping;
     n.textContent = NET.offline ? 'putus' : p === null ? '… ms' : p === Infinity ? 'timeout' : p + ' ms';
@@ -2038,7 +2058,6 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     addEventListener('pageshow', ev => { if (ev.persisted && NET.sock && !NET.sock.connected) NET.sock.connect(); });
     setupQuickChat();
     byId('chatClose').onclick = closeChat;
-    canvas.addEventListener('pointerdown', () => { if (mode === 'lobby') closeChat(); });
     byId('lbReady').onclick = togglePlayers; byId('playersClose').onclick = () => { byId('playersBox').hidden = true; };
     byId('chatSend').onclick = () => { const i = byId('chatIn'); sendChat(i.value); i.value = ''; };
     byId('chatIn').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); byId('chatSend').onclick(); } else if (ev.key === 'Escape') closeChat(); });

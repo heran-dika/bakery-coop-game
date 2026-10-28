@@ -36,6 +36,7 @@ const cleanName = v => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f<
 const cleanCode = v => (typeof v === 'string' ? v.trim().toUpperCase().slice(0, 4) : '');
 const axis = v => (typeof v === 'number' && Number.isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0);
 const asRequestId = v => ((typeof v === 'string' || typeof v === 'number') && String(v).length <= 40 ? v : null);
+const bump = (o, a, b) => { const x = o[a] || (o[a] = {}); x[b] = (x[b] || 0) + 1; };   // telemetri: hitung o[a][b]
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 function createGameServer(opts) {
@@ -45,6 +46,7 @@ function createGameServer(opts) {
     minPlayers: 1,             // 1 = boleh uji sendiri; co-op sebenarnya 2–4 (§2.2)
     maxRooms: 50,
     autoTick: true,            // false di tes: waktu dimajukan manual lewat advance()
+    telemetry: () => {},       // dipanggil sekali per ronde selesai dengan satu baris JSON (bahan playtest S3)
     log: () => {}
   }, opts);
 
@@ -147,6 +149,7 @@ function createGameServer(opts) {
     room.seed = seed; room.slots = slots; room.result = null;
     room.game = createGame({ seed, players: slots, config: { minOrders: 2 } }); room.game.start();   // co-op: selalu ada minimal 2 order aktif
     room.phase = 'running'; room.tick = 0; room.inputs = {}; room.queues = {};
+    room.stats = { t0: Date.now(), inter: {}, msgs: {}, slips: {}, done: [], exp: {} };
     emitRoom(room, 'round:started', { protocol: PROTOCOL, seed, tickHz: TICK_HZ, players: slots, config: room.game.config });
     emitRoom(room, 'world:snapshot', { tick: 0, snapshot: snap(room) });
     broadcastState(room);
@@ -155,6 +158,24 @@ function createGameServer(opts) {
     const s = room.game.snapshot(); s.targets = {};
     for (const m of members(room)) s.targets[m.slot] = room.game.targetOf(m.slot);
     return s;
+  }
+  function collect(st, e, t) {   // kumpulkan event core untuk laporan telemetri
+    if (e.type === 'msg') bump(st.msgs, e.player, e.code);
+    else if (e.type === 'hazard:slip') st.slips[e.player] = (st.slips[e.player] || 0) + 1;
+    else if (e.type === 'order:completed') st.done.push({ t: +t.toFixed(1), p: e.player, r: e.recipe, e: e.earned });
+    else if (e.type === 'order:expired') st.exp[e.recipe] = (st.exp[e.recipe] || 0) + 1;
+  }
+  function report(room, end) {
+    const st = room.stats, cfg = room.game.config, B = 30, curve = new Array(Math.ceil(cfg.roundSeconds / B)).fill(0), per = {};
+    for (const d of st.done) { curve[Math.min(curve.length - 1, Math.floor(d.t / B))] += d.e; (per[d.r] || (per[d.r] = { ok: 0, exp: 0 })).ok++; }
+    for (const r of Object.keys(st.exp)) (per[r] || (per[r] = { ok: 0, exp: 0 })).exp = st.exp[r];
+    return {
+      ts: new Date().toISOString(), room: room.code, seed: room.seed, players: room.slots.length, wallSec: Math.round((Date.now() - st.t0) / 1000),
+      score: end.score, stars: end.stars, served: end.ordersServed, expired: end.ordersExpired, burnt: end.burntCount,
+      firstServedAt: st.done.length ? st.done[0].t : null, earnedPer30s: curve, perRecipe: per,
+      served_by: st.done.reduce((a, d) => (a[d.p] = (a[d.p] || 0) + 1, a), {}),
+      interactions: st.inter, msgs: st.msgs, slips: st.slips
+    };
   }
   function stepRoom(room, dt) {
     if (!connected(room).length) {   // semua putus: simulasi dijeda; room dihapus bila tak ada yang kembali
@@ -179,14 +200,17 @@ function createGameServer(opts) {
     const inputs = {};
     for (const m of connected(room)) {
       const inp = room.inputs[m.slot] || { sx: 0, sy: 0 }, q = room.queues[m.slot];
-      inputs[m.slot] = { sx: inp.sx, sy: inp.sy, interact: q && q.length ? q.shift() : undefined };
+      const iv = q && q.length ? q.shift() : undefined;
+      if (iv !== undefined) bump(room.stats.inter, m.slot, room.game.targetOf(m.slot) || 'none');   // stasiun target saat aksi diproses
+      inputs[m.slot] = { sx: inp.sx, sy: inp.sy, interact: iv };
     }
     const events = room.game.step(dt, inputs);
     room.tick++;
+    for (const e of events) collect(room.stats, e, room.game.state.elapsed);
     const ended = events.find(e => e.type === 'round:ended');
     if (events.length) emitRoom(room, 'game:events', { tick: room.tick, events });
     if (ended || room.tick % SNAPSHOT_EVERY === 0) emitRoom(room, 'world:snapshot', { tick: room.tick, snapshot: snap(room) });
-    if (ended) { room.phase = 'ended'; room.result = ended; emitRoom(room, 'round:ended', ended); broadcastState(room); }
+    if (ended) { room.phase = 'ended'; room.result = ended; o.telemetry(JSON.stringify(report(room, ended))); emitRoom(room, 'round:ended', ended); broadcastState(room); }
   }
 
   // ---------- socket ----------
@@ -285,7 +309,7 @@ module.exports = { createGameServer, PROTOCOL, TICK_HZ };
 if (require.main === module) {
   const port = Number(process.env.PORT || 3001);
   const origins = (process.env.ALLOWED_ORIGINS || 'https://168-110-203-54.sslip.io').split(',').map(s => s.trim()).filter(Boolean);
-  const srv = createGameServer({ origins, log: (...a) => console.log('[server]', ...a) });
+  const srv = createGameServer({ origins, log: (...a) => console.log('[server]', ...a), telemetry: line => console.log('[telemetry] ' + line) });
   srv.listen(port, () => console.log(`[server] Bakery Co-op siap di port ${port} (protocol ${PROTOCOL}, origin: ${origins.join(', ')})`));
   for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => srv.close().then(() => process.exit(0)));
 }

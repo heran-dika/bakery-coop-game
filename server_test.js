@@ -578,3 +578,24 @@ test('co-op: selalu minimal 2 order aktif (order baru langsung dibuat setelah di
   assert.equal(L2.cs[0].all('game:events').flatMap(e => e.events).some(e => e.type === 'order:spawned' && e.refill === true), true, 'event pengganti ditandai refill');
   await env2.stop();
 });
+
+test('telemetri: satu baris JSON per ronde selesai berisi skor, interaksi per stasiun, pesan, kurva skor', async () => {
+  const lines = [];
+  const env = await boot({ telemetry: l => lines.push(l) });
+  const L = await startRound(env, 2);
+  await act(env, L, 0, 'dough'); await act(env, L, 0, 'dough');   // picked, lalu hands_full
+  await act(env, L, 1, 'trash');
+  env.srv.advance(L.code, 241);
+  assert.ok(await until(() => L.cs[0].last('round:ended')));
+  assert.equal(lines.length, 1, 'tepat satu baris per ronde');
+  const r = JSON.parse(lines[0]), end = L.cs[0].last('round:ended');
+  assert.equal(r.players, 2); assert.equal(r.room, L.code);
+  assert.equal(r.score, end.score); assert.equal(r.expired, end.ordersExpired); assert.equal(r.burnt, end.burntCount);
+  assert.equal(r.interactions.p1.dough, 2); assert.equal(r.interactions.p2.trash, 1);
+  assert.equal(r.msgs.p1.picked, 1); assert.equal(r.msgs.p1.hands_full, 1);
+  assert.equal(r.earnedPer30s.length, 8); assert.equal(r.firstServedAt, null);
+  assert.ok(r.perRecipe.plain_bread.exp + r.perRecipe.salt_bread.exp >= 1, 'order kedaluwarsa tercatat per resep');
+  env.srv.advance(L.code, 5); await sleep(30);
+  assert.equal(lines.length, 1, 'tidak dobel setelah ronde berakhir');
+  await env.stop();
+});

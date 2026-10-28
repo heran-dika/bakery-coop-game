@@ -360,32 +360,35 @@
         }
       }
       while (s.orders.length < cfg.minOrders && s.orders.length < cfg.maxOrders) pushOrder(rng() < 0.5 ? 'plain_bread' : 'salt_bread', ev, { refill: true });
-      const prep = byId.prep;
-      if (prep && prep.processing) {
+      // Semua stasiun bertipe prep/oven diproses (stage boleh punya lebih dari satu); urutan = urutan di config.
+      for (const prep of s.stations) {
+        if (prep.type !== 'prep' || !prep.processing) continue;
         prep.timer -= dt;
         if (prep.timer <= 0) {
           prep.processing = false; prep.timer = 0;
           if (prep.item && prep.item.type === 'dough') { prep.item.type = 'prepared_dough'; prep.item.mods = []; ev.push({ type: 'dough:prepared' }); }
         }
       }
-      const oven = byId.oven;
-      if (oven && oven.status === 'cooking') {
-        oven.timer -= dt;
-        if (oven.timer <= 0) {
-          oven.timer = 0; oven.status = 'ready'; oven.readyTimer = cfg.readyBeforeBurnSeconds;
-          if (oven.item) {
-            const m = oven.item.mods;
-            oven.item.type = m.includes('butter') && m.includes('salt') ? 'salt_bread' : m.length === 0 ? 'plain_bread' : 'failed_bread';
+      for (const oven of s.stations) {
+        if (oven.type !== 'oven') continue;
+        if (oven.status === 'cooking') {
+          oven.timer -= dt;
+          if (oven.timer <= 0) {
+            oven.timer = 0; oven.status = 'ready'; oven.readyTimer = cfg.readyBeforeBurnSeconds;
+            if (oven.item) {
+              const m = oven.item.mods;
+              oven.item.type = m.includes('butter') && m.includes('salt') ? 'salt_bread' : m.length === 0 ? 'plain_bread' : 'failed_bread';
+            }
+            ev.push({ type: 'oven:ready', item: oven.item && oven.item.type });
           }
-          ev.push({ type: 'oven:ready', item: oven.item && oven.item.type });
-        }
-      } else if (oven && oven.status === 'ready') {
-        oven.readyTimer -= dt;
-        if (oven.readyTimer <= 0) {
-          oven.status = 'burnt'; oven.readyTimer = 0;
-          if (oven.item) oven.item.type = 'burnt_bread';
-          s.burntCount++;
-          ev.push({ type: 'oven:burnt' });
+        } else if (oven.status === 'ready') {
+          oven.readyTimer -= dt;
+          if (oven.readyTimer <= 0) {
+            oven.status = 'burnt'; oven.readyTimer = 0;
+            if (oven.item) oven.item.type = 'burnt_bread';
+            s.burntCount++;
+            ev.push({ type: 'oven:burnt' });
+          }
         }
       }
       for (const p of s.players) movePlayer(p, inputs[p.id], dt, ev);

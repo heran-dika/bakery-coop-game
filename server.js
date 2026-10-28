@@ -6,17 +6,19 @@
  * Jalankan:  npm install && npm start      (PORT, ALLOWED_ORIGINS lewat environment variable)
  * Cek hidup: GET /health
  *
- * Client -> server:  room:create {name} | room:join {code,name} | lobby:ready {ready} | room:leave
+ * Client -> server:  room:create {name, stage?} | room:join {code,name} | lobby:ready {ready} | room:leave
  *                    player:input {sx,sy} | station:interact {requestId} | room:rematch (host)
  *                    room:rejoin {code,token,takeover} | room:kick {slot} (host) | lobby:pos {x,y} | chat:send {text}
  *                    net:ping (dengan ack; untuk mengukur RTT)
  * room:join tanpa code = masuk room lobi terbuka tertua.
+ * stage (opsional) = id stage di stages.js; tanpa stage = layout bawaan core. Stage tidak dikenal -> error:msg {code:'bad_stage'}.
  * Server -> client:  room:state | lobby:pos | chat:message | round:countdown | round:started | world:snapshot | game:events | round:ended | error:msg
  */
 const http = require('node:http');
 const { randomUUID } = require('node:crypto');
 const { Server } = require('socket.io');
 const { createGame } = require('./core.js');
+const Stages = require('./stages.js');
 
 const PROTOCOL = 1;
 const TICK_HZ = 30;          // [Usulan awal]
@@ -147,7 +149,8 @@ function createGameServer(opts) {
     const seed = (Math.random() * 4294967296) >>> 0;
     const slots = members(room).map(m => m.slot);
     room.seed = seed; room.slots = slots; room.result = null;
-    room.game = createGame({ seed, players: slots, config: { minOrders: 2 } }); room.game.start();   // co-op: selalu ada minimal 2 order aktif
+    const stage = room.stage ? Stages.get(room.stage) : null;   // layout dan config stage; tanpa stage = bawaan core
+    room.game = createGame({ seed, players: slots, config: Object.assign({ minOrders: 2 }, stage ? stage.config : {}) }); room.game.start();   // co-op: selalu ada minimal 2 order aktif
     room.phase = 'running'; room.tick = 0; room.inputs = {}; room.queues = {};
     room.stats = { t0: Date.now(), inter: {}, msgs: {}, slips: {}, done: [], exp: {} };
     emitRoom(room, 'round:started', { protocol: PROTOCOL, seed, tickHz: TICK_HZ, players: slots, config: room.game.config });
@@ -169,13 +172,13 @@ function createGameServer(opts) {
     const st = room.stats, cfg = room.game.config, B = 30, curve = new Array(Math.ceil(cfg.roundSeconds / B)).fill(0), per = {};
     for (const d of st.done) { curve[Math.min(curve.length - 1, Math.floor(d.t / B))] += d.e; (per[d.r] || (per[d.r] = { ok: 0, exp: 0 })).ok++; }
     for (const r of Object.keys(st.exp)) (per[r] || (per[r] = { ok: 0, exp: 0 })).exp = st.exp[r];
-    return {
+    return Object.assign({
       ts: new Date().toISOString(), room: room.code, seed: room.seed, players: room.slots.length, wallSec: Math.round((Date.now() - st.t0) / 1000),
       score: end.score, stars: end.stars, served: end.ordersServed, expired: end.ordersExpired, burnt: end.burntCount,
       firstServedAt: st.done.length ? st.done[0].t : null, earnedPer30s: curve, perRecipe: per,
       served_by: st.done.reduce((a, d) => (a[d.p] = (a[d.p] || 0) + 1, a), {}),
       interactions: st.inter, msgs: st.msgs, slips: st.slips
-    };
+    }, room.stage ? { stage: room.stage } : {});   // field stage hanya muncul bila ronde memakai stage, jadi baris ronde bawaan tidak berubah
   }
   function stepRoom(room, dt) {
     if (!connected(room).length) {   // semua putus: simulasi dijeda; room dihapus bila tak ada yang kembali
@@ -221,7 +224,9 @@ function createGameServer(opts) {
     sock.on('room:create', guard('lobby', p => {
       if (sock.data.room) return fail(sock, 'already_in_room');
       if (rooms.size >= o.maxRooms) return fail(sock, 'server_full');
-      const room = { code: newCode(), hostId: sock.id, banned: new Set(), phase: 'lobby', members: new Map(), game: null, inputs: {}, queues: {}, tick: 0, countdownLeft: 0 };
+      const stage = p.stage == null ? null : Stages.get(p.stage);   // stage opsional; id yang tidak dikenal ditolak, bukan diam-diam diganti
+      if (p.stage != null && !stage) return fail(sock, 'bad_stage');
+      const room = { code: newCode(), hostId: sock.id, banned: new Set(), phase: 'lobby', members: new Map(), game: null, inputs: {}, queues: {}, tick: 0, countdownLeft: 0, stage: stage ? stage.id : null };
       rooms.set(room.code, room); joinRoom(sock, room, p.name, p.cid);
     }));
     sock.on('room:join', guard('lobby', p => {

@@ -418,548 +418,10 @@
   <div class="footer-note">P0 vector prototype · hazard lantai licin aktif · multiplayer online, cloud save, audio final, dan progression belum termasuk.</div>
 </div>
 <!-- Vector-first P0: all gameplay art is procedural Canvas geometry; external image/font assets are intentionally avoided for offline and mobile performance. -->
-<script>
-// ===== BEGIN core.js (salinan bakery-coop-game/core.js; edit di sana, lalu jalankan: node sync-core.js) =====
-/* Bakery Co-op — core game (S1).
- * Logika murni: tanpa DOM, tanpa Math.random/Date. Dipakai client (browser) dan server/bot (Node).
- * Diport dari index.html (P0 solo). Aturan, angka, dan urutan update sengaja dipertahankan.
- * Yang TIDAK ada di sini (tetap di client): render, HUD, toast teks, efek, petunjuk langkah berikutnya.
- */
-(function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.BakeryCore = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
-  'use strict';
-
-  const DEFAULT_CONFIG = {
-    roundSeconds: 240,
-    maxOrders: 3,
-    minOrders: 0,             // >0: order baru langsung dibuat bila order aktif kurang dari ini (dipakai server co-op; solo tetap 0)
-    patienceSeconds: 45,
-    openingOrders: ['plain_bread', 'salt_bread'],
-    openingNextOrderAt: 13,
-    spawnMinSeconds: 13,
-    spawnMaxSeconds: 18,
-    prepSeconds: 2.4,
-    cookSeconds: 6,
-    readyBeforeBurnSeconds: 8,
-    scorePerOrder: 100,
-    fastBonus: 25,
-    expiredPenalty: 50,
-    trashPenalty: 10,
-    comboBonusPerOrder: 10,
-    maxComboBonus: 50,
-    oneStar: 300,
-    twoStars: 600,
-    threeStars: 900,
-    reach: 1.28,
-    moveSpeed: 2.7,
-    isoRatio: 0.5,            // tileH / tileW
-    heavyCarrySlow: 0.94,
-    maxStep: 0.05,            // dt dipecah per langkah ini supaya hasil sama di tick berapa pun
-    // Kolisi: lingkaran badan vs persegi jejak alas kubus (sama dengan resolveStations di index.html 2026-10-23).
-    // Semua angka [Menebak], disetel di HP: bodyR, footOffset, footHalf, reach*.
-    collision: { bodyR: 0.16, reachMin: 0.63, reachMaxX: 7.37, reachMaxY: 6.37, footOffset: 0.15, footHalf: 0.41 },
-    spawn: { x: 4.15, y: 6.15, facingX: 0, facingY: -1, spreadX: 0.35 },
-    hazard: {
-      enabled: true, firstAt: 24, intervalMin: 26, intervalMax: 36, warnSeconds: 2.5, activeSeconds: 7.5,
-      slowFactor: 0.62, slipSeconds: 0.45, slipFactor: 0.48, radius: 0.48, maxActive: 2, msgEvery: 2.2,
-      spots: [{ x: 3.9, y: 3.25 }, { x: 5.1, y: 4.0 }, { x: 2.4, y: 3.8 }]
-    },
-    stations: [
-      { id: 'dough', type: 'crate', gives: 'dough', x: 1, y: 1 },
-      { id: 'prep', type: 'prep', x: 3, y: 1 },
-      { id: 'oven', type: 'oven', x: 5, y: 1 },
-      { id: 'serve', type: 'serve', x: 7, y: 1 },
-      { id: 'butter', type: 'crate', gives: 'butter', x: 1, y: 5 },
-      { id: 'salt', type: 'crate', gives: 'salt', x: 3, y: 5 },
-      { id: 'counter1', type: 'counter', x: 2, y: 3 },
-      { id: 'counter2', type: 'counter', x: 6, y: 3 },
-      { id: 'trash', type: 'trash', x: 7, y: 5 }
-    ]
-  };
-
-  const HEAVY = ['dough', 'butter', 'salt', 'prepared_dough'];
-  const BREADS = ['plain_bread', 'salt_bread'];
-
-  function mulberry32(seed) {
-    let a = seed >>> 0;
-    return function () {
-      a = (a + 0x6D2B79F5) >>> 0;
-      let t = a;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  function mergeConfig(base, over) {
-    over = over || {};
-    return Object.assign({}, base, over, {
-      collision: Object.assign({}, base.collision, over.collision),
-      spawn: Object.assign({}, base.spawn, over.spawn),
-      hazard: Object.assign({}, base.hazard, over.hazard),
-      stations: over.stations || base.stations,
-      openingOrders: over.openingOrders || base.openingOrders
-    });
-  }
-
-  /**
-   * createGame({ config?, seed?, players? })
-   *   game.reset(seed?)                 -> state idle (menu), belum berjalan
-   *   game.start(seed?)                 -> reset + mulai ronde (dua order pembuka)
-   *   game.step(dt, inputs)             -> events[]
-   *       inputs = { [playerId]: { sx, sy, interact: requestId } }   sx/sy = sumbu layar [-1..1]
-   *   game.snapshot()                   -> salinan state polos (JSON-able)
-   *   game.targetOf(playerId)           -> id stasiun target atau null
-   *   game.state                        -> state hidup (read-only untuk client; dipakai test/server)
-   */
-  function createGame(opts) {
-    opts = opts || {};
-    const cfg = mergeConfig(DEFAULT_CONFIG, opts.config);
-    const playerIds = opts.players && opts.players.length ? opts.players.slice() : ['p1'];
-    let seed = opts.seed == null ? 1 : opts.seed;
-    let rng = mulberry32(seed);
-    let s = null;
-    let byId = {};
-
-    function blankState() {
-      const stations = cfg.stations.map(def => {
-        const st = { id: def.id, type: def.type, x: def.x, y: def.y };
-        if (def.gives) st.gives = def.gives;
-        if (def.type === 'prep') Object.assign(st, { item: null, processing: false, timer: 0 });
-        if (def.type === 'oven') Object.assign(st, { item: null, status: 'empty', timer: 0, readyTimer: 0 });
-        if (def.type === 'counter') st.item = null;
-        return st;
-      });
-      byId = Object.fromEntries(stations.map(st => [st.id, st]));
-      const players = playerIds.map((id, i) => ({
-        id, x: cfg.spawn.x + i * cfg.spawn.spreadX, y: cfg.spawn.y,
-        facingX: cfg.spawn.facingX, facingY: cfg.spawn.facingY,
-        held: null, moving: false, slipUntil: 0, lastHazardMsgAt: -99, seen: []
-      }));
-      return {
-        mode: 'idle', elapsed: 0, roundLeft: cfg.roundSeconds, nextOrderAt: cfg.openingNextOrderAt,
-        score: 0, ordersServed: 0, ordersExpired: 0, burntCount: 0, streak: 0,
-        orders: [], orderSerial: 1, itemSerial: 1,
-        hazards: [], nextHazardAt: cfg.hazard.firstAt, nextHazardId: 1,
-        stations, players
-      };
-    }
-
-    function reset(newSeed) {          // kembali ke state idle (menu): belum ada order, belum berjalan
-      if (newSeed != null) seed = newSeed;
-      rng = mulberry32(seed);
-      s = blankState();
-      return game;
-    }
-
-    function start(newSeed) {
-      reset(newSeed);
-      s.mode = 'running';
-      for (const type of cfg.openingOrders) pushOrder(type, []);
-      s.nextOrderAt = cfg.openingNextOrderAt;
-      return game;
-    }
-
-    const makeItem = (type, mods) => ({ id: s.itemSerial++, type, mods: (mods || []).slice() });
-
-    function pushOrder(type, ev, extra) {
-      if (s.orders.length >= cfg.maxOrders) return null;
-      const o = { id: s.orderSerial++, type, createdAt: s.elapsed, deadlineAt: s.elapsed + cfg.patienceSeconds, patience: cfg.patienceSeconds };
-      s.orders.push(o);
-      ev.push(Object.assign({ type: 'order:spawned', order: o.id, recipe: type }, extra));
-      return o;
-    }
-
-    function spawnOrder(ev) {
-      s.nextOrderAt = s.elapsed + cfg.spawnMinSeconds + rng() * (cfg.spawnMaxSeconds - cfg.spawnMinSeconds);
-      if (s.orders.length >= cfg.maxOrders) return;
-      pushOrder(rng() < 0.5 ? 'plain_bread' : 'salt_bread', ev);
-    }
-
-    function finishRound(ev) {
-      if (s.mode !== 'running') return;
-      s.mode = 'ended';
-      const stars = s.score >= cfg.threeStars ? 3 : s.score >= cfg.twoStars ? 2 : s.score >= cfg.oneStar ? 1 : 0;
-      ev.push({ type: 'round:ended', score: s.score, stars, ordersServed: s.ordersServed, ordersExpired: s.ordersExpired, burntCount: s.burntCount });
-    }
-
-    // ---------- gerak ----------
-    function clampWorld(x, y) {
-      const c = cfg.collision;
-      return [Math.max(c.reachMin, Math.min(c.reachMaxX, x)), Math.max(c.reachMin, Math.min(c.reachMaxY, y))];
-    }
-
-    // Tanpa tolak per-sumbu: karakter didorong keluar dari persegi jejak kubus, jadi bisa memutari sudut tanpa nyangkut.
-    function resolveStations(x, y) {
-      const c = cfg.collision, R = c.bodyR, G = c.reachMin + 2 * R, h = c.footHalf;
-      for (let pass = 0; pass < 2; pass++) for (const st of s.stations) {
-        const cx = st.x + c.footOffset, cy = st.y + c.footOffset;
-        // celah antara kubus dan dinding yang lebih sempit dari badan dianggap padat
-        const x0 = cx - h < G ? -9 : cx - h, x1 = cx + h > c.reachMaxX - 2 * R ? 9 : cx + h;
-        const y0 = cy - h < G ? -9 : cy - h, y1 = cy + h > c.reachMaxY - 2 * R ? 9 : cy + h;
-        const qx = Math.max(x0, Math.min(x, x1)), qy = Math.max(y0, Math.min(y, y1));
-        const dx = x - qx, dy = y - qy, d = Math.hypot(dx, dy);
-        if (d >= R) continue;
-        if (d > 1e-6) { x = qx + dx / d * R; y = qy + dy / d * R; }
-        else {   // pusat sudah di dalam persegi: keluar lewat sisi terdekat
-          const l = x - x0, r = x1 - x, tp = y - y0, b = y1 - y, mn = Math.min(l, r, tp, b);
-          if (mn === l) x = x0 - R; else if (mn === r) x = x1 + R; else if (mn === tp) y = y0 - R; else y = y1 + R;
-        }
-      }
-      return clampWorld(x, y);
-    }
-
-    function movePlayer(p, inp, dt, ev) {
-      p.moving = false;
-      let sx = inp && inp.sx || 0, sy = inp && inp.sy || 0;
-      const len = Math.hypot(sx, sy);
-      if (len > 1) { sx /= len; sy /= len; }
-      if (Math.abs(sx) + Math.abs(sy) < 0.01) return;
-      // Proyeksi isometrik terbalik: kontrol bergerak di arah layar, bukan diagonal grid.
-      const dx = sx * cfg.moveSpeed * cfg.isoRatio + sy * cfg.moveSpeed;
-      const dy = sy * cfg.moveSpeed - sx * cfg.moveSpeed * cfg.isoRatio;
-      const hz = cfg.hazard;
-      let factor = p.held && HEAVY.includes(p.held.type) ? cfg.heavyCarrySlow : 1;
-      if (s.elapsed < p.slipUntil) factor *= hz.slipFactor;
-      for (const h of s.hazards) {
-        if (h.state === 'active' && Math.hypot(p.x - h.x, p.y - h.y) < h.radius) {
-          factor *= hz.slowFactor;
-          if (s.elapsed - p.lastHazardMsgAt > hz.msgEvery) { ev.push({ type: 'msg', player: p.id, code: 'hazard_slow' }); p.lastHazardMsgAt = s.elapsed; }
-        }
-      }
-      const oldX = p.x, oldY = p.y;
-      const nx = p.x + dx * dt * factor, ny = p.y + dy * dt * factor;
-      const r = resolveStations.apply(null, clampWorld(nx, ny));
-      p.x = r[0]; p.y = r[1];
-      p.facingX = sx; p.facingY = sy; p.moving = true;
-      for (const h of s.hazards) {
-        if (h.state === 'active' && Math.hypot(p.x - h.x, p.y - h.y) < h.radius && Math.hypot(oldX - h.x, oldY - h.y) >= h.radius) {
-          p.slipUntil = s.elapsed + hz.slipSeconds;
-          ev.push({ type: 'hazard:slip', player: p.id, x: p.x, y: p.y });
-        }
-      }
-    }
-
-    function stationDistance(p, st) { return Math.hypot(st.x - p.x, st.y - p.y); }
-
-    function targetStation(p) {
-      const valid = s.stations.filter(st => stationDistance(p, st) <= cfg.reach);
-      if (!valid.length) return null;
-      const rank = st => {
-        const dx = (st.x - p.x) - (st.y - p.y);
-        const dy = ((st.x - p.x) + (st.y - p.y)) * 0.5;
-        const dot = dx * p.facingX + dy * p.facingY;
-        return stationDistance(p, st) - (dot > 0 ? 0.12 : 0);
-      };
-      valid.sort((a, b) => rank(a) - rank(b));
-      return valid[0];
-    }
-
-    // ---------- hazard ----------
-    function updateHazards(dt, ev) {
-      const hz = cfg.hazard;
-      if (!hz.enabled) return;
-      if (s.elapsed >= s.nextHazardAt && s.hazards.length < hz.maxActive) {
-        const spot = hz.spots[Math.floor(rng() * hz.spots.length)];
-        const h = { id: s.nextHazardId++, x: spot.x, y: spot.y, radius: hz.radius, state: 'warning', timer: hz.warnSeconds };
-        s.hazards.push(h);
-        s.nextHazardAt = s.elapsed + hz.intervalMin + rng() * (hz.intervalMax - hz.intervalMin);
-        ev.push({ type: 'hazard:spawned', hazard: h.id, x: h.x, y: h.y });
-      }
-      for (let i = s.hazards.length - 1; i >= 0; i--) {
-        const h = s.hazards[i];
-        h.timer -= dt;
-        if (h.timer <= 0) {
-          if (h.state === 'warning') { h.state = 'active'; h.timer = hz.activeSeconds; }
-          else s.hazards.splice(i, 1);
-        }
-      }
-    }
-
-    // ---------- interaksi ----------
-    function interact(p, requestId, ev) {
-      if (s.mode !== 'running') return;
-      if (requestId != null) {            // idempoten: request_id yang sama tidak diproses dua kali (§10.5)
-        if (p.seen.includes(requestId)) return;
-        p.seen.push(requestId); if (p.seen.length > 64) p.seen.shift();
-      }
-      const msg = (code, data) => ev.push(Object.assign({ type: 'msg', player: p.id, code }, data));
-      const st = targetStation(p);
-      if (!st) return msg('too_far');
-      const held = p.held;
-
-      if (st.type === 'crate') {
-        if (held) return msg('hands_full');
-        p.held = makeItem(st.gives);
-        return msg('picked', { item: p.held.type });
-      }
-
-      if (st.type === 'prep') {
-        if (st.processing) return msg('prep_busy');
-        if (!st.item) {
-          if (held && held.type === 'dough') { st.item = held; p.held = null; return msg('prep_placed'); }
-          return msg('need_dough');
-        }
-        if (st.item.type === 'dough') {
-          if (!held) { st.processing = true; st.timer = cfg.prepSeconds; return msg('kneading_started'); }
-          return msg('empty_hands_to_knead');
-        }
-        if (st.item.type === 'prepared_dough') {
-          if (held && (held.type === 'butter' || held.type === 'salt')) {
-            const mod = held.type;
-            if (st.item.mods.includes(mod)) return msg('mod_present', { mod });
-            st.item.mods.push(mod); p.held = null;
-            return msg('mod_added', { mod });
-          }
-          if (!held) { p.held = st.item; st.item = null; return msg('prep_took'); }
-          return msg('prep_in_use');
-        }
-        return;
-      }
-
-      if (st.type === 'oven') {
-        if (st.status === 'empty') {
-          if (held && held.type === 'prepared_dough') {
-            st.item = held; p.held = null; st.status = 'cooking'; st.timer = cfg.cookSeconds; st.readyTimer = 0;
-            ev.push({ type: 'oven:started', player: p.id });
-            return msg('oven_started', { seconds: cfg.cookSeconds });
-          }
-          return msg('oven_needs_prepared');
-        }
-        if (st.status === 'cooking') return msg('oven_cooking');
-        if (held) return msg('oven_empty_hands');
-        const wasBurnt = st.status === 'burnt' || (st.item && st.item.type === 'burnt_bread');
-        p.held = st.item; st.item = null; st.status = 'empty'; st.timer = 0; st.readyTimer = 0;
-        return msg('oven_took', { burnt: !!wasBurnt, item: p.held && p.held.type });
-      }
-
-      if (st.type === 'counter') {
-        if (st.item && !held) { p.held = st.item; st.item = null; return msg('counter_took', { item: p.held.type }); }
-        if (!st.item && held) { st.item = held; p.held = null; return msg('counter_placed'); }
-        if (st.item) return msg('counter_both_full');
-        return msg('counter_empty');
-      }
-
-      if (st.type === 'serve') {
-        if (!held || !BREADS.includes(held.type)) return msg('serve_need_bread');
-        const idx = s.orders.findIndex(o => o.type === held.type && s.elapsed < o.deadlineAt);
-        if (idx < 0) return msg('serve_no_order', { recipe: held.type });
-        const order = s.orders[idx];
-        const patienceLeft = Math.max(0, order.deadlineAt - s.elapsed) / order.patience;
-        let earned = cfg.scorePerOrder;
-        if (patienceLeft > 0.5) earned += cfg.fastBonus;
-        s.streak++;
-        const combo = s.streak >= 2 ? Math.min((s.streak - 1) * cfg.comboBonusPerOrder, cfg.maxComboBonus) : 0;
-        earned += combo; s.score += earned; s.ordersServed++;
-        s.orders.splice(idx, 1); p.held = null;
-        ev.push({ type: 'order:completed', player: p.id, order: order.id, index: idx, recipe: order.type, earned, combo, score: s.score, x: p.x, y: p.y });
-        return;
-      }
-
-      if (st.type === 'trash') {
-        if (!held) return msg('trash_empty_hands');
-        s.score -= cfg.trashPenalty;
-        const wasBurnt = held.type === 'burnt_bread';
-        p.held = null; s.streak = 0;
-        ev.push({ type: 'item:trashed', player: p.id, penalty: cfg.trashPenalty, burnt: wasBurnt, score: s.score });
-        return msg('trashed', { penalty: cfg.trashPenalty, burnt: wasBurnt });
-      }
-    }
-
-    // ---------- tick ----------
-    function tick(dt, inputs, ev) {
-      s.elapsed += dt;
-      s.roundLeft = Math.max(0, cfg.roundSeconds - s.elapsed);
-      if (s.elapsed >= s.nextOrderAt) spawnOrder(ev);
-      updateHazards(dt, ev);
-      for (let i = s.orders.length - 1; i >= 0; i--) {
-        const o = s.orders[i];
-        if (s.elapsed >= o.deadlineAt) {
-          s.orders.splice(i, 1); s.ordersExpired++; s.score -= cfg.expiredPenalty; s.streak = 0;
-          ev.push({ type: 'order:expired', order: o.id, index: i, recipe: o.type, penalty: cfg.expiredPenalty, score: s.score });
-        }
-      }
-      while (s.orders.length < cfg.minOrders && s.orders.length < cfg.maxOrders) pushOrder(rng() < 0.5 ? 'plain_bread' : 'salt_bread', ev, { refill: true });
-      const prep = byId.prep;
-      if (prep && prep.processing) {
-        prep.timer -= dt;
-        if (prep.timer <= 0) {
-          prep.processing = false; prep.timer = 0;
-          if (prep.item && prep.item.type === 'dough') { prep.item.type = 'prepared_dough'; prep.item.mods = []; ev.push({ type: 'dough:prepared' }); }
-        }
-      }
-      const oven = byId.oven;
-      if (oven && oven.status === 'cooking') {
-        oven.timer -= dt;
-        if (oven.timer <= 0) {
-          oven.timer = 0; oven.status = 'ready'; oven.readyTimer = cfg.readyBeforeBurnSeconds;
-          if (oven.item) {
-            const m = oven.item.mods;
-            oven.item.type = m.includes('butter') && m.includes('salt') ? 'salt_bread' : m.length === 0 ? 'plain_bread' : 'failed_bread';
-          }
-          ev.push({ type: 'oven:ready', item: oven.item && oven.item.type });
-        }
-      } else if (oven && oven.status === 'ready') {
-        oven.readyTimer -= dt;
-        if (oven.readyTimer <= 0) {
-          oven.status = 'burnt'; oven.readyTimer = 0;
-          if (oven.item) oven.item.type = 'burnt_bread';
-          s.burntCount++;
-          ev.push({ type: 'oven:burnt' });
-        }
-      }
-      for (const p of s.players) movePlayer(p, inputs[p.id], dt, ev);
-      if (s.roundLeft <= 0) finishRound(ev);
-    }
-
-    function step(dt, inputs) {
-      const ev = [];
-      if (!s || s.mode !== 'running') return ev;
-      inputs = inputs || {};
-      for (const p of s.players) {
-        const inp = inputs[p.id];
-        if (inp && inp.interact != null) interact(p, inp.interact, ev);
-      }
-      let left = dt;
-      while (left > 1e-9 && s.mode === 'running') {
-        const d = Math.min(left, cfg.maxStep);
-        tick(d, inputs, ev);
-        left -= d;
-      }
-      return ev;
-    }
-
-    function snapshot() {
-      const copy = JSON.parse(JSON.stringify(s));
-      for (const p of copy.players) delete p.seen;
-      return copy;
-    }
-
-    function targetOf(playerId) {
-      const p = s.players.find(q => q.id === playerId);
-      const st = p && targetStation(p);
-      return st ? st.id : null;
-    }
-
-    const game = {
-      config: cfg,
-      reset, start, step, snapshot, targetOf,
-      get state() { return s; },
-      get seed() { return seed; }
-    };
-    s = blankState();
-    return game;
-  }
-
-  return { createGame, DEFAULT_CONFIG, mulberry32 };
-});
-// ===== END core.js =====
-</script>
-<script>
-// ===== BEGIN audio.js (semua bunyi game, dibuat dari kode WebAudio tanpa file; draf dengar: audio_mockup.html) =====
-(function (root) {
-  'use strict';
-  let ctx = null, master = null, noiseBuf = null;
-  let volume = 0.6, off = false;
-  try {
-    const v = localStorage.getItem('sbc_vol'); if (v !== null && v !== '' && Number.isFinite(+v)) volume = Math.min(1, Math.max(0, +v));
-    off = localStorage.getItem('sbc_sound') === '0';
-  } catch (e) {}
-  const forced = (() => { try { return new URLSearchParams(location.search).get('mute') === '1'; } catch (e) { return false; } })();   // ?mute=1
-  const isMuted = () => forced || off;
-  function applyVol() { if (master) master.gain.value = isMuted() ? 0 : volume * volume; }
-
-  function ensure() {
-    try {
-      if (!ctx) {
-        const AC = root.AudioContext || root.webkitAudioContext; if (!AC) return null;
-        ctx = new AC();
-        const comp = ctx.createDynamicsCompressor();          // mencegah pecah saat bunyi bertumpuk
-        master = ctx.createGain(); master.connect(comp); comp.connect(ctx.destination);
-        noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-        const d = noiseBuf.getChannelData(0);
-        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-        applyVol();
-      }
-      if (ctx.state === 'suspended') ctx.resume();
-      return ctx;
-    } catch (e) { ctx = null; return null; }
-  }
-  function envelope(g, t, attack, dur, peak) {
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t + attack);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + attack + dur);
-  }
-  function tone(t, f, dur, o) {
-    o = o || {};
-    const type = o.type || 'sine', vol = o.vol === undefined ? 0.25 : o.vol, attack = o.attack || 0.006;
-    const osc = ctx.createOscillator(), g = ctx.createGain();
-    osc.type = type; osc.frequency.setValueAtTime(f, t);
-    if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + attack + dur);
-    envelope(g, t, attack, dur, vol);
-    osc.connect(g); g.connect(master); osc.start(t); osc.stop(t + attack + dur + 0.05);
-  }
-  function noise(t, dur, o) {
-    o = o || {};
-    const type = o.type || 'bandpass', vol = o.vol === undefined ? 0.15 : o.vol, attack = o.attack || 0.004;
-    const src = ctx.createBufferSource(), flt = ctx.createBiquadFilter(), g = ctx.createGain();
-    src.buffer = noiseBuf; flt.type = type; flt.Q.value = o.q || 1;
-    flt.frequency.setValueAtTime(o.f || 1500, t);
-    if (o.to) flt.frequency.exponentialRampToValueAtTime(o.to, t + attack + dur);
-    envelope(g, t, attack, dur, vol);
-    src.connect(flt); flt.connect(g); g.connect(master); src.start(t); src.stop(t + attack + dur + 0.05);
-  }
-  // Dentingan logam: bagian nada tidak harmonis (1 : 2,76 : 5,4), nada tinggi lebih cepat hilang, plus klik pukulan.
-  function bell(t, f) {
-    [[1, 1, 1.3], [2.76, .55, .55], [5.4, .3, .26]].forEach(r => tone(t, f * r[0], r[2], { vol: .22 * r[1], attack: 0.002 }));
-    noise(t, .03, { vol: .05, type: 'highpass', f: 5000, q: .7, attack: .001 });
-  }
-
-  const SND = {
-    ovenReady: t => bell(t, 2093),
-    ovenWarn: t => { [0, .2, .4].forEach(d => tone(t + d, 988, .1, { type: 'triangle', vol: .2 })); },
-    ovenBurnt: t => { tone(t, 230, .7, { type: 'sawtooth', vol: .14, to: 70 }); noise(t, .6, { vol: .14, f: 900, to: 300, q: .8 }); },
-    orderWarn: t => { tone(t, 660, .09, { type: 'triangle', vol: .1 }); tone(t + .2, 660, .09, { type: 'triangle', vol: .1 }); },
-    orderDone: (t, lvl) => { const k = Math.pow(2, ((lvl || 1) - 1) * 2 / 12); [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(t + i * .075, f * k, .28, { type: 'triangle', vol: .22 })); tone(t + .32, 2093 * k, .3, { vol: .07 }); },
-    orderExpired: t => { tone(t, 392, .2, { type: 'square', vol: .09 }); tone(t + .2, 311, .4, { type: 'square', vol: .09, to: 277 }); },
-    orderNew: t => { tone(t, 784, .09, { type: 'triangle', vol: .14 }); tone(t + .1, 1047, .14, { type: 'triangle', vol: .14 }); },
-    pick: t => { tone(t, 520, .08, { vol: .2, to: 900 }); },
-    place: t => { tone(t, 300, .1, { vol: .26, to: 170 }); noise(t, .05, { vol: .12, type: 'lowpass', f: 700 }); },
-    trash: t => { noise(t, .28, { vol: .2, f: 2600, to: 350, q: .9 }); tone(t, 210, .22, { vol: .1, to: 90 }); },
-    knead: t => { [0, .22, .44, .66].forEach(d => { tone(t + d, 150, .1, { vol: .28, to: 85 }); noise(t + d, .06, { vol: .1, type: 'lowpass', f: 380 }); }); },
-    kneadDone: t => { tone(t, 659, .12, { type: 'triangle', vol: .2 }); tone(t + .12, 880, .2, { type: 'triangle', vol: .2 }); tone(t + .12, 1760, .15, { vol: .05 }); },
-    fail: t => { tone(t, 170, .16, { type: 'square', vol: .1, to: 130 }); tone(t + .1, 150, .18, { type: 'square', vol: .09, to: 110 }); },
-    spill: t => { noise(t, .35, { vol: .2, f: 1900, to: 600, q: .7 }); tone(t + .3, 1250, .09, { vol: .12, to: 520 }); },
-    slip: t => { tone(t, 950, .4, { vol: .18, to: 220 }); tone(t + .42, 180, .2, { type: 'square', vol: .1, to: 380 }); noise(t + .42, .08, { vol: .08, type: 'lowpass', f: 600 }); },
-    beep: t => { tone(t, 523, .16, { type: 'triangle', vol: .24 }); },                                   // satu bip hitung mundur (3, 2, 1)
-    go: t => { tone(t, 1047, .55, { type: 'triangle', vol: .26 }); tone(t, 1319, .55, { vol: .12 }); },   // nada mulai ronde
-    roundEnd: t => { [523, 659, 784].forEach(f => tone(t, f, 1.3, { vol: .14 })); tone(t + .05, 1568, .9, { vol: .08 }); tone(t + .5, 1047, .8, { type: 'triangle', vol: .12 }); },
-    click: t => { tone(t, 1180, .04, { vol: .12 }); },
-    join: t => { tone(t, 698, .12, { vol: .18 }); tone(t + .12, 880, .2, { vol: .18 }); }
-  };
-  // Jeda minimum per jenis bunyi (detik) supaya 4 pemain tidak menumpuk bunyi yang sama.
-  const COOL = { ovenReady: .25, ovenWarn: .8, ovenBurnt: .5, orderWarn: .5, orderDone: .15, orderExpired: .3, orderNew: .4, pick: .06, place: .06, trash: .12, knead: .6, kneadDone: .4, fail: .3, spill: .5, slip: .5, beep: .3, go: .5, roundEnd: 1, click: .05, join: .3 };
-  const last = {}, recent = [];
-  function play(name, arg) {
-    if (isMuted()) return;
-    const f = SND[name]; if (!f) return;
-    const c = ensure(); if (!c || c.state !== 'running') return;     // belum ada sentuhan pemain: diam
-    const now = c.currentTime;
-    if (last[name] !== undefined && now - last[name] < (COOL[name] || .1)) return;
-    while (recent.length && now - recent[0] > .25) recent.shift();
-    if (recent.length >= 8) return;                                   // pengaman: maksimum 8 bunyi per seperempat detik
-    last[name] = now; recent.push(now);
-    try { f(now + 0.02, arg); } catch (e) {}
-  }
-  function setMuted(v) { off = !!v; try { localStorage.setItem('sbc_sound', off ? '0' : '1'); } catch (e) {} applyVol(); }
-  const unlock = () => { ensure(); };
-  ['pointerdown', 'touchend', 'keydown', 'click'].forEach(ev => document.addEventListener(ev, unlock, { passive: true }));
-  root.BakeryAudio = { ensure, play, setMuted, isMuted };
-})(window);
-// ===== END audio.js =====
-</script>
+<script>window.BAKERY_BUILD='20261028-s1';</script>
+<script src="core.js?v=20261028-s1"></script>
+<script src="stages.js?v=20261028-s1"></script>
+<script src="audio.js?v=20261028-s1"></script>
 <script>
 (() => {
   'use strict';
@@ -971,7 +433,9 @@
   if (ONLINE) document.body.classList.add('online');
   if (ONLINE && _qs.get('debug') === '1') window.__NET = NET;   // inspeksi dari konsol / tes
   let seed = urlSeed !== null ? urlSeed : (Math.random() * 4294967296) >>> 0;
-  const game = BakeryCore.createGame({ seed });
+  const STAGE = (() => { const id = _qs.get('stage'); if (!id) return null; const st = window.BakeryStages && BakeryStages.get(id); if (!st) console.warn('[stage] tidak dikenal:', id); return st || null; })();   // ?stage=1 -> layout/config stage (data di stages.js); tanpa parameter = layout bawaan core
+  const game = BakeryCore.createGame({ seed, config: STAGE ? STAGE.config : undefined });
+  console.info('[build]', window.BAKERY_BUILD, STAGE ? '| stage ' + STAGE.id : '');
   const CONFIG = Object.assign({ guideIdleSeconds: 10 }, game.config);
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
@@ -1030,14 +494,15 @@
     return `item_${it.type}`;
   }
   function artKey(s) {
-    if (s.id === 'oven') return `station_oven_${s.status}`;
-    if (s.id === 'prep') {   // empty | dough | prepared_plain (belum/baru satu tambahan) | prepared_salt (mentega + garam lengkap)
+    if (s.type === 'oven') return `station_oven_${s.status}`;
+    if (s.type === 'prep') {   // empty | dough | prepared_plain (belum/baru satu tambahan) | prepared_salt (mentega + garam lengkap)
       if (!s.item) return 'station_prep_empty';
       if (s.item.type === 'dough') return 'station_prep_dough';
       const m = s.item.mods || [];
       return `station_prep_prepared_${m.includes('butter') && m.includes('salt') ? 'salt' : 'plain'}`;
     }
-    if (s.id === 'serve') return 'station_serve_down_idle';
+    if (s.type === 'serve') return 'station_serve_down_idle';
+    if (s.type === 'trash') return 'station_trash_idle';
     if (s.type === 'counter') return 'station_counter_idle';
     return `station_${s.id}_idle`;
   }
@@ -1064,11 +529,19 @@
     counter1:{ name:'COUNTER', label:'Counter', color:'#d9c3a3' }, counter2:{ name:'COUNTER', label:'Counter', color:'#d9c3a3' },
     trash:{ name:'TRASH', label:'Tempat sampah', color:'#7a9c92' }
   };
+  // Id stasiun di luar STATION_VIEW (mis. prep2, oven2, counter3, trash2) memakai tampilan menurut tipenya.
+  const VIEW_BY_TYPE = { prep:STATION_VIEW.prep, oven:STATION_VIEW.oven, counter:STATION_VIEW.counter1, trash:STATION_VIEW.trash, serve:STATION_VIEW.serve };
+  function viewOf(st) {
+    if (STATION_VIEW[st.id]) return STATION_VIEW[st.id];
+    const base = VIEW_BY_TYPE[st.type]; if (!base) return {};
+    const num = st.id.match(/(\d+)$/);
+    return Object.assign({}, base, num && st.type !== 'counter' ? { name: base.name + ' ' + num[1] } : {});
+  }
   let stations = [], stationById = {}, reqSerial = 0;
   function bindState() {   // dipanggil setiap core membuat state baru (reset/start)
     const s = game.state;
     stations = s.stations; stationById = Object.fromEntries(stations.map(st => [st.id, st]));
-    for (const st of stations) Object.assign(st, STATION_VIEW[st.id]);
+    for (const st of stations) Object.assign(st, viewOf(st));
     orders = s.orders; hazards = s.hazards;
     syncFromCore();
   }
@@ -1112,8 +585,7 @@
       const left = o.deadlineAt - elapsed;
       if (left > 0 && left <= 8 && !warned.orders.has(o.id)) { warned.orders.add(o.id); BakeryAudio.play('orderWarn'); }
     }
-    const ov = stationById.oven;
-    if (ov && ov.status === 'ready' && ov.item && ov.readyTimer > 0 && ov.readyTimer <= 3 && !warned.oven.has(ov.item.id)) { warned.oven.add(ov.item.id); BakeryAudio.play('ovenWarn'); }
+    for (const ov of stations) if (ov.type === 'oven' && ov.status === 'ready' && ov.item && ov.readyTimer > 0 && ov.readyTimer <= 3 && !warned.oven.has(ov.item.id)) { warned.oven.add(ov.item.id); BakeryAudio.play('ovenWarn'); }
   }
   function resetGame(toMenu=true) {
     mode = toMenu ? 'menu' : 'running';
@@ -1214,10 +686,11 @@
     return null;
   }
   function trackGuide(dt) {
-    const prep = stationById.prep, oven = stationById.oven;
     // Petunjuk: 10 detik tanpa kemajuan membuat pesanan -> stasiun langkah berikutnya berkedip sampai order disajikan.
     if (ordersServed !== lastServed) { lastServed = ordersServed; guideOn = false; idleFor = 0; }
-    const sig = [heldItem ? heldItem.type + (heldItem.mods || []).join('+') : '-', prep.item ? prep.item.type + (prep.item.mods || []).join('+') : '-', prep.processing, oven.status, stationById.counter1.item?.type, stationById.counter2.item?.type].join('|');
+    const sig = [heldItem ? heldItem.type + (heldItem.mods || []).join('+') : '-',
+      byType('prep').map(p => (p.item ? p.item.type + (p.item.mods || []).join('+') : '-') + ':' + p.processing).join(','),
+      byType('oven').map(o => o.status).join(','), byType('counter').map(c => c.item?.type || '-').join(',')].join('|');
     if (sig !== lastSig) { lastSig = sig; idleFor = 0; } else if (orders.length) idleFor += dt;
     if (!orders.length) guideOn = false;
     else if (!guideOn && idleFor >= CONFIG.guideIdleSeconds) { guideOn = true; showToast('Bingung? Stasiun yang berkedip adalah langkah berikutnya.', 2600); }
@@ -1253,28 +726,34 @@
   const VERB_ICON = { AMBIL:'ambil', TARUH:'taruh', ULENI:'uleni', TAMBAH:'tambah', PANGGANG:'oven', SAJIKAN:'bell', BUANG:'trash' };
   let actionIconName = 'ambil';
   const VERBS = [[/^Ambil/,'AMBIL'],[/^(Letakkan|Taruh)/,'TARUH'],[/^Mulai uleni/,'ULENI'],[/^Tambahkan/,'TAMBAH'],[/^Masukkan/,'PANGGANG'],[/^Sajikan/,'SAJIKAN'],[/^Buang/,'BUANG']];
-  const freeCounter = () => ['counter1','counter2'].find(id => !stationById[id].item) || null;
+  const byType = type => stations.filter(s => s.type === type);   // dipakai petunjuk: stage boleh punya beberapa prep/oven/counter/trash
+  const freeCounter = () => (byType('counter').find(s => !s.item) || {}).id || null;
+  const trashIds = () => byType('trash').map(s => s.id);
   // Stasiun tujuan berikutnya (id atau array id) menurut isi tangan, meja prep, oven, dan order tertua.
   function nextGuide() {
-    const prep = stationById.prep, oven = stationById.oven, h = heldItem, pm = prep.item?.mods || [];
+    const preps = byType('prep'), ovens = byType('oven'), h = heldItem;
+    const prepFree = preps.find(p => !p.item && !p.processing), prepPrepared = preps.find(p => p.item?.type === 'prepared_dough');
+    const ovenFree = ovens.find(o => o.status === 'empty'), ovenDone = ovens.find(o => o.status === 'ready' || o.status === 'burnt');
     if (h) {
-      if (h.type === 'dough') return !prep.item ? 'prep' : freeCounter();
-      if (h.type === 'prepared_dough') return oven.status === 'empty' ? 'oven' : freeCounter();
-      if (h.type === 'butter' || h.type === 'salt') return prep.item?.type === 'prepared_dough' ? (pm.includes(h.type) ? 'trash' : 'prep') : freeCounter();
-      if (h.type === 'plain_bread' || h.type === 'salt_bread') return orders.some(o => o.type === h.type) ? 'serve' : 'trash';
-      return 'trash';
+      if (h.type === 'dough') return prepFree ? prepFree.id : freeCounter();
+      if (h.type === 'prepared_dough') return ovenFree ? ovenFree.id : freeCounter();
+      if (h.type === 'butter' || h.type === 'salt') return prepPrepared ? (prepPrepared.item.mods.includes(h.type) ? trashIds() : prepPrepared.id) : freeCounter();
+      if (h.type === 'plain_bread' || h.type === 'salt_bread') return orders.some(o => o.type === h.type) ? byType('serve').map(s => s.id) : trashIds();
+      return trashIds();
     }
-    if (oven.status === 'ready' || oven.status === 'burnt') return 'oven';
-    if (prep.processing) return null;
-    if (prep.item?.type === 'dough') return 'prep';
-    if (prep.item?.type === 'prepared_dough') {
-      const salt = pm.length ? true : orders[0]?.type === 'salt_bread';
+    if (ovenDone) return ovenDone.id;
+    const ready = preps.find(p => !p.processing && p.item?.type === 'prepared_dough');
+    if (ready) {
+      const pm = ready.item.mods || [], salt = pm.length ? true : orders[0]?.type === 'salt_bread';
       const missing = salt ? ['butter','salt'].filter(m => !pm.includes(m)) : [];
-      return missing.length ? missing : 'prep';
+      return missing.length ? missing : ready.id;
     }
-    const done = ['counter1','counter2'].find(id => { const t = stationById[id].item?.type; return t && orders.some(o => o.type === t); });
-    if (done) return done;
-    if (oven.status === 'cooking') return null;
+    const raw = preps.find(p => !p.processing && p.item?.type === 'dough');
+    if (raw) return raw.id;
+    if (preps.some(p => p.processing)) return null;
+    const done = byType('counter').find(c => { const ty = c.item?.type; return ty && orders.some(o => o.type === ty); });
+    if (done) return done.id;
+    if (ovens.some(o => o.status === 'cooking') && !ovenFree) return null;
     return orders.length ? 'dough' : null;
   }
   function actionText(s) {
@@ -1422,7 +901,7 @@
   // Buang sampah: bola kertas dilempar dari Trash ke skor, jadi chip -10 lalu menyatu.
   function launchTrashFx(delta) {
     if (REDUCED) return;
-    const st = stationById.trash, p = project(st.x, st.y), cr = canvas.getBoundingClientRect(), sc = mapScale, size = 26 * Math.max(.8, sc);
+    const st = byType('trash').reduce((b, s) => !b || Math.hypot(s.x - player.x, s.y - player.y) < Math.hypot(b.x - player.x, b.y - player.y) ? s : b, null); if (!st) return; const p = project(st.x, st.y), cr = canvas.getBoundingClientRect(), sc = mapScale, size = 26 * Math.max(.8, sc);
     const x0 = cr.left + p.x, y0 = cr.top + p.y - 36 * sc, t = scoreTarget(), ax = t.x, ay = t.y - (t.h / 2 + 16), dx = ax - x0, dy = ay - y0;
     const fx = document.createElement('div'); fx.className = 'order-fx'; fx.style.cssText = `left:${x0 - size/2}px;top:${y0 - size/2}px;width:${size}px;height:${size}px;z-index:50`; fx.innerHTML = PAPER_SVG;
     document.body.appendChild(fx);
@@ -1554,7 +1033,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     if(target===s){ctx.strokeStyle='#238b69';ctx.lineWidth=1.5*sc;ctx.setLineDash([4*sc,3*sc]);poly([[p.x,p.y-lift-h/2-4*sc],[p.x+w/2+4*sc,p.y-lift],[p.x,p.y-lift+h/2+4*sc],[p.x-w/2-4*sc,p.y-lift]],null,'#238b69',1.5*sc);ctx.setLineDash([]);}
     const topY=p.y-lift;
     if(art){ if(s.type==='counter'&&s.item)drawHeldItem(p.x,topY-2*sc,s.item,sc); }
-    else if(s.id==='oven'){
+    else if(s.type==='oven'){
       // Oven face and glass door, with state-specific glow/steam.
       poly([[p.x-w*.36,topY-h*.1],[p.x,topY+h*.12],[p.x,topY+depth*.72],[p.x-w*.36,topY+depth*.52]],'#8b6256','#70483d',.8*sc);
       poly([[p.x-w*.30,topY+h*.02],[p.x-w*.04,topY+h*.16],[p.x-w*.04,topY+depth*.39],[p.x-w*.30,topY+depth*.25]],s.status==='ready'?'#ffd36e':s.status==='burnt'?'#4c3532':'#34465b','#f8ddad',.8*sc);
@@ -1563,7 +1042,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
       if(s.status==='cooking'){ctx.fillStyle='#ffb74d38';ctx.beginPath();ctx.ellipse(p.x,topY-3*sc,w*.28,h*.24,0,0,Math.PI*2);ctx.fill();}
       if(s.status==='ready'){ctx.strokeStyle='#f2a93b';ctx.lineWidth=2*sc;ctx.beginPath();ctx.arc(p.x,topY-h*.2,4*sc,0,Math.PI*2);ctx.stroke();}
       if(s.status==='burnt'){ctx.strokeStyle='#6c777e';ctx.lineWidth=2*sc;for(let i=0;i<2;i++){ctx.beginPath();ctx.moveTo(p.x-5*sc+i*9*sc,topY-h*.25);ctx.quadraticCurveTo(p.x-10*sc+i*9*sc,topY-h*.42,p.x-3*sc+i*9*sc,topY-h*.5);ctx.stroke();}}
-    } else if(s.id==='prep'){
+    } else if(s.type==='prep'){
       // Rolling pin + dough puck and ingredient markers.
       ctx.strokeStyle='#9d6b3c';ctx.lineWidth=3.2*sc;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(p.x-w*.25,topY-h*.08);ctx.lineTo(p.x+w*.22,topY+h*.05);ctx.stroke();
       ctx.fillStyle=s.item?.type==='prepared_dough'?'#d8a45e':'#f4d9a5';ctx.beginPath();ctx.ellipse(p.x,topY+h*.04,w*.18,h*.12,-.1,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#c28a4c';ctx.lineWidth=.8*sc;ctx.stroke();
@@ -1574,7 +1053,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
       if(s.id==='dough'){ctx.fillStyle='#f0d4a4';ctx.beginPath();ctx.ellipse(p.x,topY-h*.02,w*.16,h*.10,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#c18d55';ctx.stroke();}
       if(s.id==='butter'){ctx.fillStyle='#f5ca4f';roundRect(ctx,p.x-w*.15,topY-h*.08,w*.29,h*.15,2*sc);ctx.fill();ctx.strokeStyle='#e6ae32';ctx.stroke();}
       if(s.id==='salt'){ctx.fillStyle='#f8f7f2';ctx.beginPath();ctx.moveTo(p.x-w*.13,topY+h*.03);ctx.lineTo(p.x-w*.09,topY-h*.11);ctx.lineTo(p.x+w*.09,topY-h*.11);ctx.lineTo(p.x+w*.13,topY+h*.03);ctx.closePath();ctx.fill();ctx.strokeStyle='#c4cbd0';ctx.stroke();}
-    } else if(s.id==='trash'){
+    } else if(s.type==='trash'){
       poly([[p.x-w*.23,topY-h*.05],[p.x+w*.23,topY-h*.05],[p.x+w*.17,topY+depth*.36],[p.x-w*.17,topY+depth*.36]],'#6e9b8a','#426e60',.8*sc);
       ctx.strokeStyle='#d5eee3';ctx.lineWidth=1.5*sc;for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(p.x+i*5*sc,topY+depth*.02);ctx.lineTo(p.x+i*4*sc,topY+depth*.28);ctx.stroke();}
       ctx.strokeStyle='#426e60';ctx.lineWidth=2*sc;ctx.beginPath();ctx.moveTo(p.x-w*.26,topY-h*.08);ctx.lineTo(p.x+w*.26,topY-h*.08);ctx.stroke();
@@ -1587,13 +1066,13 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
       ctx.strokeStyle='#e9c28c';ctx.lineWidth=1*sc;ctx.beginPath();ctx.moveTo(p.x-w*.2,topY+h*.05);ctx.lineTo(p.x+w*.2,topY+h*.05);ctx.stroke();
     }
     ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`800 ${Math.max(7,9.5*sc)}px ui-sans-serif,system-ui,sans-serif`;if(showLabels){ctx.fillStyle='#2a3d53';ctx.fillText(s.name,p.x,p.y+depth+8*sc);}
-    if(s.id==='prep'&&s.processing)drawMiniBar(p.x,topY-24*sc,Math.max(0,1-s.timer/CONFIG.prepSeconds),'#2e8067',sc);
-    if(s.id==='oven'&&s.status==='cooking')drawMiniBar(p.x,topY-24*sc,1-s.timer/CONFIG.cookSeconds,'#e2ad44',sc);
-    if(s.id==='oven'&&s.status==='ready')drawMiniBar(p.x,topY-24*sc,1-s.readyTimer/CONFIG.readyBeforeBurnSeconds,'#c34f5a',sc);
-    if(s.id==='prep'&&s.item?.type==='prepared_dough'&&(s.item.mods?.length===1||(!art&&s.item.mods?.length))){const t=s.item.mods.map(m=>m==='butter'?'B':'S').join(' · ');ctx.font=`800 ${Math.max(8,11*sc)}px ui-sans-serif,system-ui,sans-serif`;const tw=ctx.measureText(t).width+10*sc;ctx.fillStyle='#243b5ae6';roundRect(ctx,p.x-tw/2,topY-23*sc,tw,13*sc,6*sc);ctx.fill();ctx.fillStyle='#fffaf2';ctx.fillText(t,p.x,topY-16.5*sc);}
+    if(s.type==='prep'&&s.processing)drawMiniBar(p.x,topY-24*sc,Math.max(0,1-s.timer/CONFIG.prepSeconds),'#2e8067',sc);
+    if(s.type==='oven'&&s.status==='cooking')drawMiniBar(p.x,topY-24*sc,1-s.timer/CONFIG.cookSeconds,'#e2ad44',sc);
+    if(s.type==='oven'&&s.status==='ready')drawMiniBar(p.x,topY-24*sc,1-s.readyTimer/CONFIG.readyBeforeBurnSeconds,'#c34f5a',sc);
+    if(s.type==='prep'&&s.item?.type==='prepared_dough'&&(s.item.mods?.length===1||(!art&&s.item.mods?.length))){const t=s.item.mods.map(m=>m==='butter'?'B':'S').join(' · ');ctx.font=`800 ${Math.max(8,11*sc)}px ui-sans-serif,system-ui,sans-serif`;const tw=ctx.measureText(t).width+10*sc;ctx.fillStyle='#243b5ae6';roundRect(ctx,p.x-tw/2,topY-23*sc,tw,13*sc,6*sc);ctx.fill();ctx.fillStyle='#fffaf2';ctx.fillText(t,p.x,topY-16.5*sc);}
   }
   function ovenShake(s) {   // READY: geter pelan, makin kencang dan lebar mendekati gosong
-    if (REDUCED || s.id !== 'oven' || s.status !== 'ready') return 0;
+    if (REDUCED || s.type !== 'oven' || s.status !== 'ready') return 0;
     const r = 1 - s.readyTimer / CONFIG.readyBeforeBurnSeconds;
     return Math.sin(elapsed * (14 + 34*r)) * (0.4 + 2.4*r) * mapScale;
   }
@@ -1903,7 +1382,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   // Snapshot -> variabel yang dibaca render dan HUD (menggantikan bindState/syncFromCore di solo).
   function applySnapshot(sn) {
     stations = sn.stations; stationById = Object.fromEntries(stations.map(st => [st.id, st]));
-    for (const st of stations) Object.assign(st, STATION_VIEW[st.id]);
+    for (const st of stations) Object.assign(st, viewOf(st));
     orders = sn.orders; hazards = sn.hazards;
     score = sn.score; ordersServed = sn.ordersServed; ordersExpired = sn.ordersExpired; burntCount = sn.burntCount; roundLeft = sn.roundLeft;
     const mine = sn.players.find(p => p.id === meId()); heldItem = mine ? mine.held : null;
@@ -2048,7 +1527,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     byId('gameFrame').prepend(document.querySelector('.hud'));   // HUD ke dalam kanvas (band di atas lantai)
     try { byId('olName').value = localStorage.getItem('sbc_name') || ''; } catch (e) {}
     olShow(true); olMsg('Menghubungkan…');
-    byId('olCreate').onclick = () => { saveName(); NET.sock.emit('room:create', { name:byId('olName').value, cid:deviceId() }); };
+    byId('olCreate').onclick = () => { saveName(); NET.sock.emit('room:create', { name:byId('olName').value, cid:deviceId(), stage:STAGE ? STAGE.id : undefined }); };
     byId('olJoin').onclick = () => { saveName(); NET.sock.emit('room:join', { code:byId('olCode').value, name:byId('olName').value, cid:deviceId() }); };
     byId('lbLeave').onclick = leaveRoom;
     byId('lbCopy').onclick = async () => { try { await navigator.clipboard.writeText(NET.room.code); showToast('Kode room disalin.', 1200); } catch (e) { showToast('Kode room: ' + NET.room.code, 2500); } };

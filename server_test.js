@@ -599,3 +599,18 @@ test('telemetri: satu baris JSON per ronde selesai berisi skor, interaksi per st
   assert.equal(lines.length, 1, 'tidak dobel setelah ronde berakhir');
   await env.stop();
 });
+
+test('stage: room:state memuat id stage dan spawn lobi mengikuti titik awal stage (bukan baris bawah yang terkurung)', async () => {
+  const env = await boot();
+  const a = await env.client(); a.sock.emit('room:create', { name: 'Rina', stage: 1 });
+  assert.ok(await until(() => a.last('room:state')));
+  const st = a.last('room:state'), me = st.players[0];
+  assert.equal(st.stage, 1); assert.deepEqual([me.x, me.y], [4.15, 4.2]);
+  const b = await env.client(); b.sock.emit('room:join', { code: st.code, name: 'Bima' });
+  assert.ok(await until(() => b.last('room:state')));
+  assert.equal(b.last('room:state').stage, 1); assert.ok(Math.abs(b.last('room:state').players[1].x - 4.5) < 1e-9);
+  const c = await env.client(); c.sock.emit('room:create', { name: 'Tanpa' });
+  assert.ok(await until(() => c.last('room:state')));
+  assert.equal(c.last('room:state').stage, null); assert.deepEqual([c.last('room:state').players[0].x, c.last('room:state').players[0].y], [3.4, 6.15]);
+  await env.stop();
+});

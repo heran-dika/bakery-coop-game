@@ -14,20 +14,21 @@
   const st = (id, type, x, y) => ({ id, type, x, y });
 
   const STAGES = {
-    // Stage 1 (paling gampang): dua jalur prep+oven. Baris atas dan bawah: counter, counter, prep, counter, oven, counter, trash.
-    // Bahan (adonan, mentega, garam) dan serve di baris tengah dipakai bersama. Spawn di lorong tengah-bawah karena
-    // baris bawah menutup lorong di belakangnya. Hazard dimatikan [Usulan, belum diputuskan pemilik].
+    // Stage 1 (paling gampang): dua jalur prep+oven, baris atas menempel dinding belakang dan baris bawah menempel dinding depan (y=6).
+    // Tiap jalur dari kiri: trash, counter, prep, counter, oven, KOSONG, counter. Sel kosong di kanan oven sengaja: sprite oven
+    // tidak tertutup stasiun di sebelahnya, jadi jendelanya kelihatan. Bahan (adonan, mentega, garam) dan serve di baris tengah dipakai bersama.
+    // Spawn di lorong tengah. Hazard dimatikan [Usulan, belum diputuskan pemilik].
     1: {
       id: 1, name: 'Stage 1', unlockAfter: null,
       config: {
         spawn: { x: 4.15, y: 4.2 },
         hazard: { enabled: false },
         stations: [
-          st('counter1', 'counter', 1, 1), st('counter2', 'counter', 2, 1), st('prep', 'prep', 3, 1), st('counter3', 'counter', 4, 1),
-          st('oven', 'oven', 5, 1), st('counter4', 'counter', 6, 1), st('trash', 'trash', 7, 1),
+          st('trash', 'trash', 1, 1), st('counter1', 'counter', 2, 1), st('prep', 'prep', 3, 1), st('counter2', 'counter', 4, 1),
+          st('oven', 'oven', 5, 1), st('counter3', 'counter', 7, 1),
           crate('dough', 1, 3), crate('butter', 3, 3), crate('salt', 5, 3), st('serve', 'serve', 7, 3),
-          st('counter5', 'counter', 1, 5), st('counter6', 'counter', 2, 5), st('prep2', 'prep', 3, 5), st('counter7', 'counter', 4, 5),
-          st('oven2', 'oven', 5, 5), st('counter8', 'counter', 6, 5), st('trash2', 'trash', 7, 5)
+          st('trash2', 'trash', 1, 6), st('counter4', 'counter', 2, 6), st('prep2', 'prep', 3, 6), st('counter5', 'counter', 4, 6),
+          st('oven2', 'oven', 5, 6), st('counter6', 'counter', 7, 6)
         ]
       }
     }

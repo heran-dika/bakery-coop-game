@@ -90,6 +90,7 @@
    *       inputs = { [playerId]: { sx, sy, interact: requestId } }   sx/sy = sumbu layar [-1..1]
    *   game.snapshot()                   -> salinan state polos (JSON-able)
    *   game.targetOf(playerId)           -> id stasiun target atau null
+   *   game.addStation(def)              -> tambah stasiun saat ronde berjalan (tutorial); id yang sudah ada dikembalikan apa adanya
    *   game.state                        -> state hidup (read-only untuk client; dipakai test/server)
    */
   function createGame(opts) {
@@ -101,15 +102,17 @@
     let s = null;
     let byId = {};
 
+    function makeStation(def) {
+      const st = { id: def.id, type: def.type, x: def.x, y: def.y };
+      if (def.gives) st.gives = def.gives;
+      if (def.type === 'prep') Object.assign(st, { item: null, processing: false, timer: 0 });
+      if (def.type === 'oven') Object.assign(st, { item: null, status: 'empty', timer: 0, readyTimer: 0 });
+      if (def.type === 'counter') st.item = null;
+      return st;
+    }
+
     function blankState() {
-      const stations = cfg.stations.map(def => {
-        const st = { id: def.id, type: def.type, x: def.x, y: def.y };
-        if (def.gives) st.gives = def.gives;
-        if (def.type === 'prep') Object.assign(st, { item: null, processing: false, timer: 0 });
-        if (def.type === 'oven') Object.assign(st, { item: null, status: 'empty', timer: 0, readyTimer: 0 });
-        if (def.type === 'counter') st.item = null;
-        return st;
-      });
+      const stations = cfg.stations.map(makeStation);
       byId = Object.fromEntries(stations.map(st => [st.id, st]));
       const players = playerIds.map((id, i) => ({
         id, x: cfg.spawn.x + i * cfg.spawn.spreadX, y: cfg.spawn.y,
@@ -412,6 +415,13 @@
       return ev;
     }
 
+    // Tambah stasiun ke ronde yang sedang berjalan (dipakai tutorial: stasiun muncul bertahap). reset()/start() kembali ke cfg.stations.
+    function addStation(def) {
+      if (byId[def.id]) return byId[def.id];
+      const st = makeStation(def); s.stations.push(st); byId[st.id] = st;
+      return st;
+    }
+
     function snapshot() {
       const copy = JSON.parse(JSON.stringify(s));
       for (const p of copy.players) delete p.seen;
@@ -426,7 +436,7 @@
 
     const game = {
       config: cfg,
-      reset, start, step, snapshot, targetOf,
+      reset, start, step, snapshot, targetOf, addStation,
       get state() { return s; },
       get seed() { return seed; }
     };

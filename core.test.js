@@ -222,3 +222,17 @@ test('event order membawa index slot antrean (dipakai render untuk menggeser kot
   const exp = g2.step(45.5, {}).filter(e => e.type === 'order:expired');
   assert.deepEqual(exp.map(e => e.index).slice(0, 2), [1, 0]);  // dihapus dari belakang ke depan
 });
+
+test('addStation: stasiun baru bisa dipakai saat ronde berjalan, ikut snapshot, menghalangi gerak, hilang saat reset', () => {
+  const g = createGame({ seed: 1, config: { stations: [{ id: 'dough', type: 'crate', gives: 'dough', x: 1, y: 1 }, { id: 'prep', type: 'prep', x: 3, y: 1 }] } });
+  g.start();
+  at(g, 'p1', 'oven'); assert.deepEqual(codes(g.step(0, { p1: { interact: ++rid } })), ['too_far'], 'belum ada oven');
+  const o = g.addStation({ id: 'oven', type: 'oven', x: 5, y: 1 });
+  assert.equal(o.status, 'empty'); assert.equal(g.addStation({ id: 'oven', type: 'oven', x: 5, y: 1 }), o, 'id yang sama tidak dobel');
+  assert.ok(g.snapshot().stations.some(s => s.id === 'oven'), 'ikut snapshot');
+  at(g, 'p1', 'oven'); assert.deepEqual(codes(g.step(0, { p1: { interact: ++rid } })), ['oven_needs_prepared'], 'oven baru bisa ditargetkan');
+  const p = g.state.players[0]; p.x = 5.15; p.y = 1.15; g.step(0.2, { p1: { sx: 0, sy: 0 } });
+  p.x = 5.15; p.y = 2.4; for (let i = 0; i < 20; i++) g.step(0.05, { p1: { sx: -1, sy: -1 } });   // dorong ke arah oven: kolisi berlaku
+  assert.ok(Math.hypot(p.x - 5.15, p.y - 1.15) > 0.3, 'badan tidak menembus oven baru');
+  g.reset(); assert.ok(!g.state.stations.some(s => s.id === 'oven'), 'reset kembali ke daftar awal');
+});

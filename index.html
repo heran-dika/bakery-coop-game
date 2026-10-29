@@ -307,6 +307,15 @@
   }
   /* ===== Alur menu (S4): menu, tutorial, pilih stage, atur layout HUD ===== */
   .toast { z-index:30; }
+  /* tutorial interaktif: kartu langkah di bawah (desktop), di atas kontrol (portrait), atau di atas (HP landscape pendek) */
+  #tutBar { position:absolute; z-index:7; left:50%; transform:translateX(-50%); bottom:12px; width:min(480px, calc(100% - 270px)); box-sizing:border-box; display:flex; flex-direction:column; gap:4px; padding:8px 12px; background:#fffffff2; border:1px solid var(--line); border-radius:14px; box-shadow:0 6px 18px #182c4726; font-size:13px; }
+  #tutBar .tb-top { display:flex; align-items:center; gap:8px; }
+  #tutBar .tb-top > b { font-size:15px; }
+  #tutBar .tb-top .lb-btn { min-height:30px; }
+  #tbD { color:#56677d; line-height:1.4; }
+  body.tutorial #hudTime { visibility:hidden; }
+  @media (max-width:620px) { #tutBar { left:8px; right:8px; width:auto; transform:none; bottom:calc(max(12px, env(safe-area-inset-bottom)) + 135px); } }
+  @media (orientation:landscape) and (max-height:520px) { #tutBar { bottom:auto; top:8px; left:172px; right:70px; width:auto; transform:none; } }
   .scr { position:absolute; inset:0; z-index:12; display:flex; background:var(--pink); color:var(--ink); overflow:auto; }
   .scr.col { flex-direction:column; gap:10px; padding:14px 24px; }
   .scr-head { display:flex; align-items:center; gap:10px; flex:none; }
@@ -330,26 +339,13 @@
   .mn-side { width:300px; flex:none; box-sizing:border-box; padding:20px 24px; background:#fff; border-left:1px solid var(--line); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; }
   .mn-side .scr-btn { width:100%; }
   .mn-side svg { flex:none; }
-  /* tutorial */
-  .tut-body { flex:1; display:flex; gap:12px; min-height:0; }
-  .tut-pre { flex:1; min-width:0; display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; padding:10px; border:1px solid var(--line); background:#fff9f5; border-radius:18px; overflow:hidden; }
-  .tut-pre img, .tut-pre .fb { width:92px; height:92px; display:grid; place-items:center; font-size:54px; flex:none; }
-  .tut-pre .tp { font-size:26px; font-weight:800; color:var(--green); }
-  .tut-side { width:250px; flex:none; display:flex; flex-direction:column; gap:8px; }
-  .tut-card { border:1px solid var(--line); border-radius:16px; background:#fff; padding:14px; display:flex; flex-direction:column; gap:10px; }
-  .tut-n { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); }
-  .tut-t { font-size:18px; font-weight:800; }
-  .tut-d { font-size:14px; color:var(--muted); line-height:1.45; }
-  .tut-dots { display:flex; gap:6px; }
-  .tut-dots i { width:22px; height:6px; border-radius:6px; background:var(--line); }
-  .tut-dots i.on { background:var(--blue); }
   /* pilih stage */
-  .st-list { flex:1; display:flex; gap:12px; min-height:0; }
-  .st-card { box-sizing:border-box; flex:1; min-width:0; border:1px solid var(--line); border-radius:16px; background:#fff; padding:10px; display:flex; flex-direction:column; gap:8px; font:inherit; color:inherit; text-align:left; cursor:pointer; }
+  .st-list { flex:1; display:flex; flex-wrap:wrap; align-content:flex-start; gap:12px; min-height:0; overflow:auto; }
+  .st-card { box-sizing:border-box; flex:0 0 240px; max-width:100%; align-self:flex-start; border:1px solid var(--line); border-radius:16px; background:#fff; padding:10px; display:flex; flex-direction:column; gap:8px; font:inherit; color:inherit; text-align:left; cursor:pointer; }
   .st-card.sel { border:2px solid var(--blue); padding:9px; }
   .st-card.lock { background:#F6EEEE; cursor:default; }
-  .st-pre { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; border:1px dashed var(--line); border-radius:10px; background:#fff9f5; overflow:hidden; }
-  .st-pre canvas { max-width:100%; max-height:100%; width:auto; height:auto; min-height:0; }
+  .st-pre { display:flex; align-items:center; justify-content:center; border:1px solid var(--line); border-radius:10px; background:#101b35; overflow:hidden; }
+  .st-pre img { display:block; width:100%; height:auto; max-height:150px; object-fit:contain; }
   .st-card b { font-size:16px; }
   .st-badge { align-self:flex-start; font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px; background:var(--green-t); color:var(--green-d); }
   .st-card.sel .st-badge { background:#fff; color:var(--blue); padding-left:0; }
@@ -385,10 +381,7 @@
     #menuScreen { flex-direction:column; }
     .mn-main { padding:24px 24px 8px; flex:none; }
     .mn-side { width:auto; border-left:0; border-top:1px solid var(--line); flex:1; }
-    .tut-body { flex-direction:column; }
-    .tut-side { width:auto; }
-    .st-list { flex-wrap:wrap; overflow:auto; }
-    .st-card { flex:1 1 calc(50% - 6px); min-height:120px; }
+    .st-card { flex:1 1 100%; }
     #layScreen { flex-direction:column; }
     .lay-panel { width:auto; border-left:0; border-top:1px solid var(--line); }
   }
@@ -522,17 +515,15 @@
         <div class="mn-row"><button class="scr-btn sm" id="mnSound" type="button">Suara: ON</button><button class="scr-btn sm" id="mnLayout" type="button">Atur layout</button></div>
       </div>
     </div>
-    <div class="scr col" id="tutScreen" hidden>
-      <div class="scr-head"><button class="scr-btn sm" id="tutBack" type="button">← Menu</button><b>Tutorial</b><span class="sp"></span><span class="pill" id="tutStep">Langkah 1 dari 5</span></div>
-      <div class="tut-body">
-        <div class="tut-pre" id="tutPre"></div>
-        <div class="tut-side">
-          <div class="tut-card"><div class="tut-n" id="tutN">Langkah 1</div><div class="tut-t" id="tutT"></div><div class="tut-d" id="tutD"></div><div class="tut-dots" id="tutDots"></div></div>
-          <div class="sp"></div>
-          <button class="scr-btn pri" id="tutNext" type="button">Lanjut</button>
-          <div class="mn-row"><button class="scr-btn sm" id="tutPrev" type="button">Kembali</button><button class="scr-btn sm" id="tutSkip" type="button">Lewati</button></div>
-        </div>
-      </div>
+    <div id="tutBar" hidden>
+      <div class="tb-top"><span class="pill" id="tbStep">Langkah 1/5</span><b id="tbT"></b><span class="sp"></span><button class="lb-btn" id="tbRedo" type="button">Ulangi langkah</button><button class="lb-btn" id="tbExit" type="button" aria-label="Keluar tutorial">✕</button></div>
+      <div id="tbD"></div>
+    </div>
+    <div class="scr" id="tutDone" hidden style="align-items:center;justify-content:center">
+      <div class="modal"><div class="modal-icon">🎉</div><h2>Tutorial selesai!</h2>
+        <p>Kamu sudah bisa bikin Shokupan dan Salt bread. Ingat: Shokupan polos langsung ke oven tanpa mentega dan garam.</p>
+        <button class="btn primary" id="tdStage" type="button" style="width:100%;padding:13px">Pilih Stage</button>
+        <button class="btn" id="tdMenu" type="button" style="width:100%;padding:11px;margin-top:8px">Ke menu</button></div>
     </div>
     <div class="scr col" id="stageScreen" hidden>
       <div class="scr-head"><button class="scr-btn sm" id="stBack" type="button">← Menu</button><b>Pilih stage</b></div>
@@ -562,10 +553,10 @@
   <div class="footer-note">P0 vector prototype · hazard lantai licin aktif · multiplayer online, cloud save, audio final, dan progression belum termasuk.</div>
 </div>
 <!-- Vector-first P0: all gameplay art is procedural Canvas geometry; external image/font assets are intentionally avoided for offline and mobile performance. -->
-<script>window.BAKERY_BUILD='20261028-s2';</script>
-<script src="core.js?v=20261028-s2"></script>
-<script src="stages.js?v=20261028-s2"></script>
-<script src="audio.js?v=20261028-s2"></script>
+<script>window.BAKERY_BUILD='20261029-s1';</script>
+<script src="core.js?v=20261029-s1"></script>
+<script src="stages.js?v=20261029-s1"></script>
+<script src="audio.js?v=20261029-s1"></script>
 <script>
 (() => {
   'use strict';
@@ -842,7 +833,7 @@
       byType('oven').map(o => o.status).join(','), byType('counter').map(c => c.item?.type || '-').join(',')].join('|');
     if (sig !== lastSig) { lastSig = sig; idleFor = 0; } else if (orders.length) idleFor += dt;
     if (!orders.length) guideOn = false;
-    else if (!guideOn && idleFor >= CONFIG.guideIdleSeconds) { guideOn = true; showToast('Bingung? Stasiun yang berkedip adalah langkah berikutnya.', 2600); }
+    else if (!guideOn && idleFor >= CONFIG.guideIdleSeconds) { guideOn = true; if (!TUTOR) showToast('Bingung? Stasiun yang berkedip adalah langkah berikutnya.', 2600); }
     const g = guideOn ? nextGuide() : null; guideIds = g ? [].concat(g) : [];
   }
   function update(dt) {
@@ -851,7 +842,7 @@
     const events = game.step(dt, { p1:{ sx, sy } });
     syncFromCore();
     if (game.state.players[0].moving) player.walkCycle += dt*12;
-    const ended = handleEvents(events);
+    const ended = handleEvents(events); if (TUTOR) tutOnEvents(events);
     feedback = feedback.filter(f => elapsed - f.at < 1.1);
     audioWatch(); trackGuide(dt);
     if (ended) { finishRound(ended.stars); return; }
@@ -935,7 +926,7 @@
     if (ONLINE) { if (NET.sock && NET.sock.connected && NET.room) NET.sock.emit('station:interact', { requestId:NET.room.you + '-' + (++reqSerial) }); return; }   // server yang menjalankan aksinya
     const events = game.step(0, { p1:{ interact: ++reqSerial } });
     syncFromCore();
-    const ended = handleEvents(events);
+    const ended = handleEvents(events); if (TUTOR) tutOnEvents(events);
     if (ended) { finishRound(ended.stars); return; }
     renderUI();
   }
@@ -1303,6 +1294,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   }
   const soloView = { slot:'p1', name:'', connected:true };
   function playerViews() {   // solo: satu pemain dari global; online: dari snapshot (NET.view)
+    if (THUMB) return [];
     if (ONLINE || mode === 'lobby') return [...NET.view.values()];
     const i = getScreenInput();
     Object.assign(soloView, { x:player.x, y:player.y, facingX:player.facingX, facingY:player.facingY, walkCycle:player.walkCycle, held:heldItem, moving:Math.abs(i.sx)+Math.abs(i.sy)>.01 });
@@ -1325,7 +1317,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     if(target){const p=project(player.x,player.y),q=project(target.x,target.y);ctx.strokeStyle='#2e806755';ctx.lineWidth=1.5*mapScale;ctx.setLineDash([3*mapScale,4*mapScale]);ctx.beginPath();ctx.moveTo(p.x,p.y-5*mapScale);ctx.lineTo(q.x,q.y-20*mapScale);ctx.stroke();ctx.setLineDash([]);}
     const views=playerViews();
     const actors=[...stations.map(s=>({depth:s.x+s.y,kind:'station',s})),...views.map(v=>({depth:v.x+v.y,kind:'player',v}))].sort((a,b)=>a.depth-b.depth);
-    for(const a of actors){if(a.kind==='station'){drawStation(a.s,a.s===target);if(guideIds.includes(a.s.id))drawGuide(a.s);}else drawPlayer(a.v);}
+    for(const a of actors){if(a.kind==='station'){const fk=a.s.bornAt==null?1:Math.min(1,(elapsed-a.s.bornAt)/.45);if(fk<1){ctx.save();ctx.globalAlpha=fk;}drawStation(a.s,a.s===target);if(fk<1)ctx.restore();if(guideIds.includes(a.s.id))drawGuide(a.s);}else drawPlayer(a.v);}
     for(const v of views) if(v.name) { drawNameTag(v); drawBubble(v); }
     drawFeedback();
     // On-screen fallback hint for desktop.
@@ -1692,7 +1684,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   // NEWFLOW (tanpa ?online=1): menu -> pilih stage -> lobi lokal. Sendirian di AREA SIAP = solo lokal (tanpa server).
   // Teman: "Undang teman" (buat room) atau "Gabung teman" (kode) menyambung ke server; ONLINE baru menyala saat room:state pertama tiba.
   // ?online=1 = jalur lama (formulir masuk), dipertahankan untuk tes e2e.
-  const SCREENS = ['menuScreen', 'tutScreen', 'stageScreen', 'layScreen'];
+  const SCREENS = ['menuScreen', 'tutDone', 'stageScreen', 'layScreen'];
   function showScreen(id) { for (const s of SCREENS) byId(s).hidden = s !== id; }
   let LOCAL = null, PLAYER = 'Baker';
   const NAME_RE = /^[A-Za-z0-9 ]{2,12}$/;
@@ -1719,60 +1711,40 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
 
   // ---- layar utama ----
   function goMenu(msg) {
+    if (TUTOR) { exitTutorial(); return; }
     if (ONLINE) { setRejoin(null); setOffline(false); if (NET.sock) NET.sock.emit('room:leave'); NET.prevConn = null; ONLINE = false; els.netStat.hidden = true; }
     LOCAL = null; NET.room = null; NET.snap = null; NET.events = []; NET.view.clear(); NET.sx = NET.sy = 0;
     resetGame(true); closeChat(); byId('lbCd').textContent = ''; showScreen('menuScreen'); menuNote(msg);
   }
   function openStageScreen() { renderStageList(); byId('stMsg').textContent = ''; showScreen('stageScreen'); }
 
-  // ---- tutorial ----
-  const TUT = [
-    { t:'Siapkan adonan', d:'Ambil adonan dari peti, taruh di meja prep, lalu tekan Aksi lagi untuk menguleni.', pre:[['station_dough_idle', '🥣'], '→', ['station_prep_dough', '🍞']] },
-    { t:'Panggang adonan', d:'Taruh adonan ke oven, lalu tunggu sampai matang.', pre:[['station_prep_prepared_plain', '🍞'], '→', ['station_oven_cooking', '🔥']] },
-    { t:'Sajikan', d:'Ambil roti dari oven dan bawa ke counter output sebelum pesanan kedaluwarsa.', pre:[['station_oven_ready', '🔥'], '→', ['station_serve_down_idle', '🛎️']] },
-    { t:'Salt bread', d:'Tambahkan mentega dan garam di meja prep sebelum adonan masuk oven.', pre:[['station_butter_idle', '🧈'], '+', ['station_salt_idle', '🧂'], '→', ['station_prep_prepared_salt', '🥐']] },
-    { t:'Jaga dapur', d:'Roti gosong atau item salah dibuang ke tempat sampah. Awasi oven: roti yang terlalu lama jadi gosong.', pre:[['station_oven_burnt', '⚫'], '→', ['station_trash_idle', '🗑️']] }
-  ];
-  let tutI = 0;
-  function renderTut() {
-    const s = TUT[tutI], pre = byId('tutPre'); pre.textContent = '';
-    for (const p of s.pre) {
-      if (typeof p === 'string') { const i = document.createElement('i'); i.className = 'tp'; i.style.fontStyle = 'normal'; i.textContent = p; pre.appendChild(i); continue; }
-      const img = new Image(); img.alt = ''; img.src = `assets/${p[0]}.svg`;
-      img.onerror = () => img.replaceWith(Object.assign(document.createElement('span'), { className:'fb', textContent:p[1] }));
-      pre.appendChild(img);
-    }
-    byId('tutStep').textContent = `Langkah ${tutI + 1} dari ${TUT.length}`; byId('tutN').textContent = `Langkah ${tutI + 1}`;
-    byId('tutT').textContent = s.t; byId('tutD').textContent = s.d;
-    byId('tutDots').innerHTML = TUT.map((_, i) => `<i class="${i <= tutI ? 'on' : ''}"></i>`).join('');
-    byId('tutPrev').disabled = tutI === 0; byId('tutNext').textContent = tutI === TUT.length - 1 ? 'Selesai' : 'Lanjut';
-  }
-
   // ---- pilih stage ----
-  const MINI = { dough:'#e6c99a', butter:'#f0d878', salt:'#d7dce2', prep:'#e6c49c', oven:'#c17a69', serve:'#c8a98a', counter:'#d9c3a3', trash:'#7a9c92' };
-  function miniMap(st) {
-    const c = document.createElement('canvas'), cell = 16, g = c.getContext('2d'), cfg = st.config;
-    c.width = 7 * cell + 2; c.height = 6 * cell + 2;
-    g.fillStyle = '#f4e6d4'; g.fillRect(0, 0, c.width, c.height);
-    for (const s of (cfg.stations || [])) {
-      g.fillStyle = MINI[s.gives || s.type] || '#bbb'; g.fillRect(1 + (s.x - 1) * cell, 1 + (s.y - 1) * cell, cell - 1, cell - 1);
-    }
-    const sp = cfg.spawn; if (sp) { g.fillStyle = '#1F4172'; g.beginPath(); g.arc(1 + (sp.x - .5) * cell, 1 + (sp.y - .5) * cell, 3, 0, 7); g.fill(); }
-    return c;
+  let THUMB = false; const thumbs = new Map();
+  function stageThumb(st) {   // gambar dapur stage lewat renderer game yang sama (dipotret dari kanvas utama yang sedang tertutup layar stage), di-cache
+    const n = Object.keys(ART.raw).length, c = thumbs.get(st.id);
+    if (c && c.n === n && c.w === canvasW && c.h === canvasH) return c.url;
+    const keep = [stations, stationById, orders, hazards, guideIds, mode]; let url = '';
+    try {
+      const tmp = BakeryCore.createGame({ seed, config:st.config }); stations = tmp.state.stations; for (const s2 of stations) Object.assign(s2, viewOf(s2));
+      stationById = Object.fromEntries(stations.map(s2 => [s2.id, s2])); orders = []; hazards = []; guideIds = []; mode = 'menu'; THUMB = true;
+      render(); url = canvas.toDataURL('image/jpeg', .72);
+    } catch (e) {} finally { THUMB = false; [stations, stationById, orders, hazards, guideIds, mode] = keep; }
+    thumbs.set(st.id, { url, n, w:canvasW, h:canvasH }); return url;
   }
   function renderStageList() {
     const box = byId('stList'), prog = loadProgress(), list = stageList(); box.textContent = '';
     const ok = id => list.some(s => s.id === id && stageOpen(s, prog));
     if (!ok(stagePick)) stagePick = ok(STAGE && STAGE.id) ? STAGE.id : (list.find(s => stageOpen(s, prog)) || {}).id || null;
-    for (let i = 0; i < Math.max(4, list.length); i++) {
-      const st = list[i], open = !!st && stageOpen(st, prog), sel = open && st.id === stagePick;
+    if (!list.length) box.textContent = 'Belum ada stage.';
+    for (const st of list) {   // hanya stage yang sudah ada; stage belum dibuat tidak ditampilkan
+      const open = stageOpen(st, prog), sel = open && st.id === stagePick;
       const card = document.createElement('button'); card.type = 'button'; card.className = 'st-card' + (sel ? ' sel' : '') + (open ? '' : ' lock'); card.disabled = !open;
-      const pre = document.createElement('div'); pre.className = 'st-pre';
-      if (st) pre.appendChild(miniMap(st)); else pre.textContent = '—';
+      const pre = document.createElement('div'), url = stageThumb(st); pre.className = 'st-pre';
+      if (url) { const im = new Image(); im.alt = ''; im.src = url; pre.appendChild(im); }
       const nm = document.createElement('b'), bd = document.createElement('span'); bd.className = 'st-badge';
-      nm.textContent = st ? st.name || `Stage ${st.id}` : `Stage ${i + 1}`;
-      const done = st && Number.isFinite(Number(prog[st.id])) && prog[st.id] !== undefined;
-      bd.textContent = !st ? 'Segera' : !open ? 'Terkunci' : (sel ? 'Dipilih · ' : '') + (done ? 'Selesai ' + '★'.repeat(prog[st.id]) + '☆'.repeat(3 - prog[st.id]) : 'belum selesai');
+      nm.textContent = st.name || `Stage ${st.id}`;
+      const done = prog[st.id] !== undefined && Number.isFinite(Number(prog[st.id])), stars = done ? clamp(Number(prog[st.id]), 0, 3) : 0;
+      bd.textContent = !open ? 'Terkunci' : (sel ? 'Dipilih · ' : '') + (done ? 'Selesai ' + '★'.repeat(stars) + '☆'.repeat(3 - stars) : 'belum selesai');
       card.append(pre, nm, bd);
       if (open) card.onclick = () => { stagePick = st.id; renderStageList(); };
       box.appendChild(card);
@@ -1783,6 +1755,49 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function useStage(st) {   // ganti stage: core baru, kolisi lobi baru
     STAGE = st; game = BakeryCore.createGame({ seed, config: st ? st.config : undefined });
     CONFIG = Object.assign({ guideIdleSeconds:10 }, game.config); lobbyCore = makeLobbyCore(); resetGame(true);
+  }
+
+  // ---- tutorial interaktif: main di dapur Stage 1 dengan stasiun yang muncul bertahap; langkah selesai dari event core ----
+  let TUTOR = null;
+  const TUT_STEPS = [
+    { t:'Siapkan adonan', reveal:[], d:'Ambil adonan dari peti, taruh di meja prep, lalu tekan Aksi lagi untuk menguleni.', done:e => e.type === 'dough:prepared' },
+    { t:'Panggang', reveal:['oven'], d:'Ambil adonan yang sudah diuleni, masukkan ke oven, tunggu sampai matang, lalu ambil rotinya.', done:e => e.type === 'msg' && e.code === 'oven_took' },
+    { t:'Sajikan Shokupan', reveal:['serve'], d:'Bawa roti ke meja serve (counter out) untuk melayani pesanan Shokupan.', done:e => e.type === 'order:completed' && e.recipe === 'plain_bread' },
+    { t:'Buang item', reveal:['trash'], d:'Item salah atau gosong dibuang ke tempat sampah. Coba: ambil adonan dari peti, lalu buang ke tempat sampah.', done:e => e.type === 'item:trashed' },
+    { t:'Buat Salt bread', reveal:['butter', 'salt'], d:'Sekarang buat ulang, tapi jadi Salt bread: uleni adonan, tambahkan mentega dan garam di meja prep, lalu panggang dan sajikan.', done:e => e.type === 'order:completed' && e.recipe === 'salt_bread' }
+  ];
+  function startTutorial() {
+    const st1 = stageFromId(1); if (!st1) { showToast('Tutorial butuh data stage (stages.js).', 2400); return; }
+    const base = st1.config, pick = id => base.stations.find(x => x.id === id);
+    TUTOR = { i:0, prev:STAGE, pick, snap:null, finished:false };
+    const cfg = { spawn:base.spawn, hazard:{ enabled:false }, roundSeconds:1e6, maxOrders:2, openingOrders:['plain_bread', 'salt_bread'], openingNextOrderAt:1e9, patienceSeconds:1e6, readyBeforeBurnSeconds:1e9, stations:[pick('dough'), pick('prep')] };
+    game = BakeryCore.createGame({ seed, config:cfg }); CONFIG = Object.assign({ guideIdleSeconds:0 }, game.config);   // tanpa order yang kedaluwarsa, tanpa gosong, petunjuk langsung menyala
+    showScreen(null); document.body.classList.add('tutorial'); resetGame(false); byId('tutBar').hidden = false; tutShow();
+  }
+  function tutShow() { const s = TUT_STEPS[TUTOR.i]; byId('tbStep').textContent = `Langkah ${TUTOR.i + 1}/${TUT_STEPS.length}`; byId('tbT').textContent = s.t; byId('tbD').textContent = s.d; TUTOR.snap = game.snapshot(); }
+  function tutReveal(ids) {
+    for (const id of ids) { const def = TUTOR.pick(id); if (!def) continue; const st = game.addStation(def); Object.assign(st, viewOf(st)); st.bornAt = elapsed; stationById[id] = st; }
+    if (ids.length) { showToast('Stasiun baru: ' + ids.map(i => stationById[i].name).join(' + '), 2400); BakeryAudio.play('orderNew'); }
+  }
+  function tutOnEvents(events) {
+    if (!TUTOR || TUTOR.finished) return;
+    for (const e of events) {
+      if (!TUT_STEPS[TUTOR.i].done(e)) continue;
+      if (++TUTOR.i >= TUT_STEPS.length) { TUTOR.finished = true; mode = 'menu'; byId('tutBar').hidden = true; BakeryAudio.play('roundEnd'); showScreen('tutDone'); return; }
+      tutReveal(TUT_STEPS[TUTOR.i].reveal); BakeryAudio.play('kneadDone'); tutShow(); return;
+    }
+  }
+  function tutRedo() {   // kembalikan isi stasiun, tangan, dan posisi ke awal langkah (jaga-jaga tangan penuh tanpa tempat buang)
+    if (!TUTOR || TUTOR.finished) return;
+    const snap = TUTOR.snap, live = game.state;
+    for (const ss of snap.stations) { const ls = live.stations.find(x => x.id === ss.id); if (ls) Object.assign(ls, ss); }
+    Object.assign(live.players[0], snap.players[0]); live.orders.splice(0, live.orders.length, ...snap.orders);
+    Object.assign(live, { score:snap.score, ordersServed:snap.ordersServed, streak:snap.streak });
+    syncFromCore(); renderUI(); showToast('Langkah diulang dari awal.', 1600);
+  }
+  function exitTutorial(next) {
+    const prev = TUTOR && TUTOR.prev; TUTOR = null; document.body.classList.remove('tutorial'); byId('tutBar').hidden = true;
+    useStage(prev || null); if (next === 'stage') openStageScreen(); else showScreen('menuScreen');
   }
 
   // ---- lobi lokal (solo) ----
@@ -1852,7 +1867,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     byId('chatIn').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); byId('chatSend').onclick(); } else if (ev.key === 'Escape') closeChat(); });
     byId('chatIn').addEventListener('focus', () => { keys.clear(); resetJoystick(); });
     document.querySelectorAll('#chatBox [data-q]').forEach(b => { b.onclick = () => sendChat(b.dataset.q); });
-    if (_qs.get('debug') === '1') NET.dbg = () => ({ stations, orders, hazards, heldItem, score, mode, lobbyCore, STAGE, LOCAL, layout:LAYOUT, LE });
+    if (_qs.get('debug') === '1') NET.dbg = () => ({ stations, orders, hazards, heldItem, score, mode, lobbyCore, STAGE, LOCAL, layout:LAYOUT, LE, TUTOR, game });
   }
 
   // ---- layout HUD dan kontrol kustom (PRD §8.5): lokal per orientasi, posisi = persen frame dari sudut terdekat ----
@@ -1993,12 +2008,10 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
       PLAYER = n.name; try { localStorage.setItem('sbc_name', byId('mnName').value.trim()); } catch (e) {}
       openStageScreen();
     };
-    byId('mnTutor').onclick = () => { tutI = 0; renderTut(); showScreen('tutScreen'); };
+    byId('mnTutor').onclick = startTutorial;
     byId('mnLayout').onclick = openLayoutEditor;
     byId('mnSound').onclick = () => { BakeryAudio.setMuted(!BakeryAudio.isMuted()); syncSoundBtn(); };
-    byId('tutBack').onclick = byId('tutSkip').onclick = () => showScreen('menuScreen');
-    byId('tutPrev').onclick = () => { if (tutI > 0) { tutI--; renderTut(); } };
-    byId('tutNext').onclick = () => { if (tutI < TUT.length - 1) { tutI++; renderTut(); } else showScreen('menuScreen'); };
+    byId('tbRedo').onclick = tutRedo; byId('tbExit').onclick = () => exitTutorial(); byId('tdMenu').onclick = () => exitTutorial(); byId('tdStage').onclick = () => exitTutorial('stage');
     byId('stBack').onclick = () => showScreen('menuScreen');
     byId('stGo').onclick = () => {
       const st = stageList().find(s => s.id === stagePick); if (!st) return;

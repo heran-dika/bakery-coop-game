@@ -337,8 +337,6 @@
   .mn-row .scr-btn { flex:1; }
   /* menu utama */
   .mn-main { flex:1; min-width:0; box-sizing:border-box; padding:40px; display:flex; flex-direction:column; justify-content:center; gap:8px; }
-  .mn-title { margin:0; font-size:36px; line-height:1.1; font-weight:800; letter-spacing:-.03em; }
-  .mn-sub { margin:0 0 14px; font-size:15px; color:var(--muted); }
   .mn-lab { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); }
   .mn-in { height:48px; box-sizing:border-box; padding:0 14px; font:inherit; font-size:17px; border:1px solid var(--line); border-radius:12px; background:#fff; color:var(--ink); max-width:360px; }
   .mn-hint { font-size:12px; color:var(--muted); }
@@ -406,7 +404,10 @@
   @media (max-width:620px) {
     .scr.col { padding:12px 14px; }
     #menuScreen { flex-direction:column; }
-    .mn-main { padding:24px 24px 8px; flex:none; }
+    .mn-main { padding:16px 20px 8px; flex:none; }
+    .mn-char { display:none; }
+    .mn-side { padding:12px 20px 16px; }
+    .hw-chip { flex:1; min-width:0; }
     .mn-side { width:auto; border-left:0; border-top:1px solid var(--line); flex:1; }
     .st-card { flex:1 1 100%; }
     .st-main { flex-direction:column; }
@@ -420,8 +421,7 @@
     .hwp { width:24px; height:38px; } .hwp.big { width:40px; height:64px; }
     .hw-chip { min-width:58px; padding:3px 6px; }
     .mn-lv { margin-top:2px; }
-    .mn-sub { margin-bottom:6px; }
-  }
+    }
 </style>
 </head>
 <body>
@@ -534,8 +534,6 @@
     </div>
     <div class="scr" id="menuScreen" hidden>
       <div class="mn-main">
-        <div class="mn-title">Bakery Co-op</div>
-        <p class="mn-sub">Masak bareng, layani pesanan sebelum kedaluwarsa.</p>
         <label class="mn-lab" for="mnName">Nama pemain</label>
         <input class="mn-in" id="mnName" type="text" maxlength="12" placeholder="Ketik nama kamu" autocomplete="off" enterkeyhint="done">
         <span class="mn-hint" id="mnHint">2–12 karakter: huruf, angka, spasi.</span>
@@ -592,10 +590,10 @@
 </div>
 <!-- Vector-first P0: all gameplay art is procedural Canvas geometry; external image/font assets are intentionally avoided for offline and mobile performance. -->
 <script>window.BAKERY_BUILD='20261029-s5';</script>
-<script src="core.js?v=20261030-s1"></script>
-<script src="stages.js?v=20261030-s1"></script>
-<script src="audio.js?v=20261030-s1"></script>
-<script src="xp.js?v=20261030-s1"></script>
+<script src="core.js?v=20261030-s2"></script>
+<script src="stages.js?v=20261030-s2"></script>
+<script src="audio.js?v=20261030-s2"></script>
+<script src="xp.js?v=20261030-s2"></script>
 <script>
 (() => {
   'use strict';
@@ -1770,7 +1768,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     const b = BakeryXP.levelOf(xpTotal()); xpAdd(BakeryXP.CFG.tutorial); const a = BakeryXP.levelOf(xpTotal());
     el.hidden = false; el.textContent = `+${BakeryXP.CFG.tutorial} XP` + (a > b ? ` · Naik ke Level ${a}!` : '');
   }
-  function hwPreview(id, big) { const w = document.createElement('span'); w.className = 'hwp' + (big ? ' big' : ''); for (const n of ['char_baker_bare_dr_idle_0', `hw_${id}_dr_idle_0`]) { const im = new Image(); im.alt = ''; im.src = `assets/${n}.svg`; w.appendChild(im); } return w; }
+  function hwPreview(id, big) { const w = document.createElement('span'); w.className = 'hwp' + (big ? ' big' : ''); for (const n of ['char_baker_bare_dr_idle_0', `hw_${id}_dr_idle_0`]) { const im = new Image(); im.alt = ''; im.onerror = () => im.remove(); im.src = `assets/${n}.svg`; w.appendChild(im); } return w; }   // aset belum ada di server: tanpa ikon rusak
   function setHw(id) { HWSEL = id; try { localStorage.setItem('sbc_hw', id); } catch (e) {} ensureHw(id); renderMenuProfile(); }
   function renderMenuProfile() {
     const i = BakeryXP.info(xpTotal()), box = byId('mnHw'); HWSEL = BakeryXP.cleanHeadwear(HWSEL, i.level);

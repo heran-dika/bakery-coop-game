@@ -34,6 +34,8 @@ const lobbySpawn = (slot, stageId) => {   // dengan stage: titik awal core (bari
   return sp ? { x: sp.x + i * (sp.spreadX == null ? 0.35 : sp.spreadX), y: sp.y } : { x: 3.4 + i * 0.8, y: 6.15 };
 };
 const cleanChat = v => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) : '');
+const HEADWEAR = ['koki', 'bandana', 'topi'];   // pakaian kepala kosmetik; server tidak memeriksa level (XP hanya lokal), hanya daftar putih
+const cleanHw = v => (HEADWEAR.includes(v) ? v : 'koki');
 const cleanCid = v => (typeof v === 'string' ? v.replace(/[^\w-]/g, '').slice(0, 24) : '');   // id perangkat acak dari client (hanya untuk daftar blokir kick; bukan identitas tepercaya)
 const coord = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : null);
 
@@ -88,15 +90,15 @@ function createGameServer(opts) {
     return {
       protocol: PROTOCOL, code: room.code, phase: room.phase, you: m.slot, stage: room.stage || null, token: m.token || null,   // token rejoin: hanya dikirim ke pemilik slot
       countdown: room.phase === 'countdown' ? Math.ceil(room.countdownLeft) : null,
-      players: members(room).map(x => ({ id: x.slot, name: x.name, ready: x.ready, host: x.sid === room.hostId, connected: x.connected, x: x.x, y: x.y }))
+      players: members(room).map(x => ({ id: x.slot, name: x.name, ready: x.ready, host: x.sid === room.hostId, connected: x.connected, x: x.x, y: x.y, hw: x.hw }))
     };
   }
   function broadcastState(room) { for (const m of connected(room)) io.to(m.sid).emit('room:state', stateFor(room, m)); }
 
   // ---------- lobby ----------
-  function joinRoom(sock, room, name, cid) {
+  function joinRoom(sock, room, name, cid, hw) {
     const slot = SLOTS.find(s => !members(room).some(m => m.slot === s));
-    room.members.set(sock.id, Object.assign({ sid: sock.id, slot, name: cleanName(name), ready: false, connected: true, token: randomUUID(), dropLeft: 0, cid: cleanCid(cid) }, lobbySpawn(slot, room.stage)));
+    room.members.set(sock.id, Object.assign({ sid: sock.id, slot, name: cleanName(name), ready: false, connected: true, token: randomUUID(), dropLeft: 0, cid: cleanCid(cid), hw: cleanHw(hw) }, lobbySpawn(slot, room.stage)));
     sock.join(room.code); sock.data.room = room.code;
     broadcastState(room);
   }
@@ -230,7 +232,7 @@ function createGameServer(opts) {
       const stage = p.stage == null ? null : Stages.get(p.stage);   // stage opsional; id yang tidak dikenal ditolak, bukan diam-diam diganti
       if (p.stage != null && !stage) return fail(sock, 'bad_stage');
       const room = { code: newCode(), hostId: sock.id, banned: new Set(), phase: 'lobby', members: new Map(), game: null, inputs: {}, queues: {}, tick: 0, countdownLeft: 0, stage: stage ? stage.id : null };
-      rooms.set(room.code, room); joinRoom(sock, room, p.name, p.cid);
+      rooms.set(room.code, room); joinRoom(sock, room, p.name, p.cid, p.hw);
     }));
     sock.on('room:join', guard('lobby', p => {
       if (sock.data.room) return fail(sock, 'already_in_room');
@@ -240,7 +242,7 @@ function createGameServer(opts) {
       if (cleanCid(p.cid) && room.banned.has(cleanCid(p.cid))) return fail(sock, 'kicked');
       if (room.phase !== 'lobby') return fail(sock, 'room_started');
       if (members(room).length >= SLOTS.length) return fail(sock, 'room_full');
-      joinRoom(sock, room, p.name, p.cid);
+      joinRoom(sock, room, p.name, p.cid, p.hw);
     }));
     sock.on('lobby:ready', guard('lobby', p => {
       const room = roomOf(sock), m = memberOf(room, sock);

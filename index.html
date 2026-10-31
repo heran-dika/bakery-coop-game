@@ -284,11 +284,13 @@
   .pl-row .lb-btn { min-height:26px; padding:1px 9px; font-size:11px; color:var(--red); border-color:var(--red); }
   .pl-row .lb-btn.armed { background:var(--red); color:#fff; }
   /* Chat cepat saat ronde: ikon di atas joystick; tahan untuk memilih salah satu dari 3 */
-  #qchat { position:absolute; left:14px; bottom:14px; z-index:6; display:flex; flex-direction:column-reverse; align-items:flex-start; gap:6px; }
+  /* Chat cepat: tombol diam di tempatnya; pilihan melayang di atasnya (tidak menggeser tombol) dan dipilih dengan menggeser jari lalu melepas */
+  #qchat { position:absolute; left:14px; bottom:14px; z-index:6; width:44px; height:44px; }
   #qchatBtn { width:44px; height:44px; border-radius:50%; border:2px solid #fff; background:#1f4172d9; font-size:20px; line-height:1; box-shadow:0 4px 12px #182c4733; touch-action:none; -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; }
   #qchatBtn:active { transform:scale(.93); }
-  #qchatMenu { display:flex; flex-direction:column; gap:6px; }
-  #qchatMenu button { border:1.5px solid var(--blue); background:#fff; color:var(--blue); border-radius:999px; padding:8px 14px; font:inherit; font-size:13px; font-weight:900; box-shadow:0 4px 12px #182c4726; white-space:nowrap; touch-action:none; }
+  #qchatMenu { position:absolute; left:0; bottom:calc(100% + 10px); display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+  #qchatMenu button { border:1.5px solid var(--blue); background:#fff; color:var(--blue); border-radius:999px; padding:12px 18px; font:inherit; font-size:14px; font-weight:900; box-shadow:0 4px 12px #182c4726; white-space:nowrap; text-align:left; transition:transform .08s; }
+  #qchatMenu button.hot { background:var(--blue); color:#fff; transform:scale(1.08); transform-origin:left center; }
   @media (pointer:coarse), (max-width:760px) { #qchat { left:22px; bottom:calc(max(12px,env(safe-area-inset-bottom)) + 160px); } }
   @media (orientation:landscape) and (max-height:520px) { #qchat { left:calc(max(12px,env(safe-area-inset-left)) + 62px); bottom:172px; } }
   /* ping: di header, sebelum tulisan "P0 vector kitchen" (HP landscape pendek: melayang di pojok kanvas) */
@@ -317,6 +319,8 @@
   #tryBar { position:absolute; z-index:8; left:50%; top:36%; transform:translateX(-50%); display:flex; align-items:center; gap:6px; padding:4px 8px; background:#fffffff2; border:1px solid var(--line); border-radius:999px; box-shadow:0 4px 14px #182c4726; font-size:12px; font-weight:800; white-space:nowrap; }
   body.tutorial .toast { top:auto; bottom:calc(max(12px, env(safe-area-inset-bottom)) + 240px); }
   @media (pointer:fine) { body.tutorial .toast { top:12px; bottom:auto; } }
+  .vb { display:inline-flex; align-items:center; gap:3px; font-weight:800; color:var(--blue); white-space:nowrap; }
+  .vb .ic { stroke-width:2.2; }
   @media (max-width:620px) { #tutBar { left:8px; right:8px; width:auto; transform:none; bottom:calc(max(12px, env(safe-area-inset-bottom)) + 135px); } }
   @media (orientation:landscape) and (max-height:520px) { #tutBar { bottom:auto; top:8px; left:172px; right:70px; width:auto; transform:none; } }
   .scr { position:absolute; inset:0; z-index:12; display:flex; background:var(--pink); color:var(--ink); overflow:auto; }
@@ -340,7 +344,24 @@
   .mn-hint { font-size:12px; color:var(--muted); }
   .mn-hint.bad { color:var(--red); font-weight:700; }
   .mn-side { width:300px; flex:none; box-sizing:border-box; padding:20px 24px; background:#fff; border-left:1px solid var(--line); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; }
+  .mn-lv { max-width:360px; margin-top:6px; }
+  .mn-lv-top, .rx-top { display:flex; justify-content:space-between; align-items:baseline; font-size:13px; color:var(--blue); }
+  .mn-lv-top span { font-size:11px; color:var(--muted); font-weight:700; }
+  .mn-bar { height:8px; border-radius:8px; background:var(--line); overflow:hidden; margin-top:4px; }
+  .mn-bar > i { display:block; height:100%; width:0; background:var(--green); border-radius:8px; transition:width .5s; }
+  .mn-hw { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  .hw-chip { display:flex; flex-direction:column; align-items:center; gap:2px; min-width:68px; padding:6px 8px; border:1px solid var(--line); border-radius:12px; background:#fff; color:var(--ink); font:inherit; font-size:11px; font-weight:800; }
+  .hw-chip.on { border:2px solid var(--blue); padding:5px 7px; }
+  .hw-chip.lock { opacity:.55; filter:grayscale(1); }
+  .hwp { position:relative; display:inline-block; width:32px; height:51px; }
+  .hwp.big { width:60px; height:96px; }
+  .hwp img { position:absolute; inset:0; width:100%; height:100%; }
+  .mn-char { display:grid; place-items:center; min-height:100px; }
+  .res-xp { margin:10px 0 14px; text-align:left; }
+  .rx-note { font-size:12px; color:var(--muted); margin-top:4px; }
   .mn-side .scr-btn { width:100%; }
+  .mn-side .st-join { width:100%; }
+  .mn-side .st-msg { align-self:flex-start; }
   .mn-side svg { flex:none; }
   /* pilih stage */
   .st-list { flex:1; display:flex; flex-wrap:wrap; align-content:flex-start; gap:12px; min-height:0; overflow:auto; }
@@ -353,9 +374,12 @@
   .st-badge { align-self:flex-start; font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px; background:var(--green-t); color:var(--green-d); }
   .st-card.sel .st-badge { background:#fff; color:var(--blue); padding-left:0; }
   .st-card.lock .st-badge { background:var(--red-t); color:#8E2F29; }
-  .st-foot { display:flex; align-items:center; gap:10px 14px; flex-wrap:wrap; flex:none; }
+  .st-main { flex:1; display:flex; gap:14px; min-height:0; }
+  .st-side { width:230px; flex:none; display:flex; flex-direction:column; gap:10px; overflow:auto; }
+  .st-side .scr-btn { width:100%; }
   .st-join { display:flex; gap:8px; }
-  .st-join input { width:92px; height:44px; box-sizing:border-box; padding:0 10px; font:inherit; font-size:15px; text-transform:uppercase; border:1px solid var(--line); border-radius:12px; background:#fff; color:var(--ink); }
+  .st-join .scr-btn.ico { width:48px; padding:0; display:grid; place-items:center; }
+  .st-join input { flex:1; min-width:0; width:0; height:48px; font-size:18px; letter-spacing:.28em; text-align:center; font-weight:800; height:44px; box-sizing:border-box; padding:0 10px; font:inherit; font-size:15px; text-transform:uppercase; border:1px solid var(--line); border-radius:12px; background:#fff; color:var(--ink); }
   .st-msg { font-size:12px; color:var(--muted); }
   .st-msg.bad { color:var(--red); font-weight:700; }
   /* atur layout HUD */
@@ -385,19 +409,23 @@
     .mn-main { padding:24px 24px 8px; flex:none; }
     .mn-side { width:auto; border-left:0; border-top:1px solid var(--line); flex:1; }
     .st-card { flex:1 1 100%; }
+    .st-main { flex-direction:column; }
+    .st-side { width:auto; flex:none; }
     #layScreen { flex-direction:column; }
     .lay-panel { width:auto; border-left:0; border-top:1px solid var(--line); }
   }
   @media (max-height:430px) {
     .mn-main { padding:20px 28px; }
     .mn-side { padding:12px 20px; gap:8px; }
-    .mn-side svg { width:34px; height:54px; }
+    .hwp { width:24px; height:38px; } .hwp.big { width:40px; height:64px; }
+    .hw-chip { min-width:58px; padding:3px 6px; }
+    .mn-lv { margin-top:2px; }
     .mn-sub { margin-bottom:6px; }
   }
 </style>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="hud-hand" viewBox="0 0 24 24"><path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V11M11 10.5V5a1.5 1.5 0 0 1 3 0v5.5M14 10.5V7a1.5 1.5 0 0 1 3 0v6.5c0 4-2.5 7-6 7-2.6 0-4-1.5-5.5-4L3.5 13.5a1.5 1.5 0 0 1 2.5-1.6L8 14"/></symbol><symbol id="hud-ambil" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 19h14"/></symbol><symbol id="hud-taruh" viewBox="0 0 24 24"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></symbol><symbol id="hud-uleni" viewBox="0 0 24 24"><rect x="5" y="9" width="14" height="6" rx="3"/><path d="M2 12h3M19 12h3"/></symbol><symbol id="hud-tambah" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol><symbol id="hud-oven" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2"/><rect x="7" y="10" width="10" height="7" rx="1"/><path d="M7 7h.01M10 7h.01"/></symbol><symbol id="hud-bell" viewBox="0 0 24 24"><path d="M4 18h16M6.5 18a5.5 5.5 0 0 1 11 0M12 9V7M10.5 7h3"/></symbol><symbol id="hud-trash" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 12h8l1-12M10 11v5M14 11v5"/></symbol></defs></svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="hud-hand" viewBox="0 0 24 24"><path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V11M11 10.5V5a1.5 1.5 0 0 1 3 0v5.5M14 10.5V7a1.5 1.5 0 0 1 3 0v6.5c0 4-2.5 7-6 7-2.6 0-4-1.5-5.5-4L3.5 13.5a1.5 1.5 0 0 1 2.5-1.6L8 14"/></symbol><symbol id="hud-ambil" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 19h14"/></symbol><symbol id="hud-taruh" viewBox="0 0 24 24"><path d="M12 4v11M8 11l4 4 4-4M5 19h14"/></symbol><symbol id="hud-uleni" viewBox="0 0 24 24"><rect x="5" y="9" width="14" height="6" rx="3"/><path d="M2 12h3M19 12h3"/></symbol><symbol id="hud-tambah" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol><symbol id="hud-oven" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2"/><rect x="7" y="10" width="10" height="7" rx="1"/><path d="M7 7h.01M10 7h.01"/></symbol><symbol id="hud-bell" viewBox="0 0 24 24"><path d="M4 18h16M6.5 18a5.5 5.5 0 0 1 11 0M12 9V7M10.5 7h3"/></symbol><symbol id="hud-enter" viewBox="0 0 24 24"><path d="M20 5v6a3 3 0 0 1-3 3H5M9 10l-4 4 4 4"/></symbol><symbol id="hud-trash" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 12h8l1-12M10 11v5M14 11v5"/></symbol></defs></svg>
 <div class="app">
   <header class="topline">
     <div class="brand">
@@ -467,6 +495,7 @@
           <div class="result-item"><strong id="resultExpired">0</strong><span>Order kedaluwarsa</span></div>
           <div class="result-item"><strong id="resultBurnt">0</strong><span>Roti gosong</span></div>
         </div>
+        <div class="res-xp" id="resXp" hidden><div class="rx-top"><b id="rxGain">+0 XP</b><span id="rxLv">Level 1</span></div><div class="mn-bar"><i id="rxBar"></i></div><div class="rx-note" id="rxNote"></div></div>
         <button class="btn primary" id="playAgainBtn" type="button" style="width:100%;padding:13px">Main Lagi</button>
         <button class="btn" id="resultsMenuBtn" type="button" style="width:100%;padding:11px;margin-top:8px" hidden>Ke menu</button>
       </div>
@@ -510,11 +539,15 @@
         <label class="mn-lab" for="mnName">Nama pemain</label>
         <input class="mn-in" id="mnName" type="text" maxlength="12" placeholder="Ketik nama kamu" autocomplete="off" enterkeyhint="done">
         <span class="mn-hint" id="mnHint">2–12 karakter: huruf, angka, spasi.</span>
+        <div class="mn-lv"><div class="mn-lv-top"><b id="mnLv">Level 1</b><span id="mnXp">0 / 200 XP</span></div><div class="mn-bar"><i id="mnBar"></i></div></div>
+        <div class="mn-hw" id="mnHw" role="group" aria-label="Pakaian kepala"></div>
       </div>
       <div class="mn-side">
-        <svg viewBox="0 0 40 64" width="45" height="72" aria-hidden="true"><rect x="24.5" y="36" width="5" height="9" rx="2.5" fill="#fffaf2" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/><circle cx="27" cy="46" r="2.6" fill="#f3c9a0" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/><rect x="13.5" y="49" width="5" height="10" rx="1.5" fill="#3e6387" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/><ellipse cx="17.5" cy="60.5" rx="4.5" ry="2.5" fill="#3a2f2c" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/><rect x="21.5" y="49" width="5" height="10" rx="1.5" fill="#3e6387" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/><ellipse cx="25.5" cy="60.5" rx="4.5" ry="2.5" fill="#3a2f2c" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/><rect x="11" y="33" width="18" height="17" rx="4" fill="#fffaf2" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/><rect x="17" y="38" width="10" height="12" rx="2" fill="#c34f5a" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/><circle cx="20" cy="24" r="9" fill="#f3c9a0" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/><ellipse cx="20.5" cy="17.5" rx="8" ry="2.6" fill="#6b4a3a"/><circle cx="22.5" cy="25.5" r="1.6" fill="#243b5a"/><circle cx="27" cy="25" r="1.6" fill="#243b5a"/><ellipse cx="27" cy="27.8" rx="1.6" ry="1" fill="#e89a8a"/><circle cx="15.7" cy="10" r="4.5" fill="#fffaf2" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/><circle cx="26.7" cy="10" r="4.5" fill="#fffaf2" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/><circle cx="21.2" cy="8" r="5" fill="#fffaf2" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/><rect x="13.2" y="12" width="15" height="5" rx="1.5" fill="#fffaf2" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/><rect x="11.5" y="36" width="5" height="9" rx="2.5" fill="#fffaf2" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/><circle cx="14" cy="46" r="2.6" fill="#f3c9a0" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/></svg>
+        <div class="mn-char" id="mnChar" aria-hidden="true"></div>
         <button class="scr-btn pri" id="mnStage" type="button">Pilih Stage</button>
-        <button class="scr-btn" id="mnTutor" type="button">Tutorial</button>
+        <div class="mn-row"><button class="scr-btn sm" id="mnJoin" type="button">Gabung room</button><button class="scr-btn sm" id="mnCodeBtn" type="button" aria-expanded="false" aria-controls="mnJoinBox">Kode ▾</button></div>
+        <div class="st-join" id="mnJoinBox" hidden><input id="mnCode" maxlength="4" placeholder="KODE" autocapitalize="characters" autocomplete="off" aria-label="Kode room teman"><button class="scr-btn sm ico" id="mnCodeGo" type="button" aria-label="Gabung" title="Gabung (Enter)"><svg class="ic" width="22" height="22" aria-hidden="true"><use href="#hud-enter"/></svg></button></div>
+        <span class="st-msg" id="mnMsg" role="status"></span>
         <div class="mn-row"><button class="scr-btn sm" id="mnSound" type="button">Suara: ON</button><button class="scr-btn sm" id="mnLayout" type="button">Atur layout</button></div>
       </div>
     </div>
@@ -526,18 +559,17 @@
     <div class="scr" id="tutDone" hidden style="align-items:center;justify-content:center">
       <div class="modal"><div class="modal-icon">🎉</div><h2>Tutorial selesai!</h2>
         <p>Kamu sudah bisa bikin Shokupan dan Salt bread. Ingat: Shokupan polos langsung ke oven tanpa mentega dan garam.</p>
+        <p id="tdXp" class="rx-note" hidden style="font-weight:800;color:var(--green)"></p>
         <button class="btn primary" id="tdStage" type="button" style="width:100%;padding:13px">Pilih Stage</button>
         <button class="btn" id="tdMenu" type="button" style="width:100%;padding:11px;margin-top:8px">Ke menu</button></div>
     </div>
     <div class="scr col" id="stageScreen" hidden>
       <div class="scr-head"><button class="scr-btn sm" id="stBack" type="button">← Menu</button><b>Pilih stage</b></div>
-      <div class="st-list" id="stList"></div>
-      <div class="st-foot">
-        <button class="scr-btn sm" id="stAuto" type="button">Gabung room tersedia</button>
-        <div class="st-join"><input id="stCode" maxlength="4" placeholder="KODE" autocapitalize="characters" autocomplete="off" aria-label="Kode room teman"><button class="scr-btn sm" id="stJoin" type="button">Gabung teman</button></div>
-        <span class="st-msg" id="stMsg" role="status"></span>
-        <span class="sp"></span>
-        <button class="scr-btn pri" id="stGo" type="button">Masuk lobi</button>
+      <div class="st-main">
+        <div class="st-list" id="stList"></div>
+        <div class="st-side">
+          <button class="scr-btn pri" id="stGo" type="button">Masuk lobi</button>
+        </div>
       </div>
     </div>
     <div class="scr" id="layScreen" hidden>
@@ -559,10 +591,11 @@
   <div class="footer-note">P0 vector prototype · hazard lantai licin aktif · multiplayer online, cloud save, audio final, dan progression belum termasuk.</div>
 </div>
 <!-- Vector-first P0: all gameplay art is procedural Canvas geometry; external image/font assets are intentionally avoided for offline and mobile performance. -->
-<script>window.BAKERY_BUILD='20261029-s1';</script>
-<script src="core.js?v=20261029-s1"></script>
-<script src="stages.js?v=20261029-s1"></script>
-<script src="audio.js?v=20261029-s1"></script>
+<script>window.BAKERY_BUILD='20261029-s5';</script>
+<script src="core.js?v=20261030-s1"></script>
+<script src="stages.js?v=20261030-s1"></script>
+<script src="audio.js?v=20261030-s1"></script>
+<script src="xp.js?v=20261030-s1"></script>
 <script>
 (() => {
   'use strict';
@@ -590,6 +623,10 @@
   // Aset SVG (assets/*.svg, lihat ASSET_PLAN §6). Gagal dimuat = pakai gambar prosedural.
   const ART = { raw:{}, cache:new Map() };
   const ART_KEYS = ['station_oven_empty','station_oven_cooking','station_oven_ready','station_oven_burnt','station_prep_empty','station_prep_dough','station_prep_prepared_plain','station_prep_prepared_salt','station_counter_idle','station_dough_idle','station_butter_idle','station_salt_idle','station_serve_down_idle','station_trash_idle','char_baker_dr_idle_0','char_baker_dr_idle_1','char_baker_dr_walk_0','char_baker_dr_walk_1','char_baker_dr_walk_2','char_baker_dr_walk_3','char_baker_dr_carry_idle_0','char_baker_dr_carry_idle_1','char_baker_dr_carry_walk_0','char_baker_dr_carry_walk_1','char_baker_dr_carry_walk_2','char_baker_dr_carry_walk_3','item_dough','item_prepared_dough','item_prepared_salt','item_butter','item_salt','item_plain_bread','item_salt_bread','item_burnt_bread','item_failed_bread'];
+  const HW_FRAMES = ['idle_0','idle_1','walk_0','walk_1','walk_2','walk_3','carry_idle_0','carry_idle_1','carry_walk_0','carry_walk_1','carry_walk_2','carry_walk_3'];
+  ART_KEYS.push(...HW_FRAMES.map(f => 'char_baker_bare_dr_' + f));   // badan tanpa topi; pakaian kepala = lapisan terpisah (hw_<nama>_dr_<frame>), dimuat saat dibutuhkan
+  const HW_LOADED = new Set();
+  function ensureHw(n) { if (!n || HW_LOADED.has(n)) return; HW_LOADED.add(n); loadArt(HW_FRAMES.map(f => `hw_${n}_dr_${f}`)); }
   const ITEM_SCALE = 1; // item viewBox 32x24 = satuan peta; di HP mapScale ~0.78 -> ±25x19 px [Menebak, uji di HP]
   const CHAR_SCALE = 1; // viewBox 40x64 = satuan peta; 1 = sama skala dengan stasiun [Menebak, uji di HP]
   function loadArt(keys) {
@@ -628,11 +665,13 @@
     if (!ART.raw[k] && ART.raw[base]) ART.raw[k] = tintImage(ART.raw[base], c);
     return ART.raw[k] ? k : base;
   }
-  function charKey(pl, moving) {
-    const pre = pl.held ? 'carry_' : '';
-    const base = moving ? `char_baker_dr_${pre}walk_${Math.floor(pl.walkCycle/1.68)%4}`   // 1.68 = 12 rad/s x 0.14 s per frame
-                        : `char_baker_dr_${pre}idle_${Math.floor(elapsed/0.42)%2}`;
-    return tintedKey(base, pl.slot);
+  function charKeys(pl, moving) {
+    const pre = pl.held ? 'carry_' : '', sfx = moving ? `${pre}walk_${Math.floor(pl.walkCycle/1.68)%4}`   // 1.68 = 12 rad/s x 0.14 s per frame
+                                                      : `${pre}idle_${Math.floor(elapsed/0.42)%2}`;
+    const hw = pl.hw || 'koki', bare = `char_baker_bare_dr_${sfx}`, over = `hw_${hw}_dr_${sfx}`;
+    ensureHw(hw);
+    if (ART.raw[bare] && ART.raw[over]) return { body:tintedKey(bare, pl.slot), hw:tintedKey(over, pl.slot) };
+    return { body:tintedKey(`char_baker_dr_${sfx}`, pl.slot), hw:null };   // sprite lengkap lama (topi koki) selama aset baru belum termuat
   }
   function itemKey(it) {
     if (it.type === 'prepared_dough') return it.mods && it.mods.includes('salt') ? 'item_prepared_salt' : 'item_prepared_dough';
@@ -737,7 +776,7 @@
     if (urlSeed === null) seed = (Math.random() * 4294967296) >>> 0;
     if (toMenu) game.reset(seed); else game.start(seed);
     if (!toMenu) console.info('[core] seed ronde:', seed, '(ulang dengan ?seed=' + seed + ')');
-    uiRefreshElapsed = 0; feedback = [];
+    uiRefreshElapsed = 0; feedback = []; roundXp = { gain:0, start:xpTotal() };
     fxGen++; pendingDelta = 0; BELT.holds.length = 0; document.querySelectorAll('.order-fx, .score-chip').forEach(n => n.remove()); chipActive = 0;
     guideOn = false; guideIds = []; idleFor = 0; lastSig = ''; lastServed = 0;
     warned.orders.clear(); warned.oven.clear();
@@ -771,7 +810,7 @@
     els.resultScore.textContent = Math.round(score);
     els.resultServed.textContent = ordersServed;
     els.resultExpired.textContent = ordersExpired;
-    els.resultBurnt.textContent = burntCount;
+    els.resultBurnt.textContent = burntCount; showResultXp();
     els.resultsScreen.classList.remove('hidden');
     renderUI();
   }
@@ -783,7 +822,7 @@
         case 'order:spawned': ordersChanged = true; BakeryAudio.play('orderNew'); if (!e.refill) showToast(`Pesanan baru: ${recipeName(e.recipe)}!`, 1400); break;
         case 'order:expired': ordersChanged = true; BakeryAudio.play('orderExpired'); launchOrderFx(e.order, 'crumple', -e.penalty, e.index); showToast(`Pesanan kedaluwarsa −${e.penalty} poin`, 1700); break;
         case 'order:completed':
-          ordersChanged = true; BakeryAudio.play('orderDone', 1 + Math.min(5, Math.round((e.combo || 0) / 10))); launchOrderFx(e.order, 'gift', e.earned, e.index);
+          ordersChanged = true; if (!TUTOR) gainXp(e); BakeryAudio.play('orderDone', 1 + Math.min(5, Math.round((e.combo || 0) / 10))); launchOrderFx(e.order, 'gift', e.earned, e.index);
           addFeedback(e.x, e.y, `+${e.earned}`, '#2e8067');
           showToast(`Order selesai +${e.earned} poin${e.combo ? ` (combo +${e.combo})` : ''}!`, 2000); break;
         case 'item:trashed': if (isMine(e)) BakeryAudio.play('trash'); launchTrashFx(-e.penalty); break;
@@ -941,7 +980,7 @@
     document.body.classList.toggle('playing', mode === 'running' || mode === 'lobby' || mode === 'try');
     document.body.classList.toggle('in-lobby', mode === 'lobby');
     { byId('lobbyUi').hidden = mode !== 'lobby'; const qc = ONLINE && mode === 'running'; byId('qchat').hidden = !qc; if (!qc) byId('qchatMenu').hidden = true; }
-    els.timerText.textContent = formatTime(roundLeft);
+    els.timerText.textContent = TUTOR ? '∞' : formatTime(roundLeft);   // tutorial: waktu tak terbatas
     els.timerText.classList.toggle('warning',roundLeft <= 30);
     paintScore();
     els.inventoryText.textContent = heldItem ? `${itemEmoji(heldItem)} ${itemTitle(heldItem)}${heldItem.mods?.length ? ` (${heldItem.mods.join(' + ')})` : ''}` : 'Kosong';
@@ -1262,11 +1301,11 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     const p=project(pl.x,pl.y),sc=mapScale;
     const moving=pl.moving;
     const bounce=moving?Math.sin(pl.walkCycle)*1.7*sc:0;
-    const k=sc*CHAR_SCALE, ca=artFor(charKey(pl,moving),40,64,k);
+    const k=sc*CHAR_SCALE, ck=charKeys(pl,moving), ca=artFor(ck.body,40,64,k), ha=ck.hw&&artFor(ck.hw,40,64,k);
     if(ca){
       ctx.fillStyle='#3d30252b';ctx.beginPath();ctx.ellipse(p.x,p.y+3*sc,10*sc,5*sc,0,0,Math.PI*2);ctx.fill();
       ctx.save();ctx.translate(p.x,p.y+2*sc);if(pl.facingX<-0.05)ctx.scale(-1,1);   // anchor kaki (20,62)
-      ctx.drawImage(ca,-20*k,-62*k,40*k,64*k);ctx.restore();
+      ctx.drawImage(ca,-20*k,-62*k,40*k,64*k);if(ha)ctx.drawImage(ha,-20*k,-62*k,40*k,64*k);ctx.restore();
       if(pl.held){const ty=p.y+2*sc-59*k-(12*ITEM_SCALE+2)*sc;drawHeldItem(p.x,ty,pl.held,sc);}
       return;
     }
@@ -1304,7 +1343,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     if (THUMB) return [];
     if (ONLINE || mode === 'lobby' || mode === 'try') return [...NET.view.values()];
     const i = getScreenInput();
-    Object.assign(soloView, { x:player.x, y:player.y, facingX:player.facingX, facingY:player.facingY, walkCycle:player.walkCycle, held:heldItem, moving:Math.abs(i.sx)+Math.abs(i.sy)>.01 });
+    Object.assign(soloView, { hw:HWSEL, x:player.x, y:player.y, facingX:player.facingX, facingY:player.facingY, walkCycle:player.walkCycle, held:heldItem, moving:Math.abs(i.sx)+Math.abs(i.sy)>.01 });
     return [soloView];
   }
   function drawHeldItem(x,y,item,sc){
@@ -1394,7 +1433,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   }
   let lobbyCore = makeLobbyCore();
   function olMsg(text, bad) {
-    if (NEWFLOW) { if (text) showToast(text, bad ? 3500 : 2200); const sm = byId('stMsg'); sm.textContent = text || ''; sm.classList.toggle('bad', !!bad); return; }
+    if (NEWFLOW) { if (text) showToast(text, bad ? 3500 : 2200); const sm = byId('mnMsg'); sm.textContent = text || ''; sm.classList.toggle('bad', !!bad); return; }
     const m = byId('olMsg'); m.textContent = text || ''; m.classList.toggle('bad', !!bad); }
   function olShow(on) { els.onlineScreen.classList.toggle('hidden', !on); }
   function saveName() { try { localStorage.setItem('sbc_name', byId('olName').value); } catch (e) {} }
@@ -1403,12 +1442,12 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   const myMember = () => roomPlayer(meId());
   function viewFor(id, x, y) {
     let d = NET.view.get(id);
-    if (!d) { d = { slot:id, x, y, tx:x, ty:y, walkCycle:0, moving:false, facingX:1, facingY:0, held:null, ready:false }; NET.view.set(id, d); }
+    if (!d) { d = { slot:id, x, y, tx:x, ty:y, walkCycle:0, moving:false, facingX:1, facingY:0, held:null, ready:false, hw:'koki' }; NET.view.set(id, d); }
     return d;
   }
   function refreshMeta(d) {
     const m = roomPlayer(d.slot);
-    d.name = m ? m.name : d.slot; d.connected = m ? m.connected : true; d.ready = mode === 'lobby' && !!(m && m.ready); d.you = d.slot === meId();
+    d.hw = (m && m.hw) || d.hw || 'koki'; d.name = m ? m.name : d.slot; d.connected = m ? m.connected : true; d.ready = mode === 'lobby' && !!(m && m.ready); d.you = d.slot === meId();
   }
   function refreshPlayAgain() {
     const me = myMember(), host = !!(me && me.host);
@@ -1676,27 +1715,33 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
       olShow(false); finishRound(e.stars); refreshPlayAgain();
     });
   }
-  // Chat cepat saat ronde: tombol 💬 di atas joystick. Tahan ±0,35 dtk untuk membuka 3 pilihan; ketuk pilihan untuk mengirim (jeda 1,2 dtk).
-  let qHold = null, qClose = null, qLast = -Infinity;
+  // Chat cepat saat ronde: tahan 💬 (±0,35 dtk) -> 3 pilihan muncul DI ATAS tombol (tombol tetap di tempatnya). Geser jari ke pilihan lalu lepas = kirim; lepas di luar pilihan = batal.
+  let qHold = null, qLast = -Infinity;
   function setupQuickChat() {
-    const btn = byId('qchatBtn'), menu = byId('qchatMenu');
-    const close = () => { menu.hidden = true; clearTimeout(qClose); };
+    const btn = byId('qchatBtn'), menu = byId('qchatMenu'), opts = [...menu.querySelectorAll('[data-q]')];
+    let pid = null, open = false;
+    const hit = (x, y) => opts.find(o => { const r = o.getBoundingClientRect(); return x >= r.left - 14 && x <= r.right + 14 && y >= r.top - 4 && y <= r.bottom + 4; }) || null;
+    const mark = o => opts.forEach(b => b.classList.toggle('hot', b === o));
+    const close = () => { open = false; menu.hidden = true; mark(null); };
     const cancel = () => { clearTimeout(qHold); qHold = null; };
     btn.addEventListener('contextmenu', ev => ev.preventDefault());
-    btn.addEventListener('pointerdown', ev => { ev.preventDefault(); cancel(); qHold = setTimeout(() => { qHold = null; menu.hidden = false; clearTimeout(qClose); qClose = setTimeout(close, 5000); }, 350); });
-    btn.addEventListener('pointerup', () => { if (qHold) { cancel(); if (menu.hidden) showToast('Tahan tombol 💬 untuk memilih chat cepat', 1600); else close(); } });
-    btn.addEventListener('pointercancel', cancel); btn.addEventListener('pointerleave', cancel);
-    menu.querySelectorAll('[data-q]').forEach(b => b.addEventListener('pointerdown', ev => {
-      ev.preventDefault(); ev.stopPropagation(); const now = performance.now();
-      if (now - qLast > 1200) { qLast = now; sendChat(b.dataset.q); } close();
-    }));
+    btn.addEventListener('pointerdown', ev => { ev.preventDefault(); cancel(); close(); pid = ev.pointerId; try { btn.setPointerCapture(ev.pointerId); } catch (e) {} qHold = setTimeout(() => { qHold = null; open = true; menu.hidden = false; }, 350); });
+    btn.addEventListener('pointermove', ev => { if (open && ev.pointerId === pid) mark(hit(ev.clientX, ev.clientY)); });
+    const end = ev => {
+      if (ev.pointerId !== pid) return; pid = null;
+      if (qHold) { cancel(); showToast('Tahan tombol 💬 lalu geser ke pilihan', 1800); return; }   // ketukan singkat
+      if (!open) return;
+      const o = ev.type === 'pointerup' ? hit(ev.clientX, ev.clientY) : null; close();
+      if (o) { const now = performance.now(); if (now - qLast > 1200) { qLast = now; sendChat(o.dataset.q); } }
+    };
+    btn.addEventListener('pointerup', end); btn.addEventListener('pointercancel', end);
   }
   // ===== Alur menu (S4): menu, tutorial, pilih stage, lobi solo lokal, atur layout HUD =====
   // NEWFLOW (tanpa ?online=1): menu -> pilih stage -> lobi lokal. Sendirian di AREA SIAP = solo lokal (tanpa server).
   // Teman: "Undang teman" (buat room) atau "Gabung teman" (kode) menyambung ke server; ONLINE baru menyala saat room:state pertama tiba.
   // ?online=1 = jalur lama (formulir masuk), dipertahankan untuk tes e2e.
   const SCREENS = ['menuScreen', 'tutDone', 'stageScreen', 'layScreen'];
-  function showScreen(id) { for (const s of SCREENS) byId(s).hidden = s !== id; }
+  function showScreen(id) { for (const s of SCREENS) byId(s).hidden = s !== id; if (id === 'menuScreen') renderMenuProfile(); }
   let LOCAL = null, PLAYER = 'Baker';
   const NAME_RE = /^[A-Za-z0-9 ]{2,12}$/;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -1706,6 +1751,38 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     return NAME_RE.test(v) ? { ok:true, name:v } : { ok:false };
   }
   function menuNote(msg, bad) { if (msg) showToast(msg, bad ? 3500 : 2400); }
+
+  // ---- XP, level, pakaian kepala (xp.js). Lokal per perangkat dan tidak tepercaya (PRD §9.2): hanya kosmetik ----
+  const xpTotal = () => { try { return Math.max(0, Math.floor(Number(localStorage.getItem('sbc_xp')) || 0)); } catch (e) { return 0; } };
+  const xpAdd = n => { try { localStorage.setItem('sbc_xp', String(xpTotal() + n)); } catch (e) {} };
+  let roundXp = { gain:0, start:0 };
+  let HWSEL = (() => { try { return localStorage.getItem('sbc_hw') || 'koki'; } catch (e) { return 'koki'; } })();
+  function gainXp(e) { const x = BakeryXP.orderXp(e); if (x) { roundXp.gain += x; xpAdd(x); } }   // tiap pemain mendapat XP dari setiap order tim yang selesai
+  function showResultXp() {
+    const box = byId('resXp'); if (TUTOR) { box.hidden = true; return; }
+    const tot = xpTotal(), b = BakeryXP.info(roundXp.start), a = BakeryXP.info(tot), ups = BakeryXP.unlockedBetween(b.level, a.level);
+    box.hidden = false; byId('rxGain').textContent = `+${tot - roundXp.start} XP`; byId('rxLv').textContent = `Level ${a.level}`; byId('rxBar').style.width = Math.round(a.frac * 100) + '%';
+    byId('rxNote').textContent = a.level > b.level ? `Naik ke Level ${a.level}!` + (ups.length ? ' Terbuka: ' + ups.map(h => h.name).join(', ') + '.' : '') : a.max ? 'Level maksimum' : `${a.into} / ${a.span} XP ke level berikutnya`;
+  }
+  function tutReward() {   // selesai tutorial pertama kali = bonus XP sekali
+    const first = !tutDone(); try { localStorage.setItem('sbc_tutor', '1'); } catch (x) {}
+    const el = byId('tdXp'); if (!first) { el.hidden = true; return; }
+    const b = BakeryXP.levelOf(xpTotal()); xpAdd(BakeryXP.CFG.tutorial); const a = BakeryXP.levelOf(xpTotal());
+    el.hidden = false; el.textContent = `+${BakeryXP.CFG.tutorial} XP` + (a > b ? ` · Naik ke Level ${a}!` : '');
+  }
+  function hwPreview(id, big) { const w = document.createElement('span'); w.className = 'hwp' + (big ? ' big' : ''); for (const n of ['char_baker_bare_dr_idle_0', `hw_${id}_dr_idle_0`]) { const im = new Image(); im.alt = ''; im.src = `assets/${n}.svg`; w.appendChild(im); } return w; }
+  function setHw(id) { HWSEL = id; try { localStorage.setItem('sbc_hw', id); } catch (e) {} ensureHw(id); renderMenuProfile(); }
+  function renderMenuProfile() {
+    const i = BakeryXP.info(xpTotal()), box = byId('mnHw'); HWSEL = BakeryXP.cleanHeadwear(HWSEL, i.level);
+    byId('mnLv').textContent = `Level ${i.level}`; byId('mnXp').textContent = i.max ? 'Maks' : `${i.into} / ${i.span} XP`; byId('mnBar').style.width = Math.round(i.frac * 100) + '%';
+    box.textContent = '';
+    for (const h of BakeryXP.HEADWEAR) {
+      const ok = h.level <= i.level, b = document.createElement('button'); b.type = 'button'; b.className = 'hw-chip' + (h.id === HWSEL ? ' on' : '') + (ok ? '' : ' lock'); b.disabled = !ok; b.setAttribute('aria-pressed', String(h.id === HWSEL));
+      b.title = ok ? h.name : `${h.name} · terbuka di Level ${h.level}`; b.append(hwPreview(h.id), Object.assign(document.createElement('span'), { textContent: ok ? h.name : 'Lv ' + h.level }));
+      b.onclick = () => setHw(h.id); box.appendChild(b);
+    }
+    byId('mnChar').textContent = ''; byId('mnChar').appendChild(hwPreview(HWSEL, true));
+  }
 
   // ---- progres stage (lokal per perangkat, tidak tepercaya: PRD §9.2) ----
   const PROG_KEY = 'sbc_progress';
@@ -1727,7 +1804,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     LOCAL = null; NET.room = null; NET.snap = null; NET.events = []; NET.view.clear(); NET.sx = NET.sy = 0;
     resetGame(true); closeChat(); byId('lbCd').textContent = ''; showScreen('menuScreen'); menuNote(msg);
   }
-  function openStageScreen() { renderStageList(); byId('stMsg').textContent = ''; showScreen('stageScreen'); }
+  function openStageScreen() { renderStageList(); byId('mnMsg').textContent = ''; showScreen('stageScreen'); }
 
   // ---- pilih stage ----
   let THUMB = false; const thumbs = new Map();
@@ -1742,26 +1819,32 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     } catch (e) {} finally { THUMB = false; [stations, stationById, orders, hazards, guideIds, mode] = keep; }
     thumbs.set(st.id, { url, n, w:canvasW, h:canvasH }); return url;
   }
+  const tutDone = () => { try { return localStorage.getItem('sbc_tutor') === '1'; } catch (e) { return false; } };
+  function tutorialStage() {   // kartu paling atas: dapur Stage 1 dengan dua stasiun awal
+    const st1 = stageFromId(1); if (!st1) return null;
+    const pick = id => st1.config.stations.find(x => x.id === id);
+    return { id:'tutorial', name:'Tutorial', config:{ spawn:st1.config.spawn, stations:[pick('dough'), pick('prep')] } };
+  }
   function renderStageList() {
-    const box = byId('stList'), prog = loadProgress(), list = stageList(); box.textContent = '';
-    const ok = id => list.some(s => s.id === id && stageOpen(s, prog));
-    if (!ok(stagePick)) stagePick = ok(STAGE && STAGE.id) ? STAGE.id : (list.find(s => stageOpen(s, prog)) || {}).id || null;
-    if (!list.length) box.textContent = 'Belum ada stage.';
-    for (const st of list) {   // hanya stage yang sudah ada; stage belum dibuat tidak ditampilkan
-      const open = stageOpen(st, prog), sel = open && st.id === stagePick;
+    const box = byId('stList'), prog = loadProgress(), tut = tutorialStage(), items = (tut ? [tut] : []).concat(stageList()); box.textContent = '';
+    const isOpen = st => st.id === 'tutorial' || stageOpen(st, prog), ok = id => items.some(x => x.id === id && isOpen(x));
+    if (!ok(stagePick)) stagePick = tut && !tutDone() && !Object.keys(prog).length ? 'tutorial' : ok(STAGE && STAGE.id) ? STAGE.id : (items.find(isOpen) || {}).id || null;   // pemain baru mulai dari tutorial
+    if (!items.length) box.textContent = 'Belum ada stage.';
+    for (const st of items) {   // hanya yang sudah ada; stage belum dibuat tidak ditampilkan
+      const open = isOpen(st), sel = open && st.id === stagePick, isTut = st.id === 'tutorial';
       const card = document.createElement('button'); card.type = 'button'; card.className = 'st-card' + (sel ? ' sel' : '') + (open ? '' : ' lock'); card.disabled = !open;
       const pre = document.createElement('div'), url = stageThumb(st); pre.className = 'st-pre';
       if (url) { const im = new Image(); im.alt = ''; im.src = url; pre.appendChild(im); }
       const nm = document.createElement('b'), bd = document.createElement('span'); bd.className = 'st-badge';
       nm.textContent = st.name || `Stage ${st.id}`;
-      const done = prog[st.id] !== undefined && Number.isFinite(Number(prog[st.id])), stars = done ? clamp(Number(prog[st.id]), 0, 3) : 0;
-      bd.textContent = !open ? 'Terkunci' : (sel ? 'Dipilih · ' : '') + (done ? 'Selesai ' + '★'.repeat(stars) + '☆'.repeat(3 - stars) : 'belum selesai');
+      const done = isTut ? tutDone() : prog[st.id] !== undefined && Number.isFinite(Number(prog[st.id])), stars = !isTut && done ? clamp(Number(prog[st.id]), 0, 3) : 0;
+      bd.textContent = !open ? 'Terkunci' : (sel ? 'Dipilih · ' : '') + (done ? (isTut ? 'Selesai ✓' : 'Selesai ' + '★'.repeat(stars) + '☆'.repeat(3 - stars)) : 'belum selesai');
       card.append(pre, nm, bd);
       if (open) card.onclick = () => { stagePick = st.id; renderStageList(); };
       box.appendChild(card);
     }
-    const cur = list.find(s => s.id === stagePick);
-    byId('stGo').disabled = !cur; byId('stGo').textContent = cur ? `Masuk lobi: ${cur.name || 'Stage ' + cur.id}` : 'Masuk lobi';
+    const cur = items.find(x => x.id === stagePick);
+    byId('stGo').disabled = !cur; byId('stGo').textContent = !cur ? 'Masuk lobi' : cur.id === 'tutorial' ? 'Mulai tutorial' : `Masuk lobi: ${cur.name || 'Stage ' + cur.id}`;
   }
   function useStage(st) {   // ganti stage: core baru, kolisi lobi baru
     STAGE = st; game = BakeryCore.createGame({ seed, config: st ? st.config : undefined });
@@ -1770,12 +1853,14 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
 
   // ---- tutorial interaktif: main di dapur Stage 1 dengan stasiun yang muncul bertahap; langkah selesai dari event core ----
   let TUTOR = null;
+  const TUT_IC = { ambil:'hud-ambil', taruh:'hud-taruh', uleni:'hud-uleni', tambah:'hud-tambah', oven:'hud-oven', sajikan:'hud-bell', buang:'hud-trash', aksi:'hud-hand' };   // ikon yang sama dengan tombol Aksi
+  const tutHtml = t => t.replace(/\[\[(\w+)\|([^\]]+)\]\]/g, (m, k, w) => `<span class="vb"><svg class="ic" width="14" height="14" aria-hidden="true"><use href="#${TUT_IC[k]}"/></svg>${w}</span>`);
   const TUT_STEPS = [
-    { t:'Siapkan adonan', reveal:[], d:'Ambil adonan dari peti, taruh di meja prep, lalu tekan Aksi lagi untuk menguleni.', done:e => e.type === 'dough:prepared' },
-    { t:'Panggang', reveal:['oven'], d:'Ambil adonan yang sudah diuleni, masukkan ke oven, tunggu sampai matang, lalu ambil rotinya.', done:e => e.type === 'msg' && e.code === 'oven_took' },
-    { t:'Sajikan Shokupan', reveal:['serve'], d:'Bawa roti ke meja serve (counter out) untuk melayani pesanan Shokupan.', done:e => e.type === 'order:completed' && e.recipe === 'plain_bread' },
-    { t:'Buang item', reveal:['trash'], d:'Item salah atau gosong dibuang ke tempat sampah. Coba: ambil adonan dari peti, lalu buang ke tempat sampah.', done:e => e.type === 'item:trashed' },
-    { t:'Buat Salt bread', reveal:['butter', 'salt'], d:'Sekarang buat ulang, tapi jadi Salt bread: uleni adonan, tambahkan mentega dan garam di meja prep, lalu panggang dan sajikan.', done:e => e.type === 'order:completed' && e.recipe === 'salt_bread' }
+    { t:'Siapkan adonan', reveal:[], d:'[[ambil|Ambil]] adonan dari peti, [[taruh|taruh]] di meja prep, lalu tekan [[aksi|Aksi]] lagi untuk [[uleni|menguleni]].', done:e => e.type === 'dough:prepared' },
+    { t:'Panggang', reveal:['oven'], d:'[[ambil|Ambil]] adonan yang sudah diuleni, [[oven|masukkan]] ke oven, tunggu sampai matang, lalu [[ambil|ambil]] rotinya.', done:e => e.type === 'msg' && e.code === 'oven_took' },
+    { t:'Sajikan Shokupan', reveal:['serve'], d:'[[sajikan|Sajikan]] roti di meja serve (counter out) untuk melayani pesanan Shokupan.', done:e => e.type === 'order:completed' && e.recipe === 'plain_bread' },
+    { t:'Buang item', reveal:['trash'], d:'Item salah atau gosong dibuang ke tempat sampah. Coba: [[ambil|ambil]] adonan dari peti, lalu [[buang|buang]] ke tempat sampah.', done:e => e.type === 'item:trashed' },
+    { t:'Buat Salt bread', reveal:['butter', 'salt'], d:'Buat ulang, tapi jadi Salt bread: [[uleni|uleni]] adonan, [[tambah|tambahkan]] mentega dan garam di meja prep, lalu [[oven|panggang]] dan [[sajikan|sajikan]].', done:e => e.type === 'order:completed' && e.recipe === 'salt_bread' }
   ];
   function startTutorial() {
     const st1 = stageFromId(1); if (!st1) { showToast('Tutorial butuh data stage (stages.js).', 2400); return; }
@@ -1785,7 +1870,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     game = BakeryCore.createGame({ seed, config:cfg }); CONFIG = Object.assign({ guideIdleSeconds:0 }, game.config);   // tanpa order yang kedaluwarsa, tanpa gosong, petunjuk langsung menyala
     showScreen(null); document.body.classList.add('tutorial'); resetGame(false); byId('tutBar').hidden = false; tutShow();
   }
-  function tutShow() { const s = TUT_STEPS[TUTOR.i]; byId('tbStep').textContent = `Langkah ${TUTOR.i + 1}/${TUT_STEPS.length}`; byId('tbT').textContent = s.t; byId('tbD').textContent = s.d; TUTOR.snap = game.snapshot(); }
+  function tutShow() { const s = TUT_STEPS[TUTOR.i]; byId('tbStep').textContent = `Langkah ${TUTOR.i + 1}/${TUT_STEPS.length}`; byId('tbT').textContent = s.t; byId('tbD').innerHTML = tutHtml(s.d); TUTOR.snap = game.snapshot(); }
   function tutReveal(ids) {
     for (const id of ids) { const def = TUTOR.pick(id); if (!def) continue; const st = game.addStation(def); Object.assign(st, viewOf(st)); st.bornAt = elapsed; stationById[id] = st; }
     if (ids.length) { showToast('Stasiun baru: ' + ids.map(i => stationById[i].name).join(' + '), 2400); BakeryAudio.play('orderNew'); }
@@ -1794,7 +1879,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     if (!TUTOR || TUTOR.finished) return;
     for (const e of events) {
       if (!TUT_STEPS[TUTOR.i].done(e)) continue;
-      if (++TUTOR.i >= TUT_STEPS.length) { TUTOR.finished = true; mode = 'menu'; byId('tutBar').hidden = true; BakeryAudio.play('roundEnd'); showScreen('tutDone'); return; }
+      if (++TUTOR.i >= TUT_STEPS.length) { TUTOR.finished = true; mode = 'menu'; byId('tutBar').hidden = true; stagePick = null; tutReward(); BakeryAudio.play('roundEnd'); showScreen('tutDone'); return; }
       tutReveal(TUT_STEPS[TUTOR.i].reveal); BakeryAudio.play('kneadDone'); tutShow(); return;
     }
   }
@@ -1818,7 +1903,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     lobbyCore = makeLobbyCore();
     const lp = lobbyCore.start().state.players[0];
     LOCAL = { cd:null, shown:null };
-    NET.room = { local:true, you:'p1', code:null, phase:'lobby', players:[{ id:'p1', name:PLAYER, ready:false, host:true, connected:true, x:lp.x, y:lp.y }] };
+    NET.room = { local:true, you:'p1', code:null, phase:'lobby', players:[{ id:'p1', hw:HWSEL, name:PLAYER, ready:false, host:true, connected:true, x:lp.x, y:lp.y }] };
     const d = viewFor('p1', lp.x, lp.y); refreshMeta(d);
     mode = 'lobby'; olShow(false); renderUI(); localBar();
   }
@@ -1845,8 +1930,8 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function runPending() {
     const p = NET.pending; NET.pending = null;
     if (!p || !NET.sock || !NET.sock.connected) return;
-    if (p.create) NET.sock.emit('room:create', { name:p.name, cid:deviceId(), stage:p.stage });
-    else NET.sock.emit('room:join', { code:p.code, name:p.name, cid:deviceId() });
+    if (p.create) NET.sock.emit('room:create', { name:p.name, cid:deviceId(), stage:p.stage, hw:HWSEL });
+    else NET.sock.emit('room:join', { code:p.code, name:p.name, cid:deviceId(), hw:HWSEL });
   }
   function goOnline(action) {
     NET.pending = action; NET.expect = true;
@@ -2013,7 +2098,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     if (!LE) return;
     TRY = { L:layCompose() }; applyLayout(); showScreen(null);
     lobbyCore = makeLobbyCore(); const lp = lobbyCore.start().state.players[0];
-    NET.view.clear(); const d = viewFor('p1', lp.x, lp.y); d.name = ''; keys.clear(); resetJoystick();
+    NET.view.clear(); const d = viewFor('p1', lp.x, lp.y); d.name = ''; d.hw = HWSEL; keys.clear(); resetJoystick();
     mode = 'try'; byId('tryBar').hidden = false; renderUI(); showToast('Mode coba: geser joystick dan tekan Aksi.', 2200);
   }
   function tryTick(dt) {
@@ -2067,27 +2152,31 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     let saved = ''; try { saved = localStorage.getItem('sbc_name') || ''; } catch (e) {}
     byId('mnName').value = saved; PLAYER = readName().ok ? readName().name : 'Baker';
     byId('mnName').addEventListener('input', () => byId('mnHint').classList.remove('bad'));
-    byId('mnStage').onclick = () => {
-      const n = readName(); if (!n.ok) { byId('mnHint').classList.add('bad'); byId('mnName').focus(); return; }
+    const needName = () => {   // nama valid dibutuhkan untuk masuk lobi maupun gabung room
+      const n = readName(); if (!n.ok) { byId('mnHint').classList.add('bad'); byId('mnName').focus(); return false; }
       PLAYER = n.name; try { localStorage.setItem('sbc_name', byId('mnName').value.trim()); } catch (e) {}
-      openStageScreen();
+      return true;
     };
-    byId('mnTutor').onclick = startTutorial;
+    byId('mnStage').onclick = () => { if (needName()) openStageScreen(); };
     byId('mnLayout').onclick = openLayoutEditor;
     byId('mnSound').onclick = () => { BakeryAudio.setMuted(!BakeryAudio.isMuted()); syncSoundBtn(); };
     byId('tbRedo').onclick = tutRedo; byId('tbExit').onclick = () => exitTutorial(); byId('tdMenu').onclick = () => exitTutorial(); byId('tdStage').onclick = () => exitTutorial('stage');
     byId('stBack').onclick = () => showScreen('menuScreen');
     byId('stGo').onclick = () => {
+      if (stagePick === 'tutorial') { startTutorial(); return; }
       const st = stageList().find(s => s.id === stagePick); if (!st) return;
       try { localStorage.setItem('sbc_stage', String(st.id)); } catch (e) {}
       useStage(st); enterLocalLobby();
     };
-    byId('stJoin').onclick = () => {
-      const code = byId('stCode').value.trim().toUpperCase(), m = byId('stMsg');
-      if (code && code.length !== 4) { m.textContent = 'Kode room 4 karakter. Kosongkan untuk masuk ke room yang tersedia.'; m.classList.add('bad'); return; }
-      m.classList.remove('bad'); goOnline({ join:true, code, name:PLAYER });   // kode kosong = room lobi terbuka tertua (quick join di server)
+    byId('mnCode').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); byId('mnCodeGo').click(); } });   // Enter di keyboard = Gabung
+    byId('mnCodeGo').onclick = () => {
+      if (!needName()) return;
+      const code = byId('mnCode').value.trim().toUpperCase(), m = byId('mnMsg');
+      if (code.length !== 4) { m.textContent = 'Isi 4 karakter kode room.'; m.classList.add('bad'); byId('mnCode').focus(); return; }
+      m.classList.remove('bad'); goOnline({ join:true, code, name:PLAYER });
     };
-    byId('stAuto').onclick = () => { byId('stCode').value = ''; byId('stJoin').onclick(); };
+    byId('mnJoin').onclick = () => { if (!needName()) return; byId('mnMsg').classList.remove('bad'); goOnline({ join:true, code:'', name:PLAYER }); };   // kode kosong = room lobi terbuka tertua (quick join di server)
+    byId('mnCodeBtn').onclick = () => { const box = byId('mnJoinBox'), open = box.hidden; box.hidden = !open; byId('mnCodeBtn').setAttribute('aria-expanded', String(open)); byId('mnCodeBtn').textContent = open ? 'Kode ▴' : 'Kode ▾'; if (open) byId('mnCode').focus(); };
     byId('lbInvite').onclick = () => { goOnline({ create:true, name:PLAYER, stage:STAGE && STAGE.id }); showToast('Membuat room…', 1500); };
     els.resultsMenuBtn.onclick = () => goMenu();
     const stage = byId('layStage'); stage.addEventListener('pointerdown', layDown); stage.addEventListener('pointermove', layMove); stage.addEventListener('pointerup', layUp); stage.addEventListener('pointercancel', layUp);

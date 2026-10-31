@@ -614,3 +614,18 @@ test('stage: room:state memuat id stage dan spawn lobi mengikuti titik awal stag
   assert.equal(c.last('room:state').stage, null); assert.deepEqual([c.last('room:state').players[0].x, c.last('room:state').players[0].y], [3.4, 6.15]);
   await env.stop();
 });
+
+test('pakaian kepala: dikirim saat buat/gabung, diteruskan ke semua pemain, nilai di luar daftar putih jadi koki', async () => {
+  const env = await boot();
+  const a = await env.client(); a.sock.emit('room:create', { name: 'Rina', hw: 'bandana' });
+  assert.ok(await until(() => a.last('room:state')));
+  const code = a.last('room:state').code; assert.equal(a.last('room:state').players[0].hw, 'bandana');
+  const b = await env.client(); b.sock.emit('room:join', { code, name: 'Bima', hw: 'topi' });
+  assert.ok(await until(() => b.last('room:state') && a.last('room:state').players.length === 2));
+  assert.deepEqual(a.last('room:state').players.map(p => p.hw), ['bandana', 'topi'], 'pemain lain melihat pakaian kepalanya');
+  const c = await env.client(); c.sock.emit('room:join', { code, name: 'Cici', hw: '<img src=x>' });
+  assert.ok(await until(() => c.last('room:state')));
+  assert.equal(c.last('room:state').players[2].hw, 'koki', 'tidak dikenal -> koki'); const d = await env.client(); d.sock.emit('room:join', { code, name: 'Dedi' });
+  assert.ok(await until(() => d.last('room:state'))); assert.equal(d.last('room:state').players[3].hw, 'koki', 'tanpa hw -> koki');
+  await env.stop();
+});

@@ -309,6 +309,7 @@
   }
   /* ===== Alur menu (S4): menu, tutorial, pilih stage, atur layout HUD ===== */
   .toast { z-index:30; }
+  body:not(.playing) .inventory-bar { display:none; }   /* "Di tangan" hanya berarti di dalam game */
   /* tutorial interaktif: kartu langkah di bawah (desktop), di atas kontrol (portrait), atau di atas (HP landscape pendek) */
   #tutBar { position:absolute; z-index:7; left:50%; transform:translateX(-50%); bottom:12px; width:min(480px, calc(100% - 270px)); box-sizing:border-box; display:flex; flex-direction:column; gap:3px; padding:6px 10px; background:#fffffff2; border:1px solid var(--line); border-radius:14px; box-shadow:0 6px 18px #182c4726; font-size:12px; }
   #tutBar .tb-top { display:flex; align-items:center; gap:6px; min-width:0; }
@@ -408,7 +409,8 @@
     .mn-char { display:none; }
     .mn-side { padding:12px 20px 16px; }
     .hw-chip { flex:1; min-width:0; }
-    .mn-side { width:auto; border-left:0; border-top:1px solid var(--line); flex:1; }
+    #menuScreen { justify-content:center; }   /* satu kelompok di tengah, bukan dua panel yang saling melar */
+    .mn-side { width:auto; border:0; background:transparent; flex:none; justify-content:flex-start; }
     .st-card { flex:1 1 100%; }
     .st-main { flex-direction:column; }
     .st-side { width:auto; flex:none; }
@@ -430,7 +432,7 @@
   <header class="topline">
     <div class="brand">
       <div class="brand-mark"><img src="assets/badge-72.png" alt="SHAKIES" width="44" height="44"></div>
-      <div><h1>SHAKIES Bakery Co-op</h1><div class="subtitle">P0 vector kitchen · local solo test</div></div>
+      <div><h1>SHAKIES Bakery Co-op</h1><div class="subtitle">Masak bareng di dapur yang sama</div></div>
     </div>
     <div class="top-actions">
       <button class="btn" id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menu">⋯</button>
@@ -586,14 +588,13 @@
     </div>
   </main>
   <div class="inventory-bar"><div>Di tangan: <span class="inventory" id="inventoryText">Kosong</span></div><div class="help-line">Dekati stasiun lalu tekan <b>Space</b> / <b>Aksi</b> · Hindari oven gosong.</div></div>
-  <div class="footer-note">P0 vector prototype · hazard lantai licin aktif · multiplayer online, cloud save, audio final, dan progression belum termasuk.</div>
 </div>
 <!-- Vector-first P0: all gameplay art is procedural Canvas geometry; external image/font assets are intentionally avoided for offline and mobile performance. -->
 <script>window.BAKERY_BUILD='20261029-s5';</script>
-<script src="core.js?v=20261030-s2"></script>
-<script src="stages.js?v=20261030-s2"></script>
-<script src="audio.js?v=20261030-s2"></script>
-<script src="xp.js?v=20261030-s2"></script>
+<script src="core.js?v=20261030-s3"></script>
+<script src="stages.js?v=20261030-s3"></script>
+<script src="audio.js?v=20261030-s3"></script>
+<script src="xp.js?v=20261030-s3"></script>
 <script>
 (() => {
   'use strict';

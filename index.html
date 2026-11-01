@@ -92,7 +92,7 @@
     .joy-base { position:absolute; inset:8px; border:1px solid #1f417230; border-radius:50%; background:#ffffff2e; box-shadow:inset 0 0 0 7px #ffffff20; }
     .joy-knob { position:absolute; width:48px; height:48px; left:50%; top:50%; transform:translate(-50%,-50%); border-radius:50%; border:2px solid #ffffffb0; background:#1f4172a8; box-shadow:0 3px 9px #182c4730; pointer-events:none; }
     .joy-label { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:8px; font-weight:900; letter-spacing:.08em; color:#1f417255; pointer-events:none; }
-    .action-zone { position:absolute; right:max(16px,env(safe-area-inset-right)); bottom:max(19px,env(safe-area-inset-bottom)); pointer-events:auto; touch-action:none; }
+    .action-zone { position:absolute; right:max(16px,env(safe-area-inset-right)); bottom:max(19px,env(safe-area-inset-bottom)); pointer-events:auto; touch-action:none; display:flex; align-items:flex-end; gap:10px; }   /* chat cepat di kiri tombol Aksi, satu kelompok */
     .action-button { width:82px; height:82px; white-space:nowrap; letter-spacing:-.01em; border:2px solid #ffffff; border-radius:50%; background:#1f4172f2; color:#fff; box-shadow:0 5px 16px #182c4735; padding:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:10px; font-weight:900; text-align:center; touch-action:none; }
     .action-button span:first-child { font-size:22px; line-height:1; }
     .action-button.idle { opacity:.5; }
@@ -285,14 +285,15 @@
   .pl-row .lb-btn.armed { background:var(--red); color:#fff; }
   /* Chat cepat saat ronde: ikon di atas joystick; tahan untuk memilih salah satu dari 3 */
   /* Chat cepat: tombol diam di tempatnya; pilihan melayang di atasnya (tidak menggeser tombol) dan dipilih dengan menggeser jari lalu melepas */
-  #qchat { position:absolute; left:14px; bottom:14px; z-index:6; width:44px; height:44px; }
+  #qchat { position:relative; flex:none; width:44px; height:44px; }
+  #qchat[hidden] { display:block !important; visibility:hidden; }   /* ruangnya tetap ada supaya posisi tombol Aksi sama di solo dan online */
   #qchatBtn { width:44px; height:44px; border-radius:50%; border:2px solid #fff; background:#1f4172d9; font-size:20px; line-height:1; box-shadow:0 4px 12px #182c4733; touch-action:none; -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; }
   #qchatBtn:active { transform:scale(.93); }
-  #qchatMenu { position:absolute; left:0; bottom:calc(100% + 10px); display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+  #qchatMenu { position:absolute; right:0; bottom:calc(100% + 10px); display:flex; flex-direction:column; gap:8px; pointer-events:none; }
   #qchatMenu button { border:1.5px solid var(--blue); background:#fff; color:var(--blue); border-radius:999px; padding:12px 18px; font:inherit; font-size:14px; font-weight:900; box-shadow:0 4px 12px #182c4726; white-space:nowrap; text-align:left; transition:transform .08s; }
-  #qchatMenu button.hot { background:var(--blue); color:#fff; transform:scale(1.08); transform-origin:left center; }
-  @media (pointer:coarse), (max-width:760px) { #qchat { left:22px; bottom:calc(max(12px,env(safe-area-inset-bottom)) + 160px); } }
-  @media (orientation:landscape) and (max-height:520px) { #qchat { left:calc(max(12px,env(safe-area-inset-left)) + 62px); bottom:172px; } }
+  #qchatMenu button.hot { background:var(--blue); color:#fff; transform:scale(1.08); transform-origin:right center; }
+  /* Desktop: tidak ada tombol Aksi di layar, tapi tombol chat cepat tetap tampil di pojok kanan bawah */
+  @media (pointer:fine) and (min-width:761px) { .touch-controls { display:block; } .joystick-zone, .action-button, .action-hint { display:none; } }
   /* ping: di header, sebelum tulisan "P0 vector kitchen" (HP landscape pendek: melayang di pojok kanvas) */
   #netStat.inline { position:static; display:inline-block; margin-right:6px; vertical-align:1px; padding:0 5px; }
   /* chat: tanpa judul, log memakai sisa tinggi, template satu baris yang bisa digeser, tinggi tetap supaya lantai masih terlihat */
@@ -396,6 +397,8 @@
   .lr-joy { position:relative; width:118px; height:118px; }
   .lr-joy .b { position:absolute; inset:8px; border:1px solid #1f417246; border-radius:50%; background:#ffffff75; }
   .lr-joy .k { position:absolute; width:48px; height:48px; left:50%; top:50%; transform:translate(-50%,-50%); border-radius:50%; border:2px solid #fff; background:#1f4172df; }
+  .lr-grp { display:flex; align-items:flex-end; gap:10px; }
+  .lr-chat { box-sizing:border-box; width:44px; height:44px; border-radius:50%; border:2px solid #fff; background:#1f4172d9; display:grid; place-items:center; font-size:20px; }
   .lr-act { box-sizing:border-box; width:82px; height:82px; border:2px solid #fff; border-radius:50%; background:var(--blue); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:10px; font-weight:900; }
   .lay-panel { width:230px; flex:none; box-sizing:border-box; padding:14px; background:#fff; border-left:1px solid var(--line); display:flex; flex-direction:column; gap:8px; }
   .lay-t { font-size:18px; font-weight:800; }
@@ -458,7 +461,8 @@
       <div class="joystick-zone" id="joystickZone" aria-label="Virtual joystick">
         <div class="joy-base"></div><div class="joy-knob" id="joyKnob"></div><div class="joy-label">MOVE</div>
       </div>
-      <div class="action-zone"><button class="action-button" id="actionBtn" type="button" aria-label="Aksi"><svg class="ic" width="24" height="24" aria-hidden="true"><use href="#hud-hand"/></svg><span>AKSI</span></button><div class="action-hint" id="actionHint" hidden><svg class="ic" width="22" height="22" aria-hidden="true"><use href="#hud-ambil"/></svg></div></div>
+      <div class="action-zone"><div id="qchat" hidden><div id="qchatMenu" hidden><button type="button" data-q="Taro sini!">Taro sini!</button><button type="button" data-q="Ayo buruan!">Ayo buruan!</button><button type="button" data-q="Mantap!">Mantap!</button></div><button id="qchatBtn" type="button" aria-label="Chat cepat (tahan untuk memilih)">💬</button>
+    </div><button class="action-button" id="actionBtn" type="button" aria-label="Aksi"><svg class="ic" width="24" height="24" aria-hidden="true"><use href="#hud-hand"/></svg><span>AKSI</span></button><div class="action-hint" id="actionHint" hidden><svg class="ic" width="22" height="22" aria-hidden="true"><use href="#hud-ambil"/></svg></div></div>
     </div>
     <div class="overlay" id="startScreen">
       <div class="modal" id="startModal">
@@ -501,10 +505,6 @@
         <button class="btn primary" id="playAgainBtn" type="button" style="width:100%;padding:13px">Main Lagi</button>
         <button class="btn" id="resultsMenuBtn" type="button" style="width:100%;padding:11px;margin-top:8px" hidden>Ke menu</button>
       </div>
-    </div>
-    <div id="qchat" hidden>
-      <div id="qchatMenu" hidden><button type="button" data-q="Taro sini!">Taro sini!</button><button type="button" data-q="Ayo buruan!">Ayo buruan!</button><button type="button" data-q="Mantap!">Mantap!</button></div>
-      <button id="qchatBtn" type="button" aria-label="Chat cepat (tahan untuk memilih)">💬</button>
     </div>
     <div id="netStat" hidden></div>
     <div id="lobbyUi" hidden>
@@ -591,10 +591,10 @@
 </div>
 <!-- Vector-first P0: all gameplay art is procedural Canvas geometry; external image/font assets are intentionally avoided for offline and mobile performance. -->
 <script>window.BAKERY_BUILD='20261029-s5';</script>
-<script src="core.js?v=20261030-s3"></script>
-<script src="stages.js?v=20261030-s3"></script>
-<script src="audio.js?v=20261030-s3"></script>
-<script src="xp.js?v=20261030-s3"></script>
+<script src="core.js?v=20261031-s1"></script>
+<script src="stages.js?v=20261031-s1"></script>
+<script src="audio.js?v=20261031-s1"></script>
+<script src="xp.js?v=20261031-s1"></script>
 <script>
 (() => {
   'use strict';
@@ -978,7 +978,7 @@
   function renderUI() {
     document.body.classList.toggle('playing', mode === 'running' || mode === 'lobby' || mode === 'try');
     document.body.classList.toggle('in-lobby', mode === 'lobby');
-    { byId('lobbyUi').hidden = mode !== 'lobby'; const qc = ONLINE && mode === 'running'; byId('qchat').hidden = !qc; if (!qc) byId('qchatMenu').hidden = true; }
+    { byId('lobbyUi').hidden = mode !== 'lobby'; const qc = (ONLINE && mode === 'running') || mode === 'try'; byId('qchat').hidden = !qc; if (!qc) byId('qchatMenu').hidden = true; }
     els.timerText.textContent = TUTOR ? '∞' : formatTime(roundLeft);   // tutorial: waktu tak terbatas
     els.timerText.classList.toggle('warning',roundLeft <= 30);
     paintScore();
@@ -1547,7 +1547,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   // ---- chat ----
   function openChat(focus) { byId('playersBox').hidden = true; byId('chatBox').hidden = false; if (focus) byId('chatIn').focus(); }
   function closeChat() { byId('chatBox').hidden = true; byId('playersBox').hidden = true; byId('chatIn').blur(); }
-  function sendChat(text) { text = String(text || '').trim().slice(0, 80); if (text && NET.sock) NET.sock.emit('chat:send', { text }); }
+  function sendChat(text) { text = String(text || '').trim().slice(0, 80); if (mode === 'try') { showToast('Terkirim: ' + text, 1200); return; } if (text && NET.sock) NET.sock.emit('chat:send', { text }); }
   function addChat(m) {
     const log = byId('chatLog'), row = document.createElement('div'), b = document.createElement('b');
     row.style.borderLeftColor = SLOT_COLORS[m.id] || 'var(--line)'; b.textContent = m.name + ': '; row.append(b, document.createTextNode(m.text));
@@ -1722,9 +1722,14 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     const hit = (x, y) => opts.find(o => { const r = o.getBoundingClientRect(); return x >= r.left - 14 && x <= r.right + 14 && y >= r.top - 4 && y <= r.bottom + 4; }) || null;
     const mark = o => opts.forEach(b => b.classList.toggle('hot', b === o));
     const close = () => { open = false; menu.hidden = true; mark(null); };
+    const placeMenu = () => {   // bawaan: ke atas, rata kanan tombol chat (terbuka ke kiri, jauh dari Aksi). Mepet tepi layar: pindah supaya tidak terpotong dan tidak menutupi Aksi
+      menu.style.cssText = ''; const fr = byId('gameFrame').getBoundingClientRect(); let mr = menu.getBoundingClientRect();
+      if (mr.left < fr.left + 6) { menu.style.cssText = 'right:auto;left:0;bottom:calc(100% + 150px)'; mr = menu.getBoundingClientRect(); }   // mepet kiri: di atas Aksi dan petunjuknya
+      if (mr.top < fr.top + 6) menu.style.cssText = 'right:0;left:auto;bottom:auto;top:calc(100% + 10px)';   // mepet atas: buka ke bawah
+    };
     const cancel = () => { clearTimeout(qHold); qHold = null; };
     btn.addEventListener('contextmenu', ev => ev.preventDefault());
-    btn.addEventListener('pointerdown', ev => { ev.preventDefault(); cancel(); close(); pid = ev.pointerId; try { btn.setPointerCapture(ev.pointerId); } catch (e) {} qHold = setTimeout(() => { qHold = null; open = true; menu.hidden = false; }, 350); });
+    btn.addEventListener('pointerdown', ev => { ev.preventDefault(); cancel(); close(); pid = ev.pointerId; try { btn.setPointerCapture(ev.pointerId); } catch (e) {} qHold = setTimeout(() => { qHold = null; open = true; menu.hidden = false; placeMenu(); }, 350); });
     btn.addEventListener('pointermove', ev => { if (open && ev.pointerId === pid) mark(hit(ev.clientX, ev.clientY)); });
     const end = ev => {
       if (ev.pointerId !== pid) return; pid = null;
@@ -1966,7 +1971,8 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   }
 
   // ---- layout HUD dan kontrol kustom (PRD §8.5): lokal per orientasi, posisi = persen frame dari sudut terdekat ----
-  const LAY_KEY = 'sbc_layout', LAY_VER = 1, LAY_ELS = ['timer', 'score', 'orders', 'joy', 'act'], LAY_BASE = { joy:[118, 118], act:[82, 82] };
+  const LAY_KEY = 'sbc_layout', LAY_VER = 1, LAY_ELS = ['timer', 'score', 'orders', 'joy', 'act'], LAY_BASE = { joy:[118, 118], act:[136, 82] };   // act = chat cepat (44) + celah (10) + tombol Aksi (82)
+  const LAY_FALLBACK = { timer:{ x:8, y:20 }, score:{ x:83, y:20 }, orders:{ x:158, y:20 } };
   const LAY_IDS = { timer:'hudTime', score:'hudScore', orders:'hudOrders', joy:'joystickZone' };
   const layNode = k => (k === 'act' ? document.querySelector('.action-zone') : byId(LAY_IDS[k]));
   const layOrient = () => (window.matchMedia && matchMedia('(orientation:portrait)').matches ? 'portrait' : 'landscape');
@@ -1993,7 +1999,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function layReplica(k) {
     const d = document.createElement('div');
     if (k === 'joy') { d.className = 'lr-joy'; d.innerHTML = '<div class="b"></div><div class="k"></div>'; return d; }
-    if (k === 'act') { d.className = 'lr-act'; d.innerHTML = '<svg class="ic" width="24" height="24" aria-hidden="true"><use href="#hud-hand"/></svg><span>AKSI</span>'; return d; }
+    if (k === 'act') { d.className = 'lr-grp'; d.innerHTML = '<div class="lr-chat">💬</div><div class="lr-act"><svg class="ic" width="24" height="24" aria-hidden="true"><use href="#hud-hand"/></svg><span>AKSI</span></div>'; return d; }
     const c = layNode(k).cloneNode(true); c.removeAttribute('id'); c.style.cssText = '';
     c.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
     if (k === 'orders') {
@@ -2021,7 +2027,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     for (const k of LAY_ELS) {
       const el = layNode(k), r = el.getBoundingClientRect();
       if (el.offsetWidth > 0 && r.width > 0) d[k] = { x:r.left - fr.left, y:r.top - fr.top };
-      else d[k] = k === 'joy' ? { x:14, y:fr.height - 14 - 118 } : { x:fr.width - 16 - 82, y:fr.height - 19 - 82 };   // kontrol sentuh tersembunyi (desktop)
+      else d[k] = LAY_FALLBACK[k] || (k === 'joy' ? { x:14, y:fr.height - 14 - 118 } : { x:fr.width - 16 - 136, y:fr.height - 19 - 82 });   // elemen tersembunyi (kontrol sentuh di desktop) atau belum terukur   // kontrol sentuh tersembunyi (desktop)
     }
     LAYOUT = keep; TRY = keepT; applyLayout(); return d;
   }

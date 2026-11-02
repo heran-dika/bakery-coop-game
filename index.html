@@ -427,6 +427,23 @@
     .hw-chip { min-width:58px; padding:3px 6px; }
     .mn-lv { margin-top:2px; }
     }
+  /* Scoreboard lokal (PRD §9.6) */
+  .res-board { margin:10px 0; text-align:left; border:1px solid var(--line); border-radius:12px; padding:8px 10px; background:#faf7f4; }
+  .sb-h { font-size:11px; font-weight:800; color:var(--muted); letter-spacing:.05em; text-transform:uppercase; margin-bottom:4px; }
+  .sb-row { display:flex; align-items:baseline; gap:8px; font-size:13px; padding:3px 6px; border-radius:8px; }
+  .sb-n { width:16px; font-weight:800; color:var(--muted); }
+  .sb-nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700; color:var(--blue); }
+  .sb-sc { font-weight:900; font-variant-numeric:tabular-nums; color:var(--blue); }
+  .sb-dt { font-size:11px; color:var(--muted); min-width:44px; text-align:right; }
+  .sb-row.me { background:var(--gold-t); outline:1.5px solid var(--gold); }
+  .sb-rn { display:flex; gap:6px; margin-top:6px; }
+  .sb-rn input { flex:1; min-width:0; font:inherit; font-size:16px; padding:6px 9px; border:1px solid var(--line); border-radius:10px; -webkit-user-select:text; user-select:text; }
+  .sb-tabs { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:6px 0; }
+  .sb-tabs button { border:1px solid var(--line); background:#fff; color:var(--blue); border-radius:999px; padding:6px 12px; font:inherit; font-size:12px; font-weight:800; }
+  .sb-tabs button.on { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .st-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  .st-hi { font-size:12px; font-weight:800; color:var(--gold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  @media (orientation:landscape) and (max-height:520px) { .res-board { margin:6px 0; padding:4px 8px; } .res-board .sb-row:nth-of-type(n+3):not(.me) { display:none; } }
 </style>
 </head>
 <body>
@@ -441,6 +458,7 @@
       <button class="btn" id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Menu">⋯</button>
       <div class="menu-panel" id="menuPanel" hidden>
         <button class="btn" id="helpBtn" type="button">Kontrol</button>
+        <button class="btn" id="sbMenuBtn" type="button">Scoreboard</button>
         <button class="btn" id="labelBtn" type="button">Label stasiun: ON</button>
         <button class="btn" id="soundBtn" type="button">Suara: ON</button>
         <button class="btn" id="restartBtn" type="button">↻ Ulang</button>
@@ -501,9 +519,21 @@
           <div class="result-item"><strong id="resultExpired">0</strong><span>Order kedaluwarsa</span></div>
           <div class="result-item"><strong id="resultBurnt">0</strong><span>Roti gosong</span></div>
         </div>
+        <div class="res-board" id="resBoard" hidden></div>
         <div class="res-xp" id="resXp" hidden><div class="rx-top"><b id="rxGain">+0 XP</b><span id="rxLv">Level 1</span></div><div class="mn-bar"><i id="rxBar"></i></div><div class="rx-note" id="rxNote"></div></div>
         <button class="btn primary" id="playAgainBtn" type="button" style="width:100%;padding:13px">Main Lagi</button>
         <button class="btn" id="resultsMenuBtn" type="button" style="width:100%;padding:11px;margin-top:8px" hidden>Ke menu</button>
+        <button class="btn" id="resBoardBtn" type="button" style="width:100%;padding:11px;margin-top:8px">Scoreboard</button>
+      </div>
+    </div>
+    <div class="overlay hidden" id="scoreScreen">
+      <div class="modal">
+        <div class="modal-icon">🏆</div><h2>Scoreboard</h2>
+        <p>Top 3 · lokal di perangkat ini</p>
+        <div class="sb-tabs" id="sbStageTabs"></div><div class="sb-tabs" id="sbPcTabs"></div>
+        <div class="res-board" id="sbList"></div>
+        <button class="btn" id="sbClear" type="button" style="width:100%;padding:11px;margin-top:10px">Hapus scoreboard</button>
+        <button class="btn primary" id="sbClose" type="button" style="width:100%;padding:13px;margin-top:8px">Tutup</button>
       </div>
     </div>
     <div id="netStat" hidden></div>
@@ -590,11 +620,12 @@
   <div class="inventory-bar"><div>Di tangan: <span class="inventory" id="inventoryText">Kosong</span></div><div class="help-line">Dekati stasiun lalu tekan <b>Space</b> / <b>Aksi</b> · Hindari oven gosong.</div></div>
 </div>
 <!-- Vector-first P0: all gameplay art is procedural Canvas geometry; external image/font assets are intentionally avoided for offline and mobile performance. -->
-<script>window.BAKERY_BUILD='20261101-s2';</script>
-<script src="core.js?v=20261101-s2"></script>
-<script src="stages.js?v=20261101-s2"></script>
-<script src="audio.js?v=20261101-s2"></script>
-<script src="xp.js?v=20261101-s2"></script>
+<script>window.BAKERY_BUILD='20261102-s1';</script>
+<script src="core.js?v=20261102-s1"></script>
+<script src="stages.js?v=20261102-s1"></script>
+<script src="audio.js?v=20261102-s1"></script>
+<script src="xp.js?v=20261102-s1"></script>
+<script src="scoreboard.js?v=20261102-s1"></script>
 <script>
 (() => {
   'use strict';
@@ -808,7 +839,7 @@
   function recipeEmoji(type) { return RECIPE_EMOJI[type] || '🍽️'; }
   function finishRound(stars) {
     if (mode !== 'running') return;
-    mode = 'results'; BakeryAudio.play('roundEnd'); saveProgress(STAGE && STAGE.id, stars);
+    mode = 'results'; BakeryAudio.play('roundEnd'); saveProgress(STAGE && STAGE.id, stars); recordScore();
     if (!ONLINE) { els.playAgainBtn.disabled = false; els.playAgainBtn.textContent = 'Main Lagi'; }
     els.starsText.textContent = '★'.repeat(stars) + '☆'.repeat(3-stars);
     els.resultSummary.textContent = stars === 3 ? 'Bakery berjalan seperti mesin! Target tiga bintang tercapai.' : stars === 2 ? 'Shift cukup rapi. Coba kurangi order terlambat untuk mencapai tiga bintang.' : stars === 1 ? 'Bakery tetap buka, tetapi masih ada ruang untuk koordinasi yang lebih baik.' : 'Hari yang berat di dapur. Atur urutan kerja dan awasi oven di shift berikutnya.';
@@ -1422,7 +1453,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     const key=ev.key.toLowerCase();
     if(ONLINE && mode==='lobby' && key==='enter'){ ev.preventDefault(); openChat(true); return; }
     if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key) && (mode==='running' || mode==='lobby' || mode==='try')) ev.preventDefault();
-    if(key==='escape') { if(!els.helpScreen.classList.contains('hidden')) els.helpScreen.classList.add('hidden'); return; }
+    if(key==='escape') { if(!els.helpScreen.classList.contains('hidden')) els.helpScreen.classList.add('hidden'); closeScoreScreen(); return; }
     if(key==='h' && mode==='running') { els.helpScreen.classList.remove('hidden'); return; }
     if(key===' ' || key==='enter') { if(!ev.repeat && (mode==='running' || mode==='try')) interact(); return; }
     if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)) keys.add(key);
@@ -1844,6 +1875,62 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   const stageOpen = (st, prog) => st.unlockAfter == null || Number(prog[st.unlockAfter]) >= 1;
   let stagePick = null;
 
+  // ---- scoreboard lokal: top 3 per stage x jumlah pemain, simpan otomatis saat ronde selesai (PRD §9.6; logika di scoreboard.js) ----
+  const SB = window.BakeryScores ? BakeryScores.createScoreboard({ storage: (() => { try { return localStorage; } catch (e) { return null; } })(), configVersion: 1 }) : null;
+  const sbLevel = id => 'stage' + (id || 1);
+  let sbLast = null, sbS = 1, sbP = 1, sbClearTimer = null;   // sbLast = entri ronde yang baru selesai {id, pc}
+  function sbRow(rank, e, me, withDate) {
+    const row = document.createElement('div'), n = document.createElement('span'), nm = document.createElement('span'), sc = document.createElement('span');
+    row.className = 'sb-row' + (me ? ' me' : ''); n.className = 'sb-n'; nm.className = 'sb-nm'; sc.className = 'sb-sc';
+    n.textContent = rank; nm.textContent = e ? e.name : '—'; sc.textContent = e ? e.score.toLocaleString('id-ID') : ''; row.append(n, nm, sc);
+    if (withDate) { const d = document.createElement('span'); d.className = 'sb-dt'; d.textContent = e ? new Date(e.at).toLocaleDateString('id-ID', { day:'numeric', month:'short' }) : ''; row.appendChild(d); }
+    return row;
+  }
+  function renderResBoard(lv, pc) {
+    const box = byId('resBoard'), list = SB ? SB.top(lv, pc) : []; box.textContent = '';
+    if (!list.length) { box.hidden = true; return; }
+    const h = document.createElement('div'); h.className = 'sb-h'; h.textContent = `Top 3 · ${pc} pemain`; box.appendChild(h);
+    list.forEach((e, i) => box.appendChild(sbRow(i + 1, e, !!sbLast && e.id === sbLast.id)));
+    const mine = sbLast && list.find(e => e.id === sbLast.id);
+    if (mine) {   // skor tersimpan otomatis; kolom ini hanya mengganti namanya
+      const rn = document.createElement('div'), inp = document.createElement('input'), b = document.createElement('button');
+      rn.className = 'sb-rn'; inp.maxLength = 12; inp.value = mine.name; inp.setAttribute('aria-label', 'Nama di scoreboard'); inp.autocomplete = 'off'; inp.enterKeyHint = 'done';
+      b.type = 'button'; b.className = 'lb-btn'; b.textContent = 'Ganti nama';
+      const go = () => { SB.rename(mine.id, inp.value); renderResBoard(lv, pc); };
+      b.onclick = go; inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); go(); } });
+      rn.append(inp, b); box.appendChild(rn);
+    }
+    box.hidden = false;
+  }
+  function recordScore() {   // dipanggil dari finishRound; tutorial dan pengantar stage tidak dicatat
+    sbLast = null; byId('resBoard').hidden = true; byId('resBoard').textContent = '';
+    if (!SB || TUTOR) return;
+    const online = ONLINE && NET.room, pc = clamp(online ? NET.room.players.length : 1, 1, 4), names = online ? NET.room.players.map(p => p.name) : [PLAYER], lv = sbLevel(STAGE && STAGE.id);
+    let dup = false;   // muat ulang halaman lalu rejoin ke room yang sudah selesai memicu finishRound lagi: jangan catat dua kali
+    if (online) { const key = [NET.room.code, score, ordersServed, ordersExpired, burntCount].join('|'); try { dup = localStorage.getItem('sbc_sb_last') === key; if (!dup) localStorage.setItem('sbc_sb_last', key); } catch (e) {} }
+    const r = dup ? null : SB.add({ levelId:lv, playerCount:pc, score:Math.round(score), name:'', playerNames:names });
+    if (r) sbLast = { id:r.id, pc };
+    sbS = STAGE ? STAGE.id : 1; sbP = pc; renderResBoard(lv, pc);
+  }
+  function renderScoreScreen() {
+    const tabs = (id, items, cur, pick) => { const box = byId(id); box.textContent = ''; for (const [val, label] of items) { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.className = val === cur ? 'on' : ''; b.onclick = () => { pick(val); renderScoreScreen(); }; box.appendChild(b); } };
+    tabs('sbStageTabs', stageList().map(s => [s.id, s.name || 'Stage ' + s.id]), sbS, v => { sbS = v; });
+    tabs('sbPcTabs', [1, 2, 3, 4].map(n => [n, n + (n === 1 ? ' pemain (solo)' : ' pemain')]), sbP, v => { sbP = v; });
+    const box = byId('sbList'), list = SB ? SB.top(sbLevel(sbS), sbP) : []; box.textContent = '';
+    for (let i = 0; i < 3; i++) box.appendChild(sbRow(i + 1, list[i], !!sbLast && !!list[i] && list[i].id === sbLast.id, true));
+  }
+  function openScoreScreen() { closeMenu(); clearTimeout(sbClearTimer); byId('sbClear').textContent = 'Hapus scoreboard'; renderScoreScreen(); byId('scoreScreen').classList.remove('hidden'); }
+  const closeScoreScreen = () => { byId('scoreScreen').classList.add('hidden'); clearTimeout(sbClearTimer); };
+  byId('sbMenuBtn').addEventListener('click', openScoreScreen); byId('resBoardBtn').addEventListener('click', openScoreScreen);
+  byId('sbClose').addEventListener('click', closeScoreScreen);
+  byId('scoreScreen').addEventListener('click', ev => { if (ev.target === byId('scoreScreen')) closeScoreScreen(); });
+  byId('sbClear').addEventListener('click', () => {   // dua ketukan, seperti Kick
+    const b = byId('sbClear');
+    if (b.textContent === 'Hapus scoreboard') { b.textContent = 'Yakin hapus semua?'; sbClearTimer = setTimeout(() => { b.textContent = 'Hapus scoreboard'; }, 3000); return; }
+    clearTimeout(sbClearTimer); b.textContent = 'Hapus scoreboard'; if (SB) SB.clear(); sbLast = null; renderScoreScreen(); byId('resBoard').hidden = true;
+  });
+  if (new URLSearchParams(location.search).get('debug') === '1') window.__SB = { SB, recordScore, setScore: v => { score = v; } };
+
   // ---- layar utama ----
   function goMenu(msg) {
     if (TUTOR) { exitTutorial(); return; }
@@ -1886,7 +1973,9 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
       nm.textContent = st.name || `Stage ${st.id}`;
       const done = isTut ? tutDone() : prog[st.id] !== undefined && Number.isFinite(Number(prog[st.id])), stars = !isTut && done ? clamp(Number(prog[st.id]), 0, 3) : 0;
       bd.textContent = !open ? 'Terkunci' : (sel ? 'Dipilih · ' : '') + (done ? (isTut ? 'Selesai ✓' : 'Selesai ' + '★'.repeat(stars) + '☆'.repeat(3 - stars)) : 'belum selesai');
-      card.append(pre, nm, bd);
+      const head = document.createElement('div'), champ = !isTut && SB ? SB.champion(sbLevel(st.id)) : null; head.className = 'st-head'; head.appendChild(nm);
+      if (champ) { const hi = document.createElement('span'); hi.className = 'st-hi'; hi.textContent = `🏆 ${champ.name} ${champ.score.toLocaleString('id-ID')} · ${champ.pc}P`; head.appendChild(hi); }
+      card.append(pre, head, bd);
       if (open) card.onclick = () => { stagePick = st.id; renderStageList(); };
       box.appendChild(card);
     }

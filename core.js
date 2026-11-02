@@ -22,6 +22,10 @@
     cookSeconds: 6,
     readyBeforeBurnSeconds: 8,
     scorePerOrder: 100,
+    orderMix: null,
+    scoreByRecipe: {},
+    coffeeBrewSeconds: 4.5,
+    fire: { enabled: false, afterBurntSeconds: 6, extinguishSeconds: 2, penalty: 30 },   // api: roti gosong yang dibiarkan > afterBurntSeconds membakar oven
     fastBonus: 25,
     expiredPenalty: 50,
     trashPenalty: 10,
@@ -58,7 +62,7 @@
   };
 
   const HEAVY = ['dough', 'butter', 'salt', 'prepared_dough'];
-  const BREADS = ['plain_bread', 'salt_bread'];
+  const SERVABLE = ['plain_bread', 'salt_bread', 'coffee'];
 
   function mulberry32(seed) {
     let a = seed >>> 0;
@@ -77,6 +81,9 @@
       collision: Object.assign({}, base.collision, over.collision),
       spawn: Object.assign({}, base.spawn, over.spawn),
       hazard: Object.assign({}, base.hazard, over.hazard),
+      scoreByRecipe: Object.assign({}, base.scoreByRecipe, over.scoreByRecipe),
+      fire: Object.assign({}, base.fire, over.fire),
+      orderMix: over.orderMix !== undefined ? over.orderMix : base.orderMix,
       stations: over.stations || base.stations,
       openingOrders: over.openingOrders || base.openingOrders
     });
@@ -108,6 +115,7 @@
       if (def.type === 'prep') Object.assign(st, { item: null, processing: false, timer: 0 });
       if (def.type === 'oven') Object.assign(st, { item: null, status: 'empty', timer: 0, readyTimer: 0 });
       if (def.type === 'counter') st.item = null;
+      if (def.type === 'coffee') Object.assign(st, { status: 'idle', timer: 0 });
       return st;
     }
 
@@ -153,10 +161,19 @@
       return o;
     }
 
+    function pickRecipe() {
+      const mix = cfg.orderMix;
+      if (!mix) return rng() < 0.5 ? 'plain_bread' : 'salt_bread';
+      const keys = Object.keys(mix).filter(k => mix[k] > 0), total = keys.reduce((a, k) => a + mix[k], 0);
+      let r = rng() * total;
+      for (const k of keys) { r -= mix[k]; if (r < 0) return k; }
+      return keys[keys.length - 1];
+    }
+
     function spawnOrder(ev) {
       s.nextOrderAt = s.elapsed + cfg.spawnMinSeconds + rng() * (cfg.spawnMaxSeconds - cfg.spawnMinSeconds);
       if (s.orders.length >= cfg.maxOrders) return;
-      pushOrder(rng() < 0.5 ? 'plain_bread' : 'salt_bread', ev);
+      pushOrder(pickRecipe(), ev);
     }
 
     function finishRound(ev) {
@@ -301,6 +318,15 @@
       }
 
       if (st.type === 'oven') {
+        if (st.status === 'fire') {
+          if (held && held.type === 'extinguisher') {
+            p.held = null; st.status = 'extinguishing'; st.timer = cfg.fire.extinguishSeconds;
+            ev.push({ type: 'oven:extinguishing', player: p.id });
+            return msg('fire_extinguishing', { seconds: cfg.fire.extinguishSeconds });
+          }
+          return msg('oven_on_fire');
+        }
+        if (st.status === 'extinguishing') return msg('oven_extinguishing');
         if (st.status === 'empty') {
           if (held && held.type === 'prepared_dough') {
             st.item = held; p.held = null; st.status = 'cooking'; st.timer = cfg.cookSeconds; st.readyTimer = 0;
@@ -323,14 +349,27 @@
         return msg('counter_empty');
       }
 
+      if (st.type === 'coffee') {
+        if (st.status === 'idle') {
+          st.status = 'brewing'; st.timer = cfg.coffeeBrewSeconds;
+          ev.push({ type: 'coffee:started', player: p.id });
+          return msg('coffee_started', { seconds: cfg.coffeeBrewSeconds });
+        }
+        if (st.status === 'brewing') return msg('coffee_brewing');
+        if (held) return msg('coffee_hands_full');
+        p.held = makeItem('coffee'); st.status = 'idle'; st.timer = 0;
+        return msg('coffee_took', { item: 'coffee' });
+      }
+
       if (st.type === 'serve') {
-        if (!held || !BREADS.includes(held.type)) return msg('serve_need_bread');
+        if (!held || !SERVABLE.includes(held.type)) return msg('serve_need_bread');
         const idx = s.orders.findIndex(o => o.type === held.type && s.elapsed < o.deadlineAt);
         if (idx < 0) return msg('serve_no_order', { recipe: held.type });
         const order = s.orders[idx];
         const patienceLeft = Math.max(0, order.deadlineAt - s.elapsed) / order.patience;
-        let earned = cfg.scorePerOrder;
-        if (patienceLeft > 0.5) earned += cfg.fastBonus;
+        const base = cfg.scoreByRecipe[order.type] != null ? cfg.scoreByRecipe[order.type] : cfg.scorePerOrder;
+        let earned = base;
+        if (patienceLeft > 0.5) earned += Math.round(cfg.fastBonus * base / cfg.scorePerOrder);
         s.streak++;
         const combo = s.streak >= 2 ? Math.min((s.streak - 1) * cfg.comboBonusPerOrder, cfg.maxComboBonus) : 0;
         earned += combo; s.score += earned; s.ordersServed++;
@@ -362,7 +401,7 @@
           ev.push({ type: 'order:expired', order: o.id, index: i, recipe: o.type, penalty: cfg.expiredPenalty, score: s.score });
         }
       }
-      while (s.orders.length < cfg.minOrders && s.orders.length < cfg.maxOrders) pushOrder(rng() < 0.5 ? 'plain_bread' : 'salt_bread', ev, { refill: true });
+      while (s.orders.length < cfg.minOrders && s.orders.length < cfg.maxOrders) pushOrder(pickRecipe(), ev, { refill: true });
       // Semua stasiun bertipe prep/oven diproses (stage boleh punya lebih dari satu); urutan = urutan di config.
       for (const prep of s.stations) {
         if (prep.type !== 'prep' || !prep.processing) continue;
@@ -392,7 +431,22 @@
             s.burntCount++;
             ev.push({ type: 'oven:burnt' });
           }
+        } else if (oven.status === 'burnt' && cfg.fire.enabled) {   // readyTimer dipakai ulang sebagai hitung mundur api (tidak menambah field state)
+          oven.readyTimer += dt;
+          if (oven.readyTimer >= cfg.fire.afterBurntSeconds) {
+            oven.status = 'fire'; oven.item = null; oven.readyTimer = 0; oven.timer = 0;
+            s.score -= cfg.fire.penalty; s.fireCount = (s.fireCount || 0) + 1;
+            ev.push({ type: 'oven:fire', penalty: cfg.fire.penalty, score: s.score });
+          }
+        } else if (oven.status === 'extinguishing') {
+          oven.timer -= dt;
+          if (oven.timer <= 0) { oven.timer = 0; oven.status = 'empty'; ev.push({ type: 'oven:fireOut' }); }
         }
+      }
+      for (const cm of s.stations) {
+        if (cm.type !== 'coffee' || cm.status !== 'brewing') continue;
+        cm.timer -= dt;
+        if (cm.timer <= 0) { cm.timer = 0; cm.status = 'ready'; ev.push({ type: 'coffee:ready' }); }
       }
       for (const p of s.players) movePlayer(p, inputs[p.id], dt, ev);
       if (s.roundLeft <= 0) finishRound(ev);

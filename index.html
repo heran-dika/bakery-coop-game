@@ -429,7 +429,7 @@
     }
   /* Scoreboard lokal (PRD §9.6) */
   .res-board { margin:10px 0; text-align:left; border:1px solid var(--line); border-radius:12px; padding:8px 10px; background:#faf7f4; }
-  .sb-h { font-size:11px; font-weight:800; color:var(--muted); letter-spacing:.05em; text-transform:uppercase; margin-bottom:4px; }
+  .sb-h { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; font-weight:800; color:var(--muted); letter-spacing:.05em; text-transform:uppercase; margin-bottom:4px; }
   .sb-row { display:flex; align-items:baseline; gap:8px; font-size:13px; padding:3px 6px; border-radius:8px; }
   .sb-n { width:16px; font-weight:800; color:var(--muted); }
   .sb-nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700; color:var(--blue); }
@@ -523,7 +523,6 @@
         <div class="res-xp" id="resXp" hidden><div class="rx-top"><b id="rxGain">+0 XP</b><span id="rxLv">Level 1</span></div><div class="mn-bar"><i id="rxBar"></i></div><div class="rx-note" id="rxNote"></div></div>
         <button class="btn primary" id="playAgainBtn" type="button" style="width:100%;padding:13px">Main Lagi</button>
         <button class="btn" id="resultsMenuBtn" type="button" style="width:100%;padding:11px;margin-top:8px" hidden>Ke menu</button>
-        <button class="btn" id="resBoardBtn" type="button" style="width:100%;padding:11px;margin-top:8px">Scoreboard</button>
       </div>
     </div>
     <div class="overlay hidden" id="scoreScreen">
@@ -620,12 +619,12 @@
   <div class="inventory-bar"><div>Di tangan: <span class="inventory" id="inventoryText">Kosong</span></div><div class="help-line">Dekati stasiun lalu tekan <b>Space</b> / <b>Aksi</b> · Hindari oven gosong.</div></div>
 </div>
 <!-- Vector-first P0: all gameplay art is procedural Canvas geometry; external image/font assets are intentionally avoided for offline and mobile performance. -->
-<script>window.BAKERY_BUILD='20261102-s1';</script>
-<script src="core.js?v=20261102-s1"></script>
-<script src="stages.js?v=20261102-s1"></script>
-<script src="audio.js?v=20261102-s1"></script>
-<script src="xp.js?v=20261102-s1"></script>
-<script src="scoreboard.js?v=20261102-s1"></script>
+<script>window.BAKERY_BUILD='20261102-s2';</script>
+<script src="core.js?v=20261102-s2"></script>
+<script src="stages.js?v=20261102-s2"></script>
+<script src="audio.js?v=20261102-s2"></script>
+<script src="xp.js?v=20261102-s2"></script>
+<script src="scoreboard.js?v=20261102-s2"></script>
 <script>
 (() => {
   'use strict';
@@ -1191,13 +1190,13 @@
     const r=canvas.getBoundingClientRect(); dpr=Math.min(window.devicePixelRatio||1,2); ART.cache.clear(); compact=!!window.matchMedia?.('(orientation:landscape) and (max-height:520px)').matches; placeNetStat();
     canvas.width=Math.max(1,Math.round(r.width*dpr)); canvas.height=Math.max(1,Math.round(r.height*dpr));
     ctx.setTransform(dpr,0,0,dpr,0,0); canvasW=r.width; canvasH=r.height;
-    mapScale=Math.min(1.18,canvasW/700,canvasH/(340+wallH()+14));
-    mapScale=Math.min(mapScale*(canvasH>canvasW?1.10:1.05),canvasW/630);   // lantai diperbesar: portrait +10%, landscape +5% (dibatasi lebar kanvas)
+    const ER=mapRows()-6; mapScale=Math.min(1.18,canvasW/(700+ER*44),canvasH/(340+ER*22+wallH()+14));
+    mapScale=Math.min(mapScale*(canvasH>canvasW?1.10:1.05),canvasW/(630+ER*44));   // lantai diperbesar: portrait +10%, landscape +5% (dibatasi lebar kanvas)
     tileW=88*mapScale; tileH=44*mapScale;
     originX=canvasW/2; originY=Math.max(10,canvasH*0.07);
-    if(canvasH>canvasW) originY=Math.max(10,(canvasH-330*mapScale)/2-canvasH*0.10);
+    if(canvasH>canvasW) originY=Math.max(10,(canvasH-(330+ER*22)*mapScale)/2-canvasH*0.10);
     if(canvasH>canvasW) originY += wallH()*mapScale;
-    else originY=Math.max(8,(canvasH-(322+wallH()*.7+14)*mapScale)/2+(wallH()*.7+5)*mapScale);   // landscape: isi ruangan (dinding sampai alas) di tengah vertikal   // portrait: peta di tengah vertikal (tinggi isi ±330 unit)
+    else originY=Math.max(8,(canvasH-(322+ER*22+wallH()*.7+14)*mapScale)/2+(wallH()*.7+5)*mapScale);   // landscape: isi ruangan (dinding sampai alas) di tengah vertikal   // portrait: peta di tengah vertikal (tinggi isi ±330 unit)
   }
   function project(x,y) { return { x:originX+(x-y)*tileW/2, y:originY+(x+y)*tileH/2 }; }
   function poly(points,fill,stroke,lineWidth=1) {
@@ -1212,7 +1211,9 @@
 let shell = null;
 const WALL_UNITS = 58;                              // tinggi dinding (satuan peta). Stasiun ±50 unit tinggi: di bawah ±55 stasiun tampak 'berdiri di atas' dinding
 const wallH = () => WALL_UNITS;                    // dinding selalu tampil, termasuk HP landscape
-function drawFloor() { if (!shell) buildShell(); ctx.drawImage(shell, 0, 0, canvasW, canvasH); }
+const mapRows = () => { const c = STAGE && STAGE.config && STAGE.config.collision; return c && c.reachMaxY ? Math.round(c.reachMaxY - .37) : 6; };   // baris lantai: 6 (bawaan core) atau 7 (stage)
+let shellRows = 6;
+function drawFloor() { if (mapRows() !== shellRows) { shellRows = mapRows(); resizeCanvas(); } if (!shell) buildShell(); ctx.drawImage(shell, 0, 0, canvasW, canvasH); }
 function buildShell() {
   shell = document.createElement('canvas');
   shell.width = Math.max(1, Math.ceil(canvasW * dpr)); shell.height = Math.max(1, Math.ceil(canvasH * dpr));
@@ -1226,11 +1227,11 @@ function paintShell(g) {
     if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw; g.lineJoin = 'round'; g.stroke(); }
   };
   const P = (x, y) => { const p = project(x, y); return [p.x, p.y]; };
-  const A = P(.5, .5), B = P(7.5, .5), C = P(7.5, 6.5), D = P(.5, 6.5);   // sudut lantai
+  const R = mapRows(), A = P(.5, .5), B = P(7.5, .5), C = P(7.5, R + .5), D = P(.5, R + .5);   // sudut lantai
   const dn = (q, h) => [q[0], q[1] + h], up = (q, h) => [q[0], q[1] - h];
   pl([D, C, dn(C, SL), dn(D, SL)], '#7d5238', INK, 2 * sc);               // alas (tebal lantai)
   pl([C, B, dn(B, SL), dn(C, SL)], '#9a6a45', INK, 2 * sc);
-  for (let x = 1; x <= 7; x++) for (let y = 1; y <= 6; y++) {              // ubin
+  for (let x = 1; x <= 7; x++) for (let y = 1; y <= R; y++) {              // ubin
     const p = project(x, y), hw = tileW / 2, hh = tileH / 2;
     pl([[p.x, p.y - hh], [p.x + hw, p.y], [p.x, p.y + hh], [p.x - hw, p.y]], (x + y) % 2 === 0 ? '#f4e6d4' : '#efdfca', '#fffaf0', .9 * sc);
     if ((x * 3 + y) % 5 === 0) { g.strokeStyle = '#caa98a35'; g.lineWidth = .7 * sc; g.beginPath(); g.moveTo(p.x - tileW * .12, p.y - tileH * .02); g.lineTo(p.x - tileW * .03, p.y + tileH * .08); g.stroke(); }
@@ -1497,11 +1498,11 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   const byId = id => document.getElementById(id);
   const SLOT_COLORS = { p1:'#c34f5a', p2:'#2e8067', p3:'#e2ad44', p4:'#7c5caa' };
   const NET_ERR = { room_not_found:'Room tidak ditemukan (atau belum ada room terbuka).', room_full:'Room penuh (maks 4).', room_started:'Ronde sudah dimulai; tunggu ronde berikutnya.', kicked:'Kamu dikeluarkan dari room ini oleh host.', not_host:'Hanya host yang bisa mengeluarkan pemain.', kick_not_allowed:'Pemain hanya bisa dikeluarkan di lobi.', already_in_room:'Kamu sudah ada di room.', server_full:'Server penuh.' };
-  const PAD = { x:4.2, y:3.3, h:.75 };   // AREA SIAP di lobi [Menebak: posisi disetel di HP]
+  const PAD = { x:4.2, y:4.15, h:.75 };   // AREA SIAP di lobi [Menebak: posisi disetel di HP]
   // Lobi = dapur yang sama, jalan dengan kolisi core yang sama (core lokal tanpa order/hazard, hanya untuk gerak).
   function makeLobbyCore() {   // lobi = dapur yang sama (kolisi core, tanpa order/hazard); memakai tata letak stage terpilih
     const c = { roundSeconds:1e9, maxOrders:0, openingOrders:[], hazard:{ enabled:false } };
-    if (STAGE) { c.stations = STAGE.config.stations; if (STAGE.config.spawn) c.spawn = STAGE.config.spawn; }
+    if (STAGE) { c.stations = STAGE.config.stations; if (STAGE.config.spawn) c.spawn = STAGE.config.spawn; if (STAGE.config.collision) c.collision = STAGE.config.collision; }
     return BakeryCore.createGame({ config:c, players:['me'] });
   }
   let lobbyCore = makeLobbyCore();
@@ -1876,7 +1877,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   let stagePick = null;
 
   // ---- scoreboard lokal: top 3 per stage x jumlah pemain, simpan otomatis saat ronde selesai (PRD §9.6; logika di scoreboard.js) ----
-  const SB = window.BakeryScores ? BakeryScores.createScoreboard({ storage: (() => { try { return localStorage; } catch (e) { return null; } })(), configVersion: 1 }) : null;
+  const SB = window.BakeryScores ? BakeryScores.createScoreboard({ storage: (() => { try { return localStorage; } catch (e) { return null; } })(), configVersion: 2 }) : null;
   const sbLevel = id => 'stage' + (id || 1);
   let sbLast = null, sbS = 1, sbP = 1, sbClearTimer = null;   // sbLast = entri ronde yang baru selesai {id, pc}
   function sbRow(rank, e, me, withDate) {
@@ -1889,7 +1890,8 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function renderResBoard(lv, pc) {
     const box = byId('resBoard'), list = SB ? SB.top(lv, pc) : []; box.textContent = '';
     if (!list.length) { box.hidden = true; return; }
-    const h = document.createElement('div'); h.className = 'sb-h'; h.textContent = `Top 3 · ${pc} pemain`; box.appendChild(h);
+    const h = document.createElement('div'), ht = document.createElement('span'), hb = document.createElement('button'); h.className = 'sb-h'; ht.textContent = `Top 3 · ${pc} pemain`;
+    hb.type = 'button'; hb.className = 'lb-btn'; hb.textContent = 'Scoreboard ›'; hb.onclick = openScoreScreen; h.append(ht, hb); box.appendChild(h);
     list.forEach((e, i) => box.appendChild(sbRow(i + 1, e, !!sbLast && e.id === sbLast.id)));
     const mine = sbLast && list.find(e => e.id === sbLast.id);
     if (mine) {   // skor tersimpan otomatis; kolom ini hanya mengganti namanya
@@ -1912,16 +1914,21 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     if (r) sbLast = { id:r.id, pc };
     sbS = STAGE ? STAGE.id : 1; sbP = pc; renderResBoard(lv, pc);
   }
+  function personIcon(color) {   // satu orang, warna sesuai slot pemain di game (p1 merah, p2 hijau, p3 kuning, p4 ungu)
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 14 18'); s.setAttribute('width', '13'); s.setAttribute('height', '17'); s.setAttribute('aria-hidden', 'true'); s.style.margin = '0 1px'; s.style.verticalAlign = 'middle';
+    s.innerHTML = `<g fill="${color}" stroke="#fff" stroke-width="1"><circle cx="7" cy="4.5" r="3.5"/><path d="M1 17c0-4.5 2.7-7 6-7s6 2.5 6 7z"/></g>`;
+    return s;
+  }
   function renderScoreScreen() {
-    const tabs = (id, items, cur, pick) => { const box = byId(id); box.textContent = ''; for (const [val, label] of items) { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.className = val === cur ? 'on' : ''; b.onclick = () => { pick(val); renderScoreScreen(); }; box.appendChild(b); } };
+    const tabs = (id, items, cur, pick) => { const box = byId(id); box.textContent = ''; for (const [val, label] of items) { const b = document.createElement('button'); b.type = 'button'; if (typeof label === 'function') label(b); else b.textContent = label; b.className = val === cur ? 'on' : ''; b.onclick = () => { pick(val); renderScoreScreen(); }; box.appendChild(b); } };
     tabs('sbStageTabs', stageList().map(s => [s.id, s.name || 'Stage ' + s.id]), sbS, v => { sbS = v; });
-    tabs('sbPcTabs', [1, 2, 3, 4].map(n => [n, n + (n === 1 ? ' pemain (solo)' : ' pemain')]), sbP, v => { sbP = v; });
+    tabs('sbPcTabs', [1, 2, 3, 4].map(n => [n, b => { b.setAttribute('aria-label', n + ' pemain'); b.title = n + ' pemain'; for (let i = 1; i <= n; i++) b.appendChild(personIcon(SLOT_COLORS['p' + i])); }]), sbP, v => { sbP = v; });
     const box = byId('sbList'), list = SB ? SB.top(sbLevel(sbS), sbP) : []; box.textContent = '';
     for (let i = 0; i < 3; i++) box.appendChild(sbRow(i + 1, list[i], !!sbLast && !!list[i] && list[i].id === sbLast.id, true));
   }
   function openScoreScreen() { closeMenu(); clearTimeout(sbClearTimer); byId('sbClear').textContent = 'Hapus scoreboard'; renderScoreScreen(); byId('scoreScreen').classList.remove('hidden'); }
   const closeScoreScreen = () => { byId('scoreScreen').classList.add('hidden'); clearTimeout(sbClearTimer); };
-  byId('sbMenuBtn').addEventListener('click', openScoreScreen); byId('resBoardBtn').addEventListener('click', openScoreScreen);
+  byId('sbMenuBtn').addEventListener('click', openScoreScreen);
   byId('sbClose').addEventListener('click', closeScoreScreen);
   byId('scoreScreen').addEventListener('click', ev => { if (ev.target === byId('scoreScreen')) closeScoreScreen(); });
   byId('sbClear').addEventListener('click', () => {   // dua ketukan, seperti Kick

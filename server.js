@@ -29,6 +29,7 @@ const LIMITS = { input: 80, interact: 12, lobby: 10, pos: 20, chat: 5 };   // ma
 const QUEUE_MAX = 8;
 const GRACE = { lobby: 60, empty: 120 };   // detik: slot lobi yang putus ditahan; room tanpa pemain terhubung dihapus setelah ini [Usulan awal]
 const LOBBY = { min: 0.6, maxX: 7.4, maxY: 6.4 };   // batas lantai lobi (sama dengan batas jangkau core); posisi lobi hanya kosmetik
+const lobbyMaxY = stageId => { const st = stageId ? Stages.get(stageId) : null, c = st && st.config.collision; return c && c.reachMaxY ? c.reachMaxY + 0.03 : LOBBY.maxY; };   // lantai stage bisa lebih dalam dari default
 const lobbySpawn = (slot, stageId) => {   // dengan stage: titik awal core (baris bawah stage bisa menutup lorong, jadi spawn lobi default terkurung)
   const i = Math.max(0, SLOTS.indexOf(slot)), st = stageId ? Stages.get(stageId) : null, sp = st && st.config.spawn;
   return sp ? { x: sp.x + i * (sp.spreadX == null ? 0.35 : sp.spreadX), y: sp.y } : { x: 3.4 + i * 0.8, y: 6.15 };
@@ -273,7 +274,7 @@ function createGameServer(opts) {
     sock.on('lobby:pos', guard('pos', p => {   // posisi berjalan di lobi: kosmetik, diteruskan ke pemain lain
       const room = roomOf(sock), m = memberOf(room, sock);
       if (!m || (room.phase !== 'lobby' && room.phase !== 'countdown')) return;
-      const x = coord(p.x, LOBBY.min, LOBBY.maxX), y = coord(p.y, LOBBY.min, LOBBY.maxY);
+      const x = coord(p.x, LOBBY.min, LOBBY.maxX), y = coord(p.y, LOBBY.min, lobbyMaxY(room.stage));
       if (x === null || y === null) return;
       m.x = x; m.y = y; sock.to(room.code).emit('lobby:pos', { id: m.slot, x, y });
     }));

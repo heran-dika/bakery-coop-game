@@ -22,11 +22,9 @@
         spawn: { x: 4.15, y: 5.5 }, collision: { reachMaxY: 7.37 },
         hazard: { enabled: false },
         stations: [
-          st('counter1', 'counter', 1, 1), st('counter2', 'counter', 2, 1), st('prep', 'prep', 3, 1), st('counter3', 'counter', 4, 1),
-          st('oven', 'oven', 5, 1), st('counter4', 'counter', 6, 1), st('trash', 'trash', 7, 1),
+          st('trash', 'trash', 1, 1), st('counter1', 'counter', 2, 1), st('prep', 'prep', 3, 1), st('counter2', 'counter', 4, 1), st('oven', 'oven', 5, 1), st('prep2', 'prep', 7, 1),
           crate('dough', 1, 4), crate('butter', 3, 4), crate('salt', 5, 4), st('serve', 'serve', 7, 4),
-          st('counter5', 'counter', 1, 7), st('counter6', 'counter', 2, 7), st('prep2', 'prep', 3, 7), st('counter7', 'counter', 4, 7),
-          st('oven2', 'oven', 5, 7), st('counter8', 'counter', 6, 7), st('trash2', 'trash', 7, 7)
+          st('trash2', 'trash', 1, 7), st('counter3', 'counter', 2, 7), st('prep3', 'prep', 3, 7), st('counter4', 'counter', 4, 7), st('oven2', 'oven', 5, 7), st('prep4', 'prep', 7, 7)
         ]
       }
     },

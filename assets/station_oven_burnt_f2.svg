@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="160" height="160">
+<polygon points="3.9,21 40,36.4 40,72 3.9,56.6" fill="#a15a49" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/>
+<polygon points="76.1,21 40,36.4 40,72 76.1,56.6" fill="#b06958" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/>
+<polygon points="40,5.6 76.1,21 40,36.4 3.9,21" fill="#d28f7e" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/>
+<path d="M10,33.6 L32,43 M10,39.6 L32,49" stroke="#6e3a2e" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+<polygon points="47,42.4 69,33 69,51 47,60.4" fill="#3a2f2c" stroke="#243b5a" stroke-width="2" stroke-linejoin="round"/>
+<polygon points="50,44.1 66,37.1 66,49.1 50,56.1" fill="#15171a"/>
+<polygon points="53,52 62,48.2 62,44 53,47.8" fill="#3b3b3b"/>
+<circle cx="35.6" cy="20.2" r="3.5" fill="#768188" stroke="#3d4650" stroke-width=".8" stroke-opacity="0.46" opacity="0.92"/>
+<circle cx="35.1" cy="12.5" r="4.8" fill="#8a959c" stroke="#3d4650" stroke-width=".8" stroke-opacity="0.46" opacity="0.92"/>
+<circle cx="30.0" cy="4.8" r="6.1" fill="#9ea9b0" stroke="#3d4650" stroke-width=".8" stroke-opacity="0.17" opacity="0.34"/>
+<circle cx="44.4" cy="16.3" r="3.7" fill="#808b92" stroke="#3d4650" stroke-width=".8" stroke-opacity="0.46" opacity="0.92"/>
+<circle cx="44.9" cy="8.7" r="4.9" fill="#949fa6" stroke="#3d4650" stroke-width=".8" stroke-opacity="0.34" opacity="0.68"/>
+<circle cx="50.0" cy="1.0" r="6.1" fill="#a8b3ba" stroke="#3d4650" stroke-width=".8" stroke-opacity="0.00" opacity="0.00"/>
+</svg>

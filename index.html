@@ -356,6 +356,10 @@
   .hwp { position:relative; display:inline-block; width:32px; height:51px; }
   .hwp.big { width:60px; height:96px; }
   .hwp img { position:absolute; inset:0; width:100%; height:100%; }
+  .mn-hw[hidden] { display:none; }
+  .ncp { display:inline-block; margin:14px 0; padding:4px 10px; border-radius:5px; font-size:11px; font-weight:800; line-height:1.2; }   /* contoh chip nama berwarna */
+  .bdp { display:inline-flex; align-items:center; justify-content:center; width:32px; height:51px; font-size:16px; }
+  .bdp img { width:28px; height:28px; }
   .mn-char { display:grid; place-items:center; min-height:100px; }
   .res-xp { margin:10px 0 14px; text-align:left; }
   .rx-note { font-size:12px; color:var(--muted); margin-top:4px; }
@@ -423,7 +427,7 @@
   @media (max-height:430px) {
     .mn-main { padding:20px 28px; }
     .mn-side { padding:12px 20px; gap:8px; }
-    .hwp { width:24px; height:38px; } .hwp.big { width:40px; height:64px; }
+    .hwp { width:24px; height:38px; } .hwp.big { width:40px; height:64px; } .ncp { margin:8px 0; padding:3px 8px; } .bdp { height:38px; } .bdp img { width:24px; height:24px; }
     .hw-chip { min-width:58px; padding:3px 6px; }
     .mn-lv { margin-top:2px; }
     }
@@ -571,6 +575,9 @@
         <span class="mn-hint" id="mnHint">2–12 karakter: huruf, angka, spasi.</span>
         <div class="mn-lv"><div class="mn-lv-top"><b id="mnLv">Level 1</b><span id="mnXp">0 / 200 XP</span></div><div class="mn-bar"><i id="mnBar"></i></div></div>
         <div class="mn-hw" id="mnHw" role="group" aria-label="Pakaian kepala"></div>
+        <div class="mn-hw" id="mnAp" role="group" aria-label="Celemek" hidden></div>
+        <div class="mn-hw" id="mnNc" role="group" aria-label="Warna nama" hidden></div>
+        <div class="mn-hw" id="mnBd" role="group" aria-label="Lencana" hidden></div>
       </div>
       <div class="mn-side">
         <div class="mn-char" id="mnChar" aria-hidden="true"></div>
@@ -624,7 +631,7 @@
 <script src="core.js?v=20261102-s3"></script>
 <script src="stages.js?v=20261102-s3"></script>
 <script src="audio.js?v=20261102-s3"></script>
-<script src="xp.js?v=20261102-s3"></script>
+<script src="xp.js?v=20261103-rw"></script>
 <script src="scoreboard.js?v=20261102-s3"></script>
 <script>
 (() => {
@@ -656,8 +663,12 @@
   const HW_FRAMES = ['idle_0','idle_1','walk_0','walk_1','walk_2','walk_3','carry_idle_0','carry_idle_1','carry_walk_0','carry_walk_1','carry_walk_2','carry_walk_3'];
   ART_KEYS.push(...HW_FRAMES.map(f => 'char_baker_bare_dr_' + f));   // badan tanpa topi; pakaian kepala = lapisan terpisah (hw_<nama>_dr_<frame>), dimuat saat dibutuhkan
   ART_KEYS.push('station_coffee_idle','station_coffee_brewing','station_coffee_ready','item_coffee','station_oven_fire','station_oven_extinguishing','station_extinguisher_idle','item_extinguisher');   // mesin kopi dan api (Stage 2)
+  ART_KEYS.push('station_oven_fire_f1','station_oven_fire_f2','station_oven_burnt_f1','station_oven_burnt_f2','station_oven_burnt_f3');   // frame animasi api dan asap gosong
   const HW_LOADED = new Set();
   function ensureHw(n) { if (!n || HW_LOADED.has(n)) return; HW_LOADED.add(n); loadArt(HW_FRAMES.map(f => `hw_${n}_dr_${f}`)); }
+  const AP_LOADED = new Set(), BD_LOADED = new Set();
+  function ensureAp(n) { if (!n || n === 'biasa' || AP_LOADED.has(n)) return; AP_LOADED.add(n); loadArt(HW_FRAMES.map(f => `ap_${n}_dr_${f}`)); }   // lapisan celemek (hadiah): ap_<id>_dr_<frame>, digambar di atas badan, di bawah topi
+  function ensureBadge(n) { if (!n || n === 'tanpa' || BD_LOADED.has(n)) return; BD_LOADED.add(n); loadArt([`badge_${n}`]); }   // ikon lencana di samping nama
   const ITEM_SCALE = 1; // item viewBox 32x24 = satuan peta; di HP mapScale ~0.78 -> ±25x19 px [Menebak, uji di HP]
   const CHAR_SCALE = 1; // viewBox 40x64 = satuan peta; 1 = sama skala dengan stasiun [Menebak, uji di HP]
   function loadArt(keys) {
@@ -699,17 +710,28 @@
   function charKeys(pl, moving) {
     const pre = pl.held ? 'carry_' : '', sfx = moving ? `${pre}walk_${Math.floor(pl.walkCycle/1.68)%4}`   // 1.68 = 12 rad/s x 0.14 s per frame
                                                       : `${pre}idle_${Math.floor(elapsed/0.42)%2}`;
-    const hw = pl.hw || 'koki', bare = `char_baker_bare_dr_${sfx}`, over = `hw_${hw}_dr_${sfx}`;
-    ensureHw(hw);
-    if (ART.raw[bare] && ART.raw[over]) return { body:tintedKey(bare, pl.slot), hw:tintedKey(over, pl.slot) };
-    return { body:tintedKey(`char_baker_dr_${sfx}`, pl.slot), hw:null };   // sprite lengkap lama (topi koki) selama aset baru belum termuat
+    const hw = pl.hw || 'koki', bare = `char_baker_bare_dr_${sfx}`, over = `hw_${hw}_dr_${sfx}`, ap = pl.ap && pl.ap !== 'biasa' ? pl.ap : null, apk = ap ? `ap_${ap}_dr_${sfx}` : null;
+    ensureHw(hw); ensureAp(ap);
+    if (ART.raw[bare] && ART.raw[over]) return { body:tintedKey(bare, pl.slot), hw:tintedKey(over, pl.slot), ap:apk && ART.raw[apk] ? apk : null };
+    return { body:tintedKey(`char_baker_dr_${sfx}`, pl.slot), hw:null, ap:null };   // sprite lengkap lama (topi koki) selama aset baru belum termuat
   }
   function itemKey(it) {
     if (it.type === 'prepared_dough') return it.mods && it.mods.includes('salt') ? 'item_prepared_salt' : 'item_prepared_dough';
     return `item_${it.type}`;
   }
+  function frameKey(base, n, period) {   // frame animasi: base, base_f1, base_f2, ... (frame yang belum termuat -> base). Reduced motion: frame pertama saja
+    if (REDUCED) return base;
+    const i = Math.floor(elapsed / period) % n; if (!i) return base;
+    const k = `${base}_f${i}`; return ART.raw[k] ? k : base;
+  }
   function artKey(s) {
-    if (s.type === 'oven') { const k = `station_oven_${s.status}`; return (ART.raw[k] || (s.status !== 'fire' && s.status !== 'extinguishing')) ? k : 'station_oven_burnt'; }   // aset api belum ada -> pakai gosong + api gambar kode
+    if (s.type === 'oven') {
+      const k = `station_oven_${s.status}`;
+      if (!ART.raw[k] && (s.status === 'fire' || s.status === 'extinguishing')) return 'station_oven_burnt';   // aset api belum ada -> pakai gosong + api gambar kode
+      if (s.status === 'fire') return frameKey(k, 3, .12);    // api: 3 frame, ganti tiap 0,12 dtk
+      if (s.status === 'burnt') return frameKey(k, 4, .2);    // asap gosong: 4 frame, ganti tiap 0,2 dtk
+      return k;
+    }   // aset api belum ada -> pakai gosong + api gambar kode
     if (s.type === 'coffee') return `station_coffee_${s.status}`;
     if (s.type === 'prep') {   // empty | dough | prepared_plain (belum/baru satu tambahan) | prepared_salt (mentega + garam lengkap)
       if (!s.item) return 'station_prep_empty';
@@ -1376,11 +1398,11 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     const p=project(pl.x,pl.y),sc=mapScale;
     const moving=pl.moving;
     const bounce=moving?Math.sin(pl.walkCycle)*1.7*sc:0;
-    const k=sc*CHAR_SCALE, ck=charKeys(pl,moving), ca=artFor(ck.body,40,64,k), ha=ck.hw&&artFor(ck.hw,40,64,k);
+    const k=sc*CHAR_SCALE, ck=charKeys(pl,moving), ca=artFor(ck.body,40,64,k), ha=ck.hw&&artFor(ck.hw,40,64,k), aa=ck.ap&&artFor(ck.ap,40,64,k);
     if(ca){
       ctx.fillStyle='#3d30252b';ctx.beginPath();ctx.ellipse(p.x,p.y+3*sc,10*sc,5*sc,0,0,Math.PI*2);ctx.fill();
       ctx.save();ctx.translate(p.x,p.y+2*sc);if(pl.facingX<-0.05)ctx.scale(-1,1);   // anchor kaki (20,62)
-      ctx.drawImage(ca,-20*k,-62*k,40*k,64*k);if(ha)ctx.drawImage(ha,-20*k,-62*k,40*k,64*k);ctx.restore();
+      ctx.drawImage(ca,-20*k,-62*k,40*k,64*k);if(aa)ctx.drawImage(aa,-20*k,-62*k,40*k,64*k);if(ha)ctx.drawImage(ha,-20*k,-62*k,40*k,64*k);ctx.restore();
       if(pl.held){const ty=p.y+2*sc-59*k-(12*ITEM_SCALE+2)*sc;drawHeldItem(p.x,ty,pl.held,sc);}
       return;
     }
@@ -1404,21 +1426,26 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     drawPlayerBody(pl);
     ctx.globalAlpha = 1;
   }
+  const lumOf = c => { const n = parseInt(c.slice(1), 16); return (.2126*(n >> 16 & 255) + .7152*(n >> 8 & 255) + .0722*(n & 255)) / 255; };   // 0..1: pilih warna teks di atas warna nama
   function drawNameTag(pl) {
     const p = project(pl.x, pl.y), sc = mapScale, fs = Math.max(9, 11*sc);
     const label = pl.name + (pl.ready ? ' ✓' : '') + (pl.connected === false ? ' (putus)' : '');
     ctx.font = `800 ${fs}px ui-sans-serif,system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const w = ctx.measureText(label).width + 10*sc, h = fs*1.5, cy = p.y + 2*sc - 59*sc*CHAR_SCALE - 10*sc - (pl.held ? 26*sc*ITEM_SCALE : 0);
+    const nc = BakeryXP.nameColor(pl.nc), bd = pl.bd && pl.bd !== 'tanpa' ? pl.bd : null; ensureBadge(bd);   // hadiah: warna chip nama dan lencana di sampingnya
+    const bs = fs*1.3, bi = bd ? artFor(`badge_${bd}`, 24, 24, bs/24) : null, bw = bi ? bs + 3*sc : 0;
+    const w = ctx.measureText(label).width + 10*sc + bw, h = fs*1.5, cy = p.y + 2*sc - 59*sc*CHAR_SCALE - 10*sc - (pl.held ? 26*sc*ITEM_SCALE : 0);
     ctx.globalAlpha = pl.connected === false ? .6 : 1;
-    ctx.fillStyle = pl.you ? '#2e8067' : '#243b5a'; roundRect(ctx, p.x - w/2, cy - h/2, w, h, 5*sc); ctx.fill();
-    ctx.fillStyle = '#fffaf2'; ctx.fillText(label, p.x, cy + .5*sc); ctx.globalAlpha = 1;
+    ctx.fillStyle = nc || (pl.you ? '#2e8067' : '#243b5a'); roundRect(ctx, p.x - w/2, cy - h/2, w, h, 5*sc); ctx.fill();
+    if (nc && pl.you) { ctx.strokeStyle = '#2e8067'; ctx.lineWidth = 2*sc; ctx.stroke(); }   // chip sendiri tetap punya penanda hijau walau dipakaikan warna lain
+    if (bi) ctx.drawImage(bi, p.x - w/2 + 5*sc, cy - bs/2, bs, bs);
+    ctx.fillStyle = nc && lumOf(nc) > .55 ? '#243b5a' : '#fffaf2'; ctx.fillText(label, p.x + bw/2, cy + .5*sc); ctx.globalAlpha = 1;
   }
   const soloView = { slot:'p1', name:'', connected:true };
   function playerViews() {   // solo: satu pemain dari global; online: dari snapshot (NET.view)
     if (THUMB) return [];
     if (ONLINE || mode === 'lobby' || mode === 'try') return [...NET.view.values()];
     const i = getScreenInput();
-    Object.assign(soloView, { hw:HWSEL, x:player.x, y:player.y, facingX:player.facingX, facingY:player.facingY, walkCycle:player.walkCycle, held:heldItem, moving:Math.abs(i.sx)+Math.abs(i.sy)>.01 });
+    Object.assign(soloView, { hw:HWSEL, ap:COS.ap, nc:COS.nc, bd:COS.bd, x:player.x, y:player.y, facingX:player.facingX, facingY:player.facingY, walkCycle:player.walkCycle, held:heldItem, moving:Math.abs(i.sx)+Math.abs(i.sy)>.01 });
     return [soloView];
   }
   function drawHeldItem(x,y,item,sc){
@@ -1522,7 +1549,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   }
   function refreshMeta(d) {
     const m = roomPlayer(d.slot);
-    d.hw = (m && m.hw) || d.hw || 'koki'; d.name = m ? m.name : d.slot; d.connected = m ? m.connected : true; d.ready = mode === 'lobby' && !!(m && m.ready); d.you = d.slot === meId();
+    d.hw = (m && m.hw) || d.hw || 'koki'; d.ap = (m && m.ap) || d.ap || 'biasa'; d.nc = (m && m.nc) || d.nc || 'biasa'; d.bd = (m && m.bd) || d.bd || 'tanpa'; d.name = m ? m.name : d.slot; d.connected = m ? m.connected : true; d.ready = mode === 'lobby' && !!(m && m.ready); d.you = d.slot === meId();
   }
   function refreshPlayAgain() {
     const me = myMember(), host = !!(me && me.host);
@@ -1840,7 +1867,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function gainXp(e) { const x = BakeryXP.orderXp(e); if (x) { roundXp.gain += x; xpAdd(x); } }   // tiap pemain mendapat XP dari setiap order tim yang selesai
   function showResultXp() {
     const box = byId('resXp'); if (TUTOR) { box.hidden = true; return; }
-    const tot = xpTotal(), b = BakeryXP.info(roundXp.start), a = BakeryXP.info(tot), ups = BakeryXP.unlockedBetween(b.level, a.level);
+    const tot = xpTotal(), b = BakeryXP.info(roundXp.start), a = BakeryXP.info(tot), ups = BakeryXP.unlockedBetweenAll(b.level, a.level);
     box.hidden = false; byId('rxGain').textContent = `+${tot - roundXp.start} XP`; byId('rxLv').textContent = `Level ${a.level}`; byId('rxBar').style.width = Math.round(a.frac * 100) + '%';
     byId('rxNote').textContent = a.level > b.level ? `Naik ke Level ${a.level}!` + (ups.length ? ' Terbuka: ' + ups.map(h => h.name).join(', ') + '.' : '') : a.max ? 'Level maksimum' : `${a.into} / ${a.span} XP ke level berikutnya`;
   }
@@ -1850,18 +1877,42 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     const b = BakeryXP.levelOf(xpTotal()); xpAdd(BakeryXP.CFG.tutorial); const a = BakeryXP.levelOf(xpTotal());
     el.hidden = false; el.textContent = `+${BakeryXP.CFG.tutorial} XP` + (a > b ? ` · Naik ke Level ${a}!` : '');
   }
-  function hwPreview(id, big) { const w = document.createElement('span'); w.className = 'hwp' + (big ? ' big' : ''); for (const n of ['char_baker_bare_dr_idle_0', `hw_${id}_dr_idle_0`]) { const im = new Image(); im.alt = ''; im.onerror = () => im.remove(); im.src = `assets/${n}.svg`; w.appendChild(im); } return w; }   // aset belum ada di server: tanpa ikon rusak
-  function setHw(id) { HWSEL = id; try { localStorage.setItem('sbc_hw', id); } catch (e) {} ensureHw(id); renderMenuProfile(); }
+  // pilihan hadiah kosmetik: hw (topi), ap (celemek), nc (warna nama), bd (lencana); simpan lokal, kirim ke server saat buat/gabung room
+  const COSKEY = { ap:'sbc_ap', nc:'sbc_nc', bd:'sbc_bd' }, COS = {};
+  for (const k of Object.keys(COSKEY)) { let v = null; try { v = localStorage.getItem(COSKEY[k]); } catch (e) {} COS[k] = v || BakeryXP.DEFAULTS[k]; }
+  const selGet = k => (k === 'hw' ? HWSEL : COS[k]);
+  function layerPreview(names, big) { const w = document.createElement('span'); w.className = 'hwp' + (big ? ' big' : ''); for (const n of names) { const im = new Image(); im.alt = ''; im.onerror = () => im.remove(); im.src = `assets/${n}.svg`; w.appendChild(im); } return w; }   // aset belum ada di server: tanpa ikon rusak
+  const hwPreview = (id, big) => layerPreview(['char_baker_bare_dr_idle_0', `hw_${id}_dr_idle_0`], big);
+  function chipPreview(kind, h) {
+    const bare = 'char_baker_bare_dr_idle_0';
+    if (kind === 'hw') return layerPreview([bare, `hw_${h.id}_dr_idle_0`]);
+    if (kind === 'ap') return layerPreview(h.id === 'biasa' ? [bare] : [bare, `ap_${h.id}_dr_idle_0`]);
+    const s = document.createElement('span');
+    if (kind === 'nc') { const c = h.color || '#243b5a'; s.className = 'ncp'; s.textContent = 'Nama'; s.style.background = c; s.style.color = lumOf(c) > .55 ? '#243b5a' : '#fffaf2'; return s; }
+    s.className = 'bdp'; if (h.id === 'tanpa') s.textContent = '–'; else { const im = new Image(); im.alt = ''; im.onerror = () => im.remove(); im.src = `assets/badge_${h.id}.svg`; s.appendChild(im); }
+    return s;
+  }
+  function setSel(kind, id) {
+    if (kind === 'hw') HWSEL = id; else COS[kind] = id;
+    try { localStorage.setItem(kind === 'hw' ? 'sbc_hw' : COSKEY[kind], id); } catch (e) {}
+    if (kind === 'hw') ensureHw(id); else if (kind === 'ap') ensureAp(id); else if (kind === 'bd') ensureBadge(id);
+    renderMenuProfile();
+  }
+  const setHw = id => setSel('hw', id);
   function renderMenuProfile() {
-    const i = BakeryXP.info(xpTotal()), box = byId('mnHw'); HWSEL = BakeryXP.cleanHeadwear(HWSEL, i.level);
+    const i = BakeryXP.info(xpTotal());
+    HWSEL = BakeryXP.cleanHeadwear(HWSEL, i.level); for (const k of Object.keys(COSKEY)) COS[k] = BakeryXP.cleanReward(k, COS[k], i.level);
     byId('mnLv').textContent = `Level ${i.level}`; byId('mnXp').textContent = i.max ? 'Maks' : `${i.into} / ${i.span} XP`; byId('mnBar').style.width = Math.round(i.frac * 100) + '%';
-    box.textContent = '';
-    for (const h of BakeryXP.HEADWEAR) {
-      const ok = h.level <= i.level, b = document.createElement('button'); b.type = 'button'; b.className = 'hw-chip' + (h.id === HWSEL ? ' on' : '') + (ok ? '' : ' lock'); b.disabled = !ok; b.setAttribute('aria-pressed', String(h.id === HWSEL));
-      b.title = ok ? h.name : `${h.name} · terbuka di Level ${h.level}`; b.append(hwPreview(h.id), Object.assign(document.createElement('span'), { textContent: ok ? h.name : 'Lv ' + h.level }));
-      b.onclick = () => setHw(h.id); box.appendChild(b);
+    for (const [kind, boxId] of [['hw', 'mnHw'], ['ap', 'mnAp'], ['nc', 'mnNc'], ['bd', 'mnBd']]) {
+      const box = byId(boxId), list = BakeryXP.REWARDS[kind], sel = selGet(kind), open = kind === 'hw' || list.some(h => h.level > 1 && h.level <= i.level);   // grup baru muncul setelah hadiah pertamanya terbuka
+      box.hidden = !open; box.textContent = ''; if (!open) continue;
+      for (const h of list) {
+        const ok = h.level <= i.level, b = document.createElement('button'); b.type = 'button'; b.className = 'hw-chip' + (h.id === sel ? ' on' : '') + (ok ? '' : ' lock'); b.disabled = !ok; b.setAttribute('aria-pressed', String(h.id === sel));
+        b.title = ok ? h.name : `${h.name} · terbuka di Level ${h.level}`; b.append(chipPreview(kind, h), Object.assign(document.createElement('span'), { textContent: ok ? h.name : 'Lv ' + h.level }));
+        b.onclick = () => setSel(kind, h.id); box.appendChild(b);
+      }
     }
-    byId('mnChar').textContent = ''; byId('mnChar').appendChild(hwPreview(HWSEL, true));
+    byId('mnChar').textContent = ''; byId('mnChar').appendChild(layerPreview(['char_baker_bare_dr_idle_0'].concat(COS.ap !== 'biasa' ? [`ap_${COS.ap}_dr_idle_0`] : [], [`hw_${HWSEL}_dr_idle_0`]), true));
   }
 
   // ---- progres stage (lokal per perangkat, tidak tepercaya: PRD §9.2) ----
@@ -2062,7 +2113,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     lobbyCore = makeLobbyCore();
     const lp = lobbyCore.start().state.players[0];
     LOCAL = { cd:null, shown:null };
-    NET.room = { local:true, you:'p1', code:null, phase:'lobby', players:[{ id:'p1', hw:HWSEL, name:PLAYER, ready:false, host:true, connected:true, x:lp.x, y:lp.y }] };
+    NET.room = { local:true, you:'p1', code:null, phase:'lobby', players:[{ id:'p1', hw:HWSEL, ap:COS.ap, nc:COS.nc, bd:COS.bd, name:PLAYER, ready:false, host:true, connected:true, x:lp.x, y:lp.y }] };
     const d = viewFor('p1', lp.x, lp.y); refreshMeta(d);
     mode = 'lobby'; olShow(false); renderUI(); localBar();
   }
@@ -2089,8 +2140,8 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function runPending() {
     const p = NET.pending; NET.pending = null;
     if (!p || !NET.sock || !NET.sock.connected) return;
-    if (p.create) NET.sock.emit('room:create', { name:p.name, cid:deviceId(), stage:p.stage, hw:HWSEL });
-    else NET.sock.emit('room:join', { code:p.code, name:p.name, cid:deviceId(), hw:HWSEL });
+    if (p.create) NET.sock.emit('room:create', { name:p.name, cid:deviceId(), stage:p.stage, hw:HWSEL, ap:COS.ap, nc:COS.nc, bd:COS.bd });
+    else NET.sock.emit('room:join', { code:p.code, name:p.name, cid:deviceId(), hw:HWSEL, ap:COS.ap, nc:COS.nc, bd:COS.bd });
   }
   function goOnline(action) {
     NET.pending = action; NET.expect = true;
@@ -2258,7 +2309,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     if (!LE) return;
     TRY = { L:layCompose() }; applyLayout(); showScreen(null);
     lobbyCore = makeLobbyCore(); const lp = lobbyCore.start().state.players[0];
-    NET.view.clear(); const d = viewFor('p1', lp.x, lp.y); d.name = ''; d.hw = HWSEL; keys.clear(); resetJoystick();
+    NET.view.clear(); const d = viewFor('p1', lp.x, lp.y); d.name = ''; d.hw = HWSEL; d.ap = COS.ap; d.nc = COS.nc; d.bd = COS.bd; keys.clear(); resetJoystick();
     mode = 'try'; byId('tryBar').hidden = false; renderUI(); showToast('Mode coba: geser joystick dan tekan Aksi.', 2200);
   }
   function tryTick(dt) {

@@ -441,6 +441,7 @@
   .sb-tabs { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:6px 0; }
   .sb-tabs button { border:1px solid var(--line); background:#fff; color:var(--blue); border-radius:999px; padding:6px 12px; font:inherit; font-size:12px; font-weight:800; }
   .sb-tabs button.on { background:var(--blue); color:#fff; border-color:var(--blue); }
+  #scoreScreen, #helpScreen { z-index:25; }   /* di atas layar menu/stage (.scr z-index:12); tanpa ini overlay terbuka di belakang menu */
   .st-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
   .st-hi { font-size:12px; font-weight:800; color:var(--gold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   @media (orientation:landscape) and (max-height:520px) { .res-board { margin:6px 0; padding:4px 8px; } .res-board .sb-row:nth-of-type(n+3):not(.me) { display:none; } }
@@ -655,7 +656,6 @@
   const HW_FRAMES = ['idle_0','idle_1','walk_0','walk_1','walk_2','walk_3','carry_idle_0','carry_idle_1','carry_walk_0','carry_walk_1','carry_walk_2','carry_walk_3'];
   ART_KEYS.push(...HW_FRAMES.map(f => 'char_baker_bare_dr_' + f));   // badan tanpa topi; pakaian kepala = lapisan terpisah (hw_<nama>_dr_<frame>), dimuat saat dibutuhkan
   ART_KEYS.push('station_coffee_idle','station_coffee_brewing','station_coffee_ready','item_coffee','station_oven_fire','station_oven_extinguishing','station_extinguisher_idle','item_extinguisher');   // mesin kopi dan api (Stage 2)
-  ART_KEYS.push('station_oven_fire_f1','station_oven_fire_f2','station_oven_burnt_f1','station_oven_burnt_f2','station_oven_burnt_f3');   // frame animasi api dan asap gosong
   const HW_LOADED = new Set();
   function ensureHw(n) { if (!n || HW_LOADED.has(n)) return; HW_LOADED.add(n); loadArt(HW_FRAMES.map(f => `hw_${n}_dr_${f}`)); }
   const ITEM_SCALE = 1; // item viewBox 32x24 = satuan peta; di HP mapScale ~0.78 -> ±25x19 px [Menebak, uji di HP]
@@ -708,19 +708,8 @@
     if (it.type === 'prepared_dough') return it.mods && it.mods.includes('salt') ? 'item_prepared_salt' : 'item_prepared_dough';
     return `item_${it.type}`;
   }
-  function frameKey(base, n, period) {   // frame animasi: base, base_f1, base_f2, ... (frame yang belum termuat -> base). Reduced motion: frame pertama saja
-    if (REDUCED) return base;
-    const i = Math.floor(elapsed / period) % n; if (!i) return base;
-    const k = `${base}_f${i}`; return ART.raw[k] ? k : base;
-  }
   function artKey(s) {
-    if (s.type === 'oven') {
-      const k = `station_oven_${s.status}`;
-      if (!ART.raw[k] && (s.status === 'fire' || s.status === 'extinguishing')) return 'station_oven_burnt';   // aset api belum ada -> pakai gosong + api gambar kode
-      if (s.status === 'fire') return frameKey(k, 3, .12);    // api: 3 frame, ganti tiap 0,12 dtk
-      if (s.status === 'burnt') return frameKey(k, 4, .2);    // asap gosong: 4 frame, ganti tiap 0,2 dtk
-      return k;
-    }
+    if (s.type === 'oven') { const k = `station_oven_${s.status}`; return (ART.raw[k] || (s.status !== 'fire' && s.status !== 'extinguishing')) ? k : 'station_oven_burnt'; }   // aset api belum ada -> pakai gosong + api gambar kode
     if (s.type === 'coffee') return `station_coffee_${s.status}`;
     if (s.type === 'prep') {   // empty | dough | prepared_plain (belum/baru satu tambahan) | prepared_salt (mentega + garam lengkap)
       if (!s.item) return 'station_prep_empty';

@@ -7,33 +7,33 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
   const CFG = { base: 200, exp: 1.35, maxLevel: 50, order: 50, fast: 20, tutorial: 100, scorePerOrder: 100 };
-  // Hadiah per level. Tiap kategori punya satu pilihan bawaan (level 1) yang dipakai bila id tidak dikenal.
+  // Hadiah per level: satu hadiah baru di tiap level 8 sampai 20 (8 celemek emas, 9 mahkota, 10-14 warna nama, 15-17 celemek pola, 18-20 lencana). Tiap kategori punya satu pilihan bawaan (level 1) yang dipakai bila id tidak dikenal.
   const HEADWEAR = [   // 'hw'
     { id: 'koki', name: 'Topi koki', level: 1 },
     { id: 'bandana', name: 'Bandana', level: 4 },
     { id: 'topi', name: 'Topi', level: 7 },
-    { id: 'mahkota', name: 'Mahkota koki', level: 10 }
+    { id: 'mahkota', name: 'Mahkota koki', level: 9 }
   ];
   const APRON = [   // 'ap': lapisan celemek (ap_<id>_dr_<frame>); 'biasa' = tanpa lapisan, ikut warna slot
     { id: 'biasa', name: 'Celemek biasa', level: 1 },
-    { id: 'emas', name: 'Celemek emas', level: 10 },
+    { id: 'emas', name: 'Celemek emas', level: 8 },
     { id: 'garis', name: 'Celemek garis', level: 15 },
-    { id: 'polkadot', name: 'Celemek polkadot', level: 15 },
-    { id: 'kotak', name: 'Celemek kotak', level: 15 }
+    { id: 'polkadot', name: 'Celemek polkadot', level: 16 },
+    { id: 'kotak', name: 'Celemek kotak', level: 17 }
   ];
   const NAMECOLOR = [   // 'nc': warna nama di atas karakter dan di scoreboard; 'biasa' = warna bawaan UI
     { id: 'biasa', name: 'Warna nama biasa', level: 1, color: null },
-    { id: 'merah', name: 'Nama merah', level: 13, color: '#c34f5a' },
-    { id: 'biru', name: 'Nama biru', level: 13, color: '#3e6387' },
-    { id: 'hijau', name: 'Nama hijau', level: 13, color: '#4f8f6b' },
+    { id: 'merah', name: 'Nama merah', level: 10, color: '#c34f5a' },
+    { id: 'biru', name: 'Nama biru', level: 11, color: '#3e6387' },
+    { id: 'hijau', name: 'Nama hijau', level: 12, color: '#4f8f6b' },
     { id: 'ungu', name: 'Nama ungu', level: 13, color: '#7a4a8a' },
-    { id: 'emas', name: 'Nama emas', level: 13, color: '#c9962a' }
+    { id: 'emas', name: 'Nama emas', level: 14, color: '#c9962a' }
   ];
   const BADGE = [   // 'bd': ikon di samping nama (badge_<id>.svg)
     { id: 'tanpa', name: 'Tanpa lencana', level: 1 },
-    { id: 'bintang', name: 'Lencana bintang', level: 17 },
-    { id: 'roti', name: 'Lencana roti', level: 17 },
-    { id: 'api', name: 'Lencana api', level: 17 }
+    { id: 'bintang', name: 'Lencana bintang', level: 18 },
+    { id: 'roti', name: 'Lencana roti', level: 19 },
+    { id: 'api', name: 'Lencana api', level: 20 }
   ];
   const REWARDS = { hw: HEADWEAR, ap: APRON, nc: NAMECOLOR, bd: BADGE };
   const DEFAULTS = { hw: 'koki', ap: 'biasa', nc: 'biasa', bd: 'tanpa' };

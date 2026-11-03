@@ -23,9 +23,9 @@ test('orderXp: +50 per order, +20 bila cepat; combo tidak dihitung sebagai cepat
   assert.equal(X.orderXp({ type: 'order:completed', earned: 155, combo: 30 }), 70, 'cepat + combo');
   assert.equal(X.orderXp({ type: 'item:trashed' }), 0); assert.equal(X.orderXp(null), 0);
 });
-test('pakaian kepala: koki bawaan, bandana level 4, topi level 7; id tidak dikenal jatuh ke koki', () => {
+test('pakaian kepala: koki bawaan, bandana level 4, topi level 7, mahkota level 9; id tidak dikenal jatuh ke koki', () => {
   assert.deepEqual(X.unlockedAt(1).map(h => h.id), ['koki']); assert.deepEqual(X.unlockedAt(4).map(h => h.id), ['koki', 'bandana']); assert.deepEqual(X.unlockedAt(7).map(h => h.id), ['koki', 'bandana', 'topi']);
-  assert.deepEqual(X.unlockedBetween(3, 7).map(h => h.id), ['bandana', 'topi']); assert.deepEqual(X.unlockedBetween(7, 9), []);
+  assert.deepEqual(X.unlockedBetween(3, 7).map(h => h.id), ['bandana', 'topi']); assert.deepEqual(X.unlockedBetween(7, 8), []); assert.deepEqual(X.unlockedBetween(8, 9).map(h => h.id), ['mahkota']);
   assert.equal(X.cleanHeadwear('topi', 3), 'koki', 'belum terbuka'); assert.equal(X.cleanHeadwear('topi', 7), 'topi'); assert.equal(X.cleanHeadwear('<b>', 50), 'koki'); assert.equal(X.cleanHeadwear('bandana'), 'bandana', 'tanpa level = hanya validasi nama');
 });
 test('laju: ronde 8 order cepat sekitar 560 XP, level 7 butuh beberapa ronde (angka untuk disetel)', () => {

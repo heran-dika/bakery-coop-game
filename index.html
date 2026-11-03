@@ -665,6 +665,10 @@
   ART_KEYS.push('station_coffee_idle','station_coffee_brewing','station_coffee_ready','item_coffee','station_oven_fire','station_oven_extinguishing','station_extinguisher_idle','item_extinguisher');   // mesin kopi dan api (Stage 2)
   ART_KEYS.push('station_oven_fire_f1','station_oven_fire_f2','station_oven_burnt_f1','station_oven_burnt_f2','station_oven_burnt_f3');   // frame animasi api dan asap gosong
   const HW_LOADED = new Set();
+  const COSKEY = { ap:'sbc_ap', nc:'sbc_nc', bd:'sbc_bd' }, COSDEF = { ap:'biasa', nc:'biasa', bd:'tanpa' }, COS = {};   // pilihan hadiah kosmetik (celemek, warna nama, lencana); topi tetap di HWSEL
+  for (const k of Object.keys(COSKEY)) { let v = null; try { v = localStorage.getItem(COSKEY[k]); } catch (e) {} COS[k] = v || COSDEF[k]; }
+  const XPR = !!(window.BakeryXP && BakeryXP.REWARDS && BakeryXP.cleanReward && BakeryXP.nameColor && BakeryXP.unlockedBetweenAll);   // false = xp.js versi lama: hadiah baru nonaktif, game tetap jalan
+  if (!XPR) console.warn('[xp] xp.js versi lama: hadiah celemek, warna nama, dan lencana nonaktif. Perbarui xp.js.');
   function ensureHw(n) { if (!n || HW_LOADED.has(n)) return; HW_LOADED.add(n); loadArt(HW_FRAMES.map(f => `hw_${n}_dr_${f}`)); }
   const AP_LOADED = new Set(), BD_LOADED = new Set();
   function ensureAp(n) { if (!n || n === 'biasa' || AP_LOADED.has(n)) return; AP_LOADED.add(n); loadArt(HW_FRAMES.map(f => `ap_${n}_dr_${f}`)); }   // lapisan celemek (hadiah): ap_<id>_dr_<frame>, digambar di atas badan, di bawah topi
@@ -710,7 +714,7 @@
   function charKeys(pl, moving) {
     const pre = pl.held ? 'carry_' : '', sfx = moving ? `${pre}walk_${Math.floor(pl.walkCycle/1.68)%4}`   // 1.68 = 12 rad/s x 0.14 s per frame
                                                       : `${pre}idle_${Math.floor(elapsed/0.42)%2}`;
-    const hw = pl.hw || 'koki', bare = `char_baker_bare_dr_${sfx}`, over = `hw_${hw}_dr_${sfx}`, ap = pl.ap && pl.ap !== 'biasa' ? pl.ap : null, apk = ap ? `ap_${ap}_dr_${sfx}` : null;
+    const hw = pl.hw || 'koki', bare = `char_baker_bare_dr_${sfx}`, over = `hw_${hw}_dr_${sfx}`, ap = XPR && pl.ap && pl.ap !== 'biasa' ? pl.ap : null, apk = ap ? `ap_${ap}_dr_${sfx}` : null;
     ensureHw(hw); ensureAp(ap);
     if (ART.raw[bare] && ART.raw[over]) return { body:tintedKey(bare, pl.slot), hw:tintedKey(over, pl.slot), ap:apk && ART.raw[apk] ? apk : null };
     return { body:tintedKey(`char_baker_dr_${sfx}`, pl.slot), hw:null, ap:null };   // sprite lengkap lama (topi koki) selama aset baru belum termuat
@@ -1431,7 +1435,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     const p = project(pl.x, pl.y), sc = mapScale, fs = Math.max(9, 11*sc);
     const label = pl.name + (pl.ready ? ' ✓' : '') + (pl.connected === false ? ' (putus)' : '');
     ctx.font = `800 ${fs}px ui-sans-serif,system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const nc = BakeryXP.nameColor(pl.nc), bd = pl.bd && pl.bd !== 'tanpa' ? pl.bd : null; ensureBadge(bd);   // hadiah: warna chip nama dan lencana di sampingnya
+    const nc = XPR ? BakeryXP.nameColor(pl.nc) : null, bd = XPR && pl.bd && pl.bd !== 'tanpa' ? pl.bd : null; ensureBadge(bd);   // hadiah: warna chip nama dan lencana di sampingnya
     const bs = fs*1.3, bi = bd ? artFor(`badge_${bd}`, 24, 24, bs/24) : null, bw = bi ? bs + 3*sc : 0;
     const w = ctx.measureText(label).width + 10*sc + bw, h = fs*1.5, cy = p.y + 2*sc - 59*sc*CHAR_SCALE - 10*sc - (pl.held ? 26*sc*ITEM_SCALE : 0);
     ctx.globalAlpha = pl.connected === false ? .6 : 1;
@@ -1867,7 +1871,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function gainXp(e) { const x = BakeryXP.orderXp(e); if (x) { roundXp.gain += x; xpAdd(x); } }   // tiap pemain mendapat XP dari setiap order tim yang selesai
   function showResultXp() {
     const box = byId('resXp'); if (TUTOR) { box.hidden = true; return; }
-    const tot = xpTotal(), b = BakeryXP.info(roundXp.start), a = BakeryXP.info(tot), ups = BakeryXP.unlockedBetweenAll(b.level, a.level);
+    const tot = xpTotal(), b = BakeryXP.info(roundXp.start), a = BakeryXP.info(tot), ups = (XPR ? BakeryXP.unlockedBetweenAll : BakeryXP.unlockedBetween)(b.level, a.level);
     box.hidden = false; byId('rxGain').textContent = `+${tot - roundXp.start} XP`; byId('rxLv').textContent = `Level ${a.level}`; byId('rxBar').style.width = Math.round(a.frac * 100) + '%';
     byId('rxNote').textContent = a.level > b.level ? `Naik ke Level ${a.level}!` + (ups.length ? ' Terbuka: ' + ups.map(h => h.name).join(', ') + '.' : '') : a.max ? 'Level maksimum' : `${a.into} / ${a.span} XP ke level berikutnya`;
   }
@@ -1878,8 +1882,6 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     el.hidden = false; el.textContent = `+${BakeryXP.CFG.tutorial} XP` + (a > b ? ` · Naik ke Level ${a}!` : '');
   }
   // pilihan hadiah kosmetik: hw (topi), ap (celemek), nc (warna nama), bd (lencana); simpan lokal, kirim ke server saat buat/gabung room
-  const COSKEY = { ap:'sbc_ap', nc:'sbc_nc', bd:'sbc_bd' }, COS = {};
-  for (const k of Object.keys(COSKEY)) { let v = null; try { v = localStorage.getItem(COSKEY[k]); } catch (e) {} COS[k] = v || BakeryXP.DEFAULTS[k]; }
   const selGet = k => (k === 'hw' ? HWSEL : COS[k]);
   function layerPreview(names, big) { const w = document.createElement('span'); w.className = 'hwp' + (big ? ' big' : ''); for (const n of names) { const im = new Image(); im.alt = ''; im.onerror = () => im.remove(); im.src = `assets/${n}.svg`; w.appendChild(im); } return w; }   // aset belum ada di server: tanpa ikon rusak
   const hwPreview = (id, big) => layerPreview(['char_baker_bare_dr_idle_0', `hw_${id}_dr_idle_0`], big);
@@ -1901,10 +1903,10 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   const setHw = id => setSel('hw', id);
   function renderMenuProfile() {
     const i = BakeryXP.info(xpTotal());
-    HWSEL = BakeryXP.cleanHeadwear(HWSEL, i.level); for (const k of Object.keys(COSKEY)) COS[k] = BakeryXP.cleanReward(k, COS[k], i.level);
+    HWSEL = BakeryXP.cleanHeadwear(HWSEL, i.level); if (XPR) for (const k of Object.keys(COSKEY)) COS[k] = BakeryXP.cleanReward(k, COS[k], i.level); else for (const k of Object.keys(COSKEY)) COS[k] = COSDEF[k];
     byId('mnLv').textContent = `Level ${i.level}`; byId('mnXp').textContent = i.max ? 'Maks' : `${i.into} / ${i.span} XP`; byId('mnBar').style.width = Math.round(i.frac * 100) + '%';
     for (const [kind, boxId] of [['hw', 'mnHw'], ['ap', 'mnAp'], ['nc', 'mnNc'], ['bd', 'mnBd']]) {
-      const box = byId(boxId), list = BakeryXP.REWARDS[kind], sel = selGet(kind), open = kind === 'hw' || list.some(h => h.level > 1 && h.level <= i.level);   // grup baru muncul setelah hadiah pertamanya terbuka
+      const box = byId(boxId), list = kind === 'hw' ? BakeryXP.HEADWEAR : (XPR ? BakeryXP.REWARDS[kind] : []), sel = selGet(kind), open = kind === 'hw' || list.some(h => h.level > 1 && h.level <= i.level);   // grup baru muncul setelah hadiah pertamanya terbuka
       box.hidden = !open; box.textContent = ''; if (!open) continue;
       for (const h of list) {
         const ok = h.level <= i.level, b = document.createElement('button'); b.type = 'button'; b.className = 'hw-chip' + (h.id === sel ? ' on' : '') + (ok ? '' : ' lock'); b.disabled = !ok; b.setAttribute('aria-pressed', String(h.id === sel));

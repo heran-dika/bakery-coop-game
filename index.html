@@ -356,7 +356,15 @@
   .hwp { position:relative; display:inline-block; width:32px; height:51px; }
   .hwp.big { width:60px; height:96px; }
   .hwp img { position:absolute; inset:0; width:100%; height:100%; }
-  .mn-hw[hidden] { display:none; }
+  .mn-rw { display:flex; align-items:center; gap:6px; margin-top:6px; }   /* satu baris hadiah yang bisa digeser; panah kiri dan kanan */
+  .mn-scroll { display:flex; gap:8px; flex:1; min-width:0; overflow-x:auto; scroll-behavior:smooth; scrollbar-width:none; -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain; padding:2px; }
+  .mn-scroll::-webkit-scrollbar { display:none; }
+  .mn-scroll .hw-chip { flex:0 0 auto; min-width:68px; }
+  .mn-gl { flex:0 0 auto; align-self:center; writing-mode:vertical-rl; transform:rotate(180deg); font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#6f7a8a; padding:0 1px; }
+  .mn-arr { flex:0 0 auto; width:40px; height:64px; border:1px solid var(--line); border-radius:12px; background:#fff; color:var(--ink); font-size:24px; font-weight:800; line-height:1; cursor:pointer; }
+  .mn-arr:disabled { opacity:.3; cursor:default; }
+  .mn-arr[hidden] { display:none; }
+  @media (prefers-reduced-motion: reduce) { .mn-scroll { scroll-behavior:auto; } }
   .ncp { display:inline-block; margin:14px 0; padding:4px 10px; border-radius:5px; font-size:11px; font-weight:800; line-height:1.2; }   /* contoh chip nama berwarna */
   .bdp { display:inline-flex; align-items:center; justify-content:center; width:32px; height:51px; font-size:16px; }
   .bdp img { width:28px; height:28px; }
@@ -428,7 +436,7 @@
     .mn-main { padding:20px 28px; }
     .mn-side { padding:12px 20px; gap:8px; }
     .hwp { width:24px; height:38px; } .hwp.big { width:40px; height:64px; } .ncp { margin:8px 0; padding:3px 8px; } .bdp { height:38px; } .bdp img { width:24px; height:24px; }
-    .hw-chip { min-width:58px; padding:3px 6px; }
+    .hw-chip { min-width:58px; padding:3px 6px; } .mn-scroll .hw-chip { min-width:58px; } .mn-arr { width:34px; height:52px; }
     .mn-lv { margin-top:2px; }
     }
   /* Scoreboard lokal (PRD §9.6) */
@@ -574,10 +582,11 @@
         <input class="mn-in" id="mnName" type="text" maxlength="12" placeholder="Ketik nama kamu" autocomplete="off" enterkeyhint="done">
         <span class="mn-hint" id="mnHint">2–12 karakter: huruf, angka, spasi.</span>
         <div class="mn-lv"><div class="mn-lv-top"><b id="mnLv">Level 1</b><span id="mnXp">0 / 200 XP</span></div><div class="mn-bar"><i id="mnBar"></i></div></div>
-        <div class="mn-hw" id="mnHw" role="group" aria-label="Pakaian kepala"></div>
-        <div class="mn-hw" id="mnAp" role="group" aria-label="Celemek" hidden></div>
-        <div class="mn-hw" id="mnNc" role="group" aria-label="Warna nama" hidden></div>
-        <div class="mn-hw" id="mnBd" role="group" aria-label="Lencana" hidden></div>
+        <div class="mn-rw" role="group" aria-label="Hadiah kosmetik">
+          <button type="button" class="mn-arr" id="mnPrev" aria-label="Geser hadiah ke kiri">‹</button>
+          <div class="mn-scroll" id="mnScroll"></div>
+          <button type="button" class="mn-arr" id="mnNext" aria-label="Geser hadiah ke kanan">›</button>
+        </div>
       </div>
       <div class="mn-side">
         <div class="mn-char" id="mnChar" aria-hidden="true"></div>
@@ -1905,17 +1914,27 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     const i = BakeryXP.info(xpTotal());
     HWSEL = BakeryXP.cleanHeadwear(HWSEL, i.level); if (XPR) for (const k of Object.keys(COSKEY)) COS[k] = BakeryXP.cleanReward(k, COS[k], i.level); else for (const k of Object.keys(COSKEY)) COS[k] = COSDEF[k];
     byId('mnLv').textContent = `Level ${i.level}`; byId('mnXp').textContent = i.max ? 'Maks' : `${i.into} / ${i.span} XP`; byId('mnBar').style.width = Math.round(i.frac * 100) + '%';
-    for (const [kind, boxId] of [['hw', 'mnHw'], ['ap', 'mnAp'], ['nc', 'mnNc'], ['bd', 'mnBd']]) {
-      const box = byId(boxId), list = kind === 'hw' ? BakeryXP.HEADWEAR : (XPR ? BakeryXP.REWARDS[kind] : []), sel = selGet(kind), open = kind === 'hw' || list.some(h => h.level > 1 && h.level <= i.level);   // grup baru muncul setelah hadiah pertamanya terbuka
-      box.hidden = !open; box.textContent = ''; if (!open) continue;
+    const sc = byId('mnScroll'), keep = sc.scrollLeft, GL = { hw: 'Topi', ap: 'Celemek', nc: 'Nama', bd: 'Lencana' }; sc.textContent = '';
+    for (const kind of ['hw', 'ap', 'nc', 'bd']) {   // semua kelompok selalu tampil; hadiah yang belum terbuka abu-abu "Lv N"; geser dengan panah atau sapuan jari
+      const list = kind === 'hw' ? BakeryXP.HEADWEAR : (XPR ? BakeryXP.REWARDS[kind] : []), sel = selGet(kind); if (!list.length) continue;
+      sc.appendChild(Object.assign(document.createElement('span'), { className: 'mn-gl', textContent: GL[kind] }));
       for (const h of list) {
         const ok = h.level <= i.level, b = document.createElement('button'); b.type = 'button'; b.className = 'hw-chip' + (h.id === sel ? ' on' : '') + (ok ? '' : ' lock'); b.disabled = !ok; b.setAttribute('aria-pressed', String(h.id === sel));
         b.title = ok ? h.name : `${h.name} · terbuka di Level ${h.level}`; b.append(chipPreview(kind, h), Object.assign(document.createElement('span'), { textContent: ok ? h.name : 'Lv ' + h.level }));
-        b.onclick = () => setSel(kind, h.id); box.appendChild(b);
+        b.onclick = () => setSel(kind, h.id); sc.appendChild(b);
       }
     }
+    sc.style.scrollBehavior = 'auto'; sc.scrollLeft = keep; sc.style.scrollBehavior = ''; syncRwArrows();   // posisi geser dipertahankan saat pilihan berganti
     byId('mnChar').textContent = ''; byId('mnChar').appendChild(layerPreview(['char_baker_bare_dr_idle_0'].concat(COS.ap !== 'biasa' ? [`ap_${COS.ap}_dr_idle_0`] : [], [`hw_${HWSEL}_dr_idle_0`]), true));
   }
+
+  function syncRwArrows() {   // panah hanya tampil bila ada yang tersembunyi; mati di ujung
+    const sc = byId('mnScroll'), p = byId('mnPrev'), n = byId('mnNext'); if (!sc || !p || !n) return;
+    p.hidden = n.hidden = !(sc.scrollWidth > sc.clientWidth + 2);
+    p.disabled = sc.scrollLeft <= 2; n.disabled = sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 2;
+  }
+  const rwScroll = dir => { const sc = byId('mnScroll'); sc.scrollBy({ left: dir * Math.max(120, sc.clientWidth * .8), behavior: REDUCED ? 'auto' : 'smooth' }); };
+  if (byId('mnPrev')) { byId('mnPrev').onclick = () => rwScroll(-1); byId('mnNext').onclick = () => rwScroll(1); byId('mnScroll').addEventListener('scroll', syncRwArrows, { passive: true }); addEventListener('resize', syncRwArrows); if (window.ResizeObserver) new ResizeObserver(syncRwArrows).observe(byId('mnScroll')); }
 
   // ---- progres stage (lokal per perangkat, tidak tepercaya: PRD §9.2) ----
   const PROG_KEY = 'sbc_progress';

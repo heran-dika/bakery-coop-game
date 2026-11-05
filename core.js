@@ -38,6 +38,7 @@
     moveSpeed: 2.7,
     isoRatio: 0.5,            // tileH / tileW
     heavyCarrySlow: 0.94,
+    dock: null,               // stage karung berat: lihat DOCK_DEFAULTS; null = tanpa dock/karung
     maxStep: 0.05,            // dt dipecah per langkah ini supaya hasil sama di tick berapa pun
     // Kolisi: lingkaran badan vs persegi jejak alas kubus (sama dengan resolveStations di index.html 2026-10-23).
     // Semua angka [Menebak], disetel di HP: bodyR, footOffset, footHalf, reach*.
@@ -62,6 +63,14 @@
   };
 
   const HEAVY = ['dough', 'butter', 'salt', 'prepared_dough'];
+  // Dock + karung berat (stage 3). Semua angka [Menebak], disetel dari playtest.
+  const DOCK_DEFAULTS = {
+    restock: { crate: 'dough', x: 1, y: 2, r: 0.8 },   // karung yang masuk radius ini otomatis memenuhi stok peti
+    drop: { x: 6, y: 5 },                               // sel tempat truk menurunkan karung
+    x0: 5.6, y0: 4.6,                                   // sudut kiri-atas dinding dock (dinding kiri menutup selama truk di dalam, dinding atas tetap)
+    carrySlow: 0.25, span: 1.9, liftReach: 1.1, assistReach: 2.6,
+    arriveSeconds: 1.6, unloadSeconds: 1.0, leaveSeconds: 1.4, truckDelay: 2.5
+  };
   const SERVABLE = ['plain_bread', 'salt_bread', 'coffee'];
 
   function mulberry32(seed) {
@@ -108,10 +117,14 @@
     let rng = mulberry32(seed);
     let s = null;
     let byId = {};
+    const DK = cfg.dock ? Object.assign({}, DOCK_DEFAULTS, cfg.dock, {
+      restock: Object.assign({}, DOCK_DEFAULTS.restock, cfg.dock.restock), drop: Object.assign({}, DOCK_DEFAULTS.drop, cfg.dock.drop)
+    }) : null;
 
     function makeStation(def) {
       const st = { id: def.id, type: def.type, x: def.x, y: def.y };
       if (def.gives) st.gives = def.gives;
+      if (def.stock != null) { st.stock = def.stock; st.stockMax = def.stock; }   // peti dengan stok terbatas (restok lewat karung)
       if (def.type === 'prep') Object.assign(st, { item: null, processing: false, timer: 0 });
       if (def.type === 'oven') Object.assign(st, { item: null, status: 'empty', timer: 0, readyTimer: 0 });
       if (def.type === 'counter') st.item = null;
@@ -132,7 +145,9 @@
         score: 0, ordersServed: 0, ordersExpired: 0, burntCount: 0, streak: 0,
         orders: [], orderSerial: 1, itemSerial: 1,
         hazards: [], nextHazardAt: cfg.hazard.firstAt, nextHazardId: 1,
-        stations, players
+        stations, players,
+        sack: DK ? { mode: 'none', x: 0, y: 0, carrier: null, grip: [], side: [], axis: null } : null,
+        dock: DK ? { phase: 'idle', t: 0, open: false } : null
       };
     }
 
@@ -146,6 +161,7 @@
     function start(newSeed) {
       reset(newSeed);
       s.mode = 'running';
+      if (DK) { s.dock.phase = 'arriving'; s.dock.t = DK.arriveSeconds; s.dock.open = false; }
       for (const type of cfg.openingOrders) pushOrder(type, []);
       s.nextOrderAt = cfg.openingNextOrderAt;
       return game;
@@ -190,21 +206,35 @@
     }
 
     // Tanpa tolak per-sumbu: karakter didorong keluar dari persegi jejak kubus, jadi bisa memutari sudut tanpa nyangkut.
-    function resolveStations(x, y) {
+    const footRect = (x, y) => { const c = cfg.collision, cx = x + c.footOffset, cy = y + c.footOffset; return [cx - c.footHalf, cy - c.footHalf, cx + c.footHalf, cy + c.footHalf]; };
+    const overlap = (a, b) => a[0] < b[2] - 1e-6 && a[2] > b[0] + 1e-6 && a[1] < b[3] - 1e-6 && a[3] > b[1] + 1e-6;
+    function wallRects() {   // dinding dock: atas selalu ada, kiri hanya selama pintu tertutup
+      if (!DK) return [];
+      const t = 0.12, r = [[DK.x0, DK.y0, DK.x0 + 9, DK.y0 + t]];
+      if (!s.dock.open) r.push([DK.x0, DK.y0, DK.x0 + t, DK.y0 + 9]);
+      return r;
+    }
+    function resolveStations(x, y, ignoreSack) {
       const c = cfg.collision, R = c.bodyR, G = c.reachMin + 2 * R, h = c.footHalf;
-      for (let pass = 0; pass < 2; pass++) for (const st of s.stations) {
-        const cx = st.x + c.footOffset, cy = st.y + c.footOffset;
-        // celah antara kubus dan dinding yang lebih sempit dari badan dianggap padat
-        const x0 = cx - h < G ? -9 : cx - h, x1 = cx + h > c.reachMaxX - 2 * R ? 9 : cx + h;
-        const y0 = cy - h < G ? -9 : cy - h, y1 = cy + h > c.reachMaxY - 2 * R ? 9 : cy + h;
-        const qx = Math.max(x0, Math.min(x, x1)), qy = Math.max(y0, Math.min(y, y1));
+      const extra = wallRects();
+      if (!ignoreSack && s.sack && (s.sack.mode === 'floor' || s.sack.mode === 'drag')) extra.push(footRect(s.sack.x, s.sack.y));
+      const out = q => {   // dorong titik keluar dari persegi q = [x0,y0,x1,y1] sejauh bodyR
+        const qx = Math.max(q[0], Math.min(x, q[2])), qy = Math.max(q[1], Math.min(y, q[3]));
         const dx = x - qx, dy = y - qy, d = Math.hypot(dx, dy);
-        if (d >= R) continue;
+        if (d >= R) return;
         if (d > 1e-6) { x = qx + dx / d * R; y = qy + dy / d * R; }
         else {   // pusat sudah di dalam persegi: keluar lewat sisi terdekat
-          const l = x - x0, r = x1 - x, tp = y - y0, b = y1 - y, mn = Math.min(l, r, tp, b);
-          if (mn === l) x = x0 - R; else if (mn === r) x = x1 + R; else if (mn === tp) y = y0 - R; else y = y1 + R;
+          const l = x - q[0], r = q[2] - x, tp = y - q[1], b = q[3] - y, mn = Math.min(l, r, tp, b);
+          if (mn === l) x = q[0] - R; else if (mn === r) x = q[2] + R; else if (mn === tp) y = q[1] - R; else y = q[3] + R;
         }
+      };
+      for (let pass = 0; pass < 2; pass++) {
+        for (const st of s.stations) {
+          const cx = st.x + c.footOffset, cy = st.y + c.footOffset;
+          // celah antara kubus dan dinding yang lebih sempit dari badan dianggap padat
+          out([cx - h < G ? -9 : cx - h, cy - h < G ? -9 : cy - h, cx + h > c.reachMaxX - 2 * R ? 9 : cx + h, cy + h > c.reachMaxY - 2 * R ? 9 : cy + h]);
+        }
+        for (const q of extra) out(q);   // dinding dock dan karung: persegi biasa tanpa aturan celah-dinding
       }
       return clampWorld(x, y);
     }
@@ -220,6 +250,7 @@
       const dy = sy * cfg.moveSpeed - sx * cfg.moveSpeed * cfg.isoRatio;
       const hz = cfg.hazard;
       let factor = p.held && HEAVY.includes(p.held.type) ? cfg.heavyCarrySlow : 1;
+      if (DK && p.held && p.held.type === 'sack') factor *= DK.carrySlow;   // karung diangkat sendiri: pelan
       if (s.elapsed < p.slipUntil) factor *= hz.slipFactor;
       for (const h of s.hazards) {
         if (h.state === 'active' && Math.hypot(p.x - h.x, p.y - h.y) < h.radius) {
@@ -276,6 +307,145 @@
       }
     }
 
+    // ---------- dock + karung ----------
+    // Karung: mode 'none' (belum ada), 'floor' (di lantai, jadi penghalang), 'carry' (diangkat satu pemain; p.held = {type:'sack'}, jalan 1/4),
+    // 'drag' (dua pemain di sisi berseberangan sepanjang satu sumbu; kecepatan normal, hanya jalan bila keduanya bergerak searah sumbu).
+    const rowsMax = () => Math.round(cfg.collision.reachMaxY - 0.37);
+    const sackWorld = p => { const dx = p.facingX * cfg.isoRatio + p.facingY, dy = p.facingY - p.facingX * cfg.isoRatio, l = Math.hypot(dx, dy) || 1; return [dx / l, dy / l]; };
+    const sackDist = p => Math.hypot(s.sack.x - p.x, s.sack.y - p.y);
+    function sackFits(x, y) {
+      if (x < 1 - 1e-6 || y < 1 - 1e-6 || x > cfg.collision.reachMaxX - 0.37 + 1e-6 || y > rowsMax() + 1e-6) return false;
+      const f = footRect(x, y);
+      for (const st of s.stations) if (overlap(f, footRect(st.x, st.y))) return false;
+      for (const w of wallRects()) if (overlap(f, w)) return false;
+      return true;
+    }
+    function playerFits(x, y) { const r = resolveStations(x, y, true); return Math.abs(r[0] - x) < 1e-3 && Math.abs(r[1] - y) < 1e-3; }
+    const inDock = p => p.x > DK.x0 + 0.05 && p.y > DK.y0 + 0.05;
+    function sackWins(p) {   // karung lebih dekat daripada stasiun mana pun dalam jangkauan
+      const st = targetStation(p), d = sackDist(p);
+      return d <= DK.liftReach && (!st || d < stationDistance(p, st));
+    }
+    function carrierOf(sk) { return sk.carrier ? s.players.find(q => q.id === sk.carrier) : null; }
+    function gripCheck(c, p) {   // dua pemain berseberangan sepanjang satu sumbu? -> {axis, cx, cy} atau null
+      const dx = p.x - c.x, dy = p.y - c.y, axis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+      const along = axis === 'x' ? dx : dy, cross = axis === 'x' ? dy : dx;
+      if (Math.abs(cross) > 0.6 || Math.abs(along) < 1.4 || Math.abs(along) > 2.6) return null;
+      const mx = (c.x + p.x) / 2, my = (c.y + p.y) / 2;
+      return { axis, cx: axis === 'x' ? mx : Math.round(mx), cy: axis === 'y' ? my : Math.round(my) };
+    }
+    function sackTarget(p) {   // untuk targetOf: apakah tombol Aksi pemain ini sekarang berarti "urus karung"
+      const sk = s.sack;
+      if (!DK || !sk || sk.mode === 'none') return false;
+      if (p.held && p.held.type === 'sack') return true;
+      if (sk.mode === 'drag') return sk.grip.includes(p.id);
+      if (p.held) return false;
+      if (sk.mode === 'carry') { const c = carrierOf(sk); return !!c && c.id !== p.id && Math.hypot(c.x - p.x, c.y - p.y) <= DK.assistReach; }
+      return sk.mode === 'floor' && sackWins(p);
+    }
+    function dropSack(p, ev) {
+      const sk = s.sack, [wx, wy] = sackWorld(p);
+      let best = null, bd = 1e9;   // sel terdekat dari pemain yang muat; arah hadap hanya jadi pemanis (memilih antar sel yang hampir sama dekat)
+      for (let cx = Math.round(p.x) - 2; cx <= Math.round(p.x) + 2; cx++) for (let cy = Math.round(p.y) - 2; cy <= Math.round(p.y) + 2; cy++) {
+        if (!sackFits(cx, cy) || Math.hypot(cx - p.x, cy - p.y) > 1.7) continue;
+        const f = footRect(cx, cy);
+        if (s.players.some(q => Math.hypot(q.x - Math.max(f[0], Math.min(q.x, f[2])), q.y - Math.max(f[1], Math.min(q.y, f[3]))) < cfg.collision.bodyR - 1e-6)) continue;
+        const dd = Math.hypot(cx - p.x, cy - p.y) || 1, d = dd - 0.25 * (((cx - p.x) * wx + (cy - p.y) * wy) / dd); if (d < bd) { bd = d; best = [cx, cy]; }
+      }
+      if (!best) return ev.push({ type: 'msg', player: p.id, code: 'sack_no_space' });
+      p.held = null; Object.assign(sk, { mode: 'floor', x: best[0], y: best[1], carrier: null, grip: [], side: [], axis: null });
+      ev.push({ type: 'msg', player: p.id, code: 'sack_dropped' });
+    }
+    function releaseDrag(p, ev) {
+      const sk = s.sack, ids = sk.grip.slice();
+      const along = sk.axis === 'x' ? 'x' : 'y', v = Math.round(sk[along]), tryPos = along === 'x' ? [v, sk.y] : [sk.x, v];
+      if (sackFits(tryPos[0], tryPos[1])) { sk.x = tryPos[0]; sk.y = tryPos[1]; }   // rapikan ke sel terdekat bila muat
+      Object.assign(sk, { mode: 'floor', carrier: null, grip: [], side: [], axis: null });
+      for (const id of ids) ev.push({ type: 'msg', player: id, code: 'sack_released' });
+    }
+    function gripSack(c, p, ev) {
+      const sk = s.sack, g = gripCheck(c, p);
+      if (!g) return false;
+      const half = DK.span / 2, sideC = Math.sign((g.axis === 'x' ? c.x : c.y) - (g.axis === 'x' ? g.cx : g.cy)) || -1;
+      const at = (side) => g.axis === 'x' ? [g.cx + side * half, g.cy] : [g.cx, g.cy + side * half];
+      const pc = at(sideC), pp = at(-sideC);
+      if (!sackFits(g.cx, g.cy) || !playerFits(pc[0], pc[1]) || !playerFits(pp[0], pp[1])) { ev.push({ type: 'msg', player: p.id, code: 'sack_no_space' }); return true; }
+      c.held = null; c.x = pc[0]; c.y = pc[1]; p.x = pp[0]; p.y = pp[1];
+      Object.assign(sk, { mode: 'drag', x: g.cx, y: g.cy, carrier: null, grip: [c.id, p.id], side: [sideC, -sideC], axis: g.axis });
+      ev.push({ type: 'msg', player: c.id, code: 'sack_gripped' }, { type: 'msg', player: p.id, code: 'sack_gripped' });
+      return true;
+    }
+    function interactSack(p, ev) {   // true bila aksi ini diurus karung (jangan lanjut ke stasiun)
+      const sk = s.sack;
+      if (!DK || !sk || sk.mode === 'none') return false;
+      if (p.held && p.held.type === 'sack') { dropSack(p, ev); return true; }
+      if (sk.mode === 'drag' && sk.grip.includes(p.id)) { releaseDrag(p, ev); return true; }
+      if (p.held) return false;
+      if (sk.mode === 'carry' && sk.carrier !== p.id) {
+        const c = carrierOf(sk);
+        if (c && Math.hypot(c.x - p.x, c.y - p.y) <= DK.assistReach) {
+          if (gripSack(c, p, ev)) return true;
+          if (!targetStation(p)) { ev.push({ type: 'msg', player: p.id, code: 'sack_align' }); return true; }
+        }
+        return false;
+      }
+      if (sk.mode === 'floor' && sackWins(p)) {
+        p.held = { id: s.itemSerial++, type: 'sack', mods: [] };
+        Object.assign(sk, { mode: 'carry', carrier: p.id, x: p.x, y: p.y });
+        ev.push({ type: 'msg', player: p.id, code: 'sack_lifted' });
+        return true;
+      }
+      return false;
+    }
+    function updateDrag(inputs, dt) {   // satu langkah tick: dua pemain berpegangan, karung bergerak bila keduanya bergerak searah sumbu
+      const sk = s.sack, S = cfg.moveSpeed;
+      const ps = sk.grip.map(id => s.players.find(q => q.id === id));
+      if (ps.some(q => !q)) { Object.assign(sk, { mode: 'floor', grip: [], side: [], axis: null }); return; }
+      const u = sk.axis === 'x' ? [1, 0] : [0, 1];
+      const vel = ps.map(q => {
+        const inp = inputs[q.id]; let sx = inp && inp.sx || 0, sy = inp && inp.sy || 0;
+        const l = Math.hypot(sx, sy); if (l > 1) { sx /= l; sy /= l; }
+        if (Math.abs(sx) + Math.abs(sy) < 0.01) return 0;
+        q.facingX = sx; q.facingY = sy;
+        return (sx * S * cfg.isoRatio + sy * S) * u[0] + (sy * S - sx * S * cfg.isoRatio) * u[1];
+      });
+      ps.forEach(q => { q.moving = false; });
+      if (!(vel[0] * vel[1] > 0)) return;   // harus keduanya bergerak, searah sumbu
+      const v = Math.sign(vel[0]) * Math.min(Math.abs(vel[0]), Math.abs(vel[1])), key = sk.axis;
+      for (const f of [1, 0.5, 0.25]) {
+        const nv = sk[key] + v * f * dt, nx = key === 'x' ? nv : sk.x, ny = key === 'y' ? nv : sk.y;
+        const half = DK.span / 2, pos = ps.map((q, i) => key === 'x' ? [nx + sk.side[i] * half, ny] : [nx, ny + sk.side[i] * half]);
+        if (!sackFits(nx, ny) || !pos.every(q => playerFits(q[0], q[1]))) continue;
+        sk.x = nx; sk.y = ny; ps.forEach((q, i) => { q.x = pos[i][0]; q.y = pos[i][1]; q.moving = true; });
+        return;
+      }
+    }
+    function dockOccupied() { return s.players.some(inDock); }
+    function updateDock(dt, ev) {
+      const d = s.dock, sk = s.sack;
+      if (d.phase === 'arriving') { d.t -= dt; if (d.t <= 0) { d.phase = 'unloading'; d.t = DK.unloadSeconds; Object.assign(sk, { mode: 'floor', x: DK.drop.x, y: DK.drop.y, carrier: null, grip: [], side: [], axis: null }); } }
+      else if (d.phase === 'unloading') { d.t -= dt; if (d.t <= 0) { d.phase = 'leaving'; d.t = DK.leaveSeconds; } }
+      else if (d.phase === 'leaving') { d.t -= dt; if (d.t <= 0) { d.phase = 'away'; d.t = 0; d.open = true; ev.push({ type: 'dock:door' }); } }
+      else if (d.phase === 'waiting') {
+        d.t -= dt;
+        if (d.t <= 0 && !dockOccupied()) { d.open = false; d.phase = 'arriving'; d.t = DK.arriveSeconds; ev.push({ type: 'dock:truck' }); }
+      }
+      if (sk.mode === 'none') return;
+      if (sk.mode === 'carry') {   // karung mengikuti pembawanya; kalau pegangan hilang, taruh di lantai
+        const c = carrierOf(sk);
+        if (c && c.held && c.held.type === 'sack') { sk.x = c.x; sk.y = c.y; }
+        else { Object.assign(sk, { mode: 'floor', x: c ? Math.round(c.x) : DK.drop.x, y: c ? Math.round(c.y) : DK.drop.y, carrier: null }); if (!sackFits(sk.x, sk.y)) { sk.x = DK.drop.x; sk.y = DK.drop.y; } }
+      }
+      const rz = DK.restock;
+      if (sk.mode !== 'none' && Math.hypot(sk.x - rz.x, sk.y - rz.y) <= rz.r) {   // karung masuk ke peti adonan: stok penuh, truk berikutnya dipanggil
+        const c = carrierOf(sk); if (c && c.held && c.held.type === 'sack') c.held = null;
+        Object.assign(sk, { mode: 'none', carrier: null, grip: [], side: [], axis: null });
+        const cr = byId[rz.crate]; if (cr && cr.stockMax != null) cr.stock = cr.stockMax;
+        d.phase = 'waiting'; d.t = DK.truckDelay;
+        ev.push({ type: 'dock:restock', crate: rz.crate });
+      }
+    }
+
     // ---------- interaksi ----------
     function interact(p, requestId, ev) {
       if (s.mode !== 'running') return;
@@ -284,14 +454,16 @@
         p.seen.push(requestId); if (p.seen.length > 64) p.seen.shift();
       }
       const msg = (code, data) => ev.push(Object.assign({ type: 'msg', player: p.id, code }, data));
+      if (DK && interactSack(p, ev)) return;
       const st = targetStation(p);
       if (!st) return msg('too_far');
       const held = p.held;
 
       if (st.type === 'crate') {
         if (held) return msg('hands_full');
+        if (st.stock != null) { if (st.stock <= 0) return msg('crate_empty', { crate: st.id }); st.stock--; }
         p.held = makeItem(st.gives);
-        return msg('picked', { item: p.held.type });
+        return msg('picked', { item: p.held.type, left: st.stock });
       }
 
       if (st.type === 'prep') {
@@ -448,7 +620,9 @@
         cm.timer -= dt;
         if (cm.timer <= 0) { cm.timer = 0; cm.status = 'ready'; ev.push({ type: 'coffee:ready' }); }
       }
-      for (const p of s.players) movePlayer(p, inputs[p.id], dt, ev);
+      if (DK && s.sack.mode === 'drag') updateDrag(inputs, dt);
+      for (const p of s.players) { if (DK && s.sack.mode === 'drag' && s.sack.grip.includes(p.id)) continue; movePlayer(p, inputs[p.id], dt, ev); }
+      if (DK) updateDock(dt, ev);
       if (s.roundLeft <= 0) finishRound(ev);
     }
 
@@ -484,6 +658,7 @@
 
     function targetOf(playerId) {
       const p = s.players.find(q => q.id === playerId);
+      if (p && DK && sackTarget(p)) return 'sack';
       const st = p && targetStation(p);
       return st ? st.id : null;
     }

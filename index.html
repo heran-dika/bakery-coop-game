@@ -515,6 +515,7 @@
           <div><b>Interaksi:</b> Space / tombol Aksi untuk mengambil, meletakkan, memulai proses, atau menyajikan.</div>
           <div><b>Shokupan:</b> adonan → prep → uleni → oven → counter output.</div>
           <div><b>Salt bread:</b> adonan → prep → uleni → ambil mentega lalu tambahkan di prep → ambil garam lalu tambahkan di prep → oven → counter output.</div>
+          <div><b>Karung (Stage 3):</b> peti adonan berstok 5; restok = karung dari dock. Aksi dekat karung = angkat sendiri (jalan pelan). Berdua: satu angkat, satu lagi berdiri segaris di seberangnya lalu Aksi, kemudian tarik atau dorong searah. Aksi lagi = lepas.</div>
           <div><b>Counter:</b> tempat taruh item sementara, satu item per slot.</div>
           <div><b>Kesalahan:</b> item yang salah atau gosong dapat dibuang ke Trash. Order kedaluwarsa memberi penalti skor.</div>
         </div>
@@ -636,9 +637,9 @@
   <div class="inventory-bar"><div>Di tangan: <span class="inventory" id="inventoryText">Kosong</span></div><div class="help-line">Dekati stasiun lalu tekan <b>Space</b> / <b>Aksi</b> · Hindari oven gosong.</div></div>
 </div>
 <!-- Vector-first P0: all gameplay art is procedural Canvas geometry; external image/font assets are intentionally avoided for offline and mobile performance. -->
-<script>window.BAKERY_BUILD='20261102-s3';</script>
-<script src="core.js?v=20261102-s3"></script>
-<script src="stages.js?v=20261102-s3"></script>
+<script>window.BAKERY_BUILD='20261105-dock';</script>
+<script src="core.js?v=20261105-dock"></script>
+<script src="stages.js?v=20261105-dock"></script>
 <script src="audio.js?v=20261102-s3"></script>
 <script src="xp.js?v=20261103-rw"></script>
 <script src="scoreboard.js?v=20261102-s3"></script>
@@ -791,11 +792,12 @@
     return Object.assign({}, base, num && st.type !== 'counter' ? { name: base.name + ' ' + num[1] } : {});
   }
   let stations = [], stationById = {}, reqSerial = 0;
+  let sackSt = null, dockSt = null, sackHinted = false;   // karung dan dock (stage 3); null bila stage tanpa dock
   function bindState() {   // dipanggil setiap core membuat state baru (reset/start)
     const s = game.state;
     stations = s.stations; stationById = Object.fromEntries(stations.map(st => [st.id, st]));
     for (const st of stations) Object.assign(st, viewOf(st));
-    orders = s.orders; hazards = s.hazards;
+    orders = s.orders; hazards = s.hazards; sackSt = s.sack; dockSt = s.dock;
     syncFromCore();
   }
   function syncFromCore() {   // salin angka dari core ke variabel yang dibaca render dan HUD
@@ -806,12 +808,12 @@
 
   function itemTitle(item) {
     if (!item) return 'Kosong';
-    const names = { dough:'Adonan mentah', butter:'Mentega', salt:'Garam', prepared_dough:'Adonan siap panggang', plain_bread:'Shokupan', salt_bread:'Salt bread', burnt_bread:'Roti gosong', failed_bread:'Roti gagal', coffee:'Kopi es', extinguisher:'Alat pemadam' };
+    const names = { dough:'Adonan mentah', butter:'Mentega', salt:'Garam', prepared_dough:'Adonan siap panggang', plain_bread:'Shokupan', salt_bread:'Salt bread', burnt_bread:'Roti gosong', failed_bread:'Roti gagal', coffee:'Kopi es', extinguisher:'Alat pemadam', sack:'Karung berat' };
     return names[item.type] || item.type;
   }
   function itemEmoji(item) {
     if (!item) return '';
-    return ({ dough:'🥣', butter:'🧈', salt:'🧂', prepared_dough:'🥖', plain_bread:'🍞', salt_bread:'🥐', burnt_bread:'⚫', failed_bread:'🥨', coffee:'🧋', extinguisher:'🧯' })[item.type] || '📦';
+    return ({ dough:'🥣', butter:'🧈', salt:'🧂', prepared_dough:'🥖', plain_bread:'🍞', salt_bread:'🥐', burnt_bread:'⚫', failed_bread:'🥨', coffee:'🧋', extinguisher:'🧯', sack:'🎒' })[item.type] || '📦';
   }
   function showToast(message, ms=1900) {
     els.toast.textContent = message;
@@ -821,9 +823,9 @@
   }
   // ---- bunyi ----
   const isMine = e => !e.player || e.player === (ONLINE ? meId() : 'p1');   // bunyi aksi pribadi hanya untuk pemain ini
-  const SFX_PICK = new Set(['picked', 'prep_took', 'counter_took', 'oven_took', 'coffee_took']);
-  const SFX_PLACE = new Set(['prep_placed', 'counter_placed', 'mod_added', 'oven_started', 'coffee_started', 'fire_extinguishing']);
-  const SFX_FAIL = new Set(['hands_full', 'too_far', 'need_dough', 'prep_busy', 'empty_hands_to_knead', 'mod_present', 'prep_in_use', 'oven_needs_prepared', 'oven_cooking', 'oven_empty_hands', 'counter_both_full', 'counter_empty', 'serve_need_bread', 'serve_no_order', 'trash_empty_hands', 'coffee_brewing', 'coffee_hands_full', 'oven_on_fire', 'oven_extinguishing']);
+  const SFX_PICK = new Set(['picked', 'prep_took', 'counter_took', 'oven_took', 'coffee_took', 'sack_lifted']);
+  const SFX_PLACE = new Set(['prep_placed', 'counter_placed', 'mod_added', 'oven_started', 'coffee_started', 'fire_extinguishing', 'sack_dropped', 'sack_gripped', 'sack_released']);
+  const SFX_FAIL = new Set(['hands_full', 'too_far', 'need_dough', 'prep_busy', 'empty_hands_to_knead', 'mod_present', 'prep_in_use', 'oven_needs_prepared', 'oven_cooking', 'oven_empty_hands', 'counter_both_full', 'counter_empty', 'serve_need_bread', 'serve_no_order', 'trash_empty_hands', 'coffee_brewing', 'coffee_hands_full', 'oven_on_fire', 'oven_extinguishing', 'sack_align', 'sack_no_space', 'crate_empty']);
   function sfxForMsg(e) {
     if (SFX_PICK.has(e.code)) BakeryAudio.play('pick');
     else if (SFX_PLACE.has(e.code)) BakeryAudio.play('place');
@@ -902,6 +904,9 @@
         case 'oven:burnt': BakeryAudio.play('ovenBurnt'); showToast(CONFIG.fire && CONFIG.fire.enabled ? `Gosong! Angkat dalam ${CONFIG.fire.afterBurntSeconds} detik atau oven terbakar.` : 'Oven berasap! Rotinya gosong — buang ke Trash.', 2200); break;
         case 'oven:fire': BakeryAudio.play('ovenBurnt'); showToast('OVEN TERBAKAR! Ambil alat pemadam di peti, lalu padamkan.', 2600); break;
         case 'oven:fireOut': BakeryAudio.play('ovenReady'); showToast('Api padam. Oven bisa dipakai lagi.', 1800); break;
+        case 'dock:truck': BakeryAudio.play('orderNew'); showToast('Truk datang membawa karung baru.', 1800); break;
+        case 'dock:door': BakeryAudio.play('ovenReady'); showToast(sackHinted ? 'Pintu dock terbuka. Karung siap diambil!' : 'Pintu dock terbuka! Karung berat: Aksi = angkat sendiri (pelan). Berdua: satu angkat, satu berdiri di seberangnya lalu Aksi, lalu tarik/dorong searah.', sackHinted ? 2000 : 5200); sackHinted = true; break;
+        case 'dock:restock': BakeryAudio.play('orderDone', 2); showToast('Karung masuk! Stok adonan penuh lagi.', 2200); break;
         case 'coffee:ready': BakeryAudio.play('ovenReady'); showToast('Kopi sudah jadi! Ambil dari mesin.', 1600); break;
         case 'hazard:spawned': BakeryAudio.play('spill'); showToast('Awas! Ada tumpahan di lantai.', 1500); break;
         case 'hazard:slip': if (isMine(e)) BakeryAudio.play('slip'); addFeedback(e.x, e.y, 'OOPS!', '#c34f5a'); break;
@@ -917,7 +922,14 @@
     switch (e.code) {
       case 'too_far': return ['Dekati stasiun lebih dekat untuk berinteraksi.'];
       case 'hands_full': return ['Tangan kamu masih penuh. Letakkan atau buang item dulu.'];
-      case 'picked': return [`${it(e.item)} diambil.`];
+      case 'picked': return [`${it(e.item)} diambil.${e.left != null ? ` Sisa ${e.left}.` : ''}`];
+      case 'crate_empty': return ['Peti kosong! Dorong karung dari dock ke peti adonan.', 2200];
+      case 'sack_lifted': return ['Karung diangkat, jalan pelan. Berdua lebih cepat: teman berdiri di seberangmu lalu tekan Aksi.', 2600];
+      case 'sack_dropped': return ['Karung ditaruh.'];
+      case 'sack_gripped': return ['Karung dipegang berdua. Tarik atau dorong searah. Aksi = lepas.', 2400];
+      case 'sack_released': return ['Karung dilepas.'];
+      case 'sack_align': return ['Berdirilah segaris di seberang pembawa karung, jarak ±2 petak.', 2200];
+      case 'sack_no_space': return ['Tidak ada ruang untuk karung di sini.'];
       case 'prep_busy': return ['Adonan masih diuleni.'];
       case 'prep_placed': return ['Adonan diletakkan di meja prep. Tekan Aksi lagi untuk mulai uleni.'];
       case 'need_dough': return ['Ambil adonan mentah dari peti dulu.'];
@@ -988,10 +1000,15 @@
     return {sx,sy};
   }
   // Kolisi, gerak, dan pemilihan stasiun target dihitung di core (resolveStations, movePlayer, targetOf).
-  function getTargetStation() { if (ONLINE) { const sn = NET.snap && NET.snap.snapshot, id = sn && sn.targets && NET.room && sn.targets[NET.room.you]; return id ? stationById[id] || null : null; } const id = game.targetOf('p1'); return id ? stationById[id] : null; }
+  function getTargetStation() {
+    let id = null;
+    if (ONLINE) { const sn = NET.snap && NET.snap.snapshot; id = sn && sn.targets && NET.room && sn.targets[NET.room.you]; } else id = game.targetOf('p1');
+    if (id === 'sack') return sackSt && sackSt.mode !== 'none' ? { id:'sack', type:'sack', x:sackSt.x, y:sackSt.y } : null;
+    return id ? stationById[id] || null : null;
+  }
   const VERB_ICON = { AMBIL:'ambil', TARUH:'taruh', ULENI:'uleni', TAMBAH:'tambah', PANGGANG:'oven', SAJIKAN:'bell', BUANG:'trash', SEDUH:'oven', PADAM:'oven' };
   let actionIconName = 'ambil';
-  const VERBS = [[/^Ambil/,'AMBIL'],[/^(Letakkan|Taruh)/,'TARUH'],[/^Mulai uleni/,'ULENI'],[/^Tambahkan/,'TAMBAH'],[/^Masukkan/,'PANGGANG'],[/^Sajikan/,'SAJIKAN'],[/^Buang/,'BUANG'],[/^Mulai seduh/,'SEDUH'],[/^Padamkan/,'PADAM']];
+  const VERBS = [[/^(Angkat|Bantu)/,'AMBIL'],[/^Lepas/,'TARUH'],[/^Ambil/,'AMBIL'],[/^(Letakkan|Taruh)/,'TARUH'],[/^Mulai uleni/,'ULENI'],[/^Tambahkan/,'TAMBAH'],[/^Masukkan/,'PANGGANG'],[/^Sajikan/,'SAJIKAN'],[/^Buang/,'BUANG'],[/^Mulai seduh/,'SEDUH'],[/^Padamkan/,'PADAM']];
   const byType = type => stations.filter(s => s.type === type);   // dipakai petunjuk: stage boleh punya beberapa prep/oven/counter/trash
   const freeCounter = () => (byType('counter').find(s => !s.item) || {}).id || null;
   const trashIds = () => byType('trash').map(s => s.id);
@@ -1033,7 +1050,12 @@
   }
   function actionText(s) {
     if (!s) return 'Dekati stasiun lalu tekan Aksi';
-    if (s.type === 'crate') return heldItem ? 'Tangan penuh — kosongkan tangan dulu' : `Ambil ${s.label.toLowerCase()}`;
+    if (s.type === 'sack') {
+      if (heldItem && heldItem.type === 'sack') return 'Taruh karung';
+      const k = sackSt || {};
+      return k.mode === 'drag' ? 'Lepas karung' : k.mode === 'carry' ? 'Bantu angkat karung (seberang, segaris)' : 'Angkat karung';
+    }
+    if (s.type === 'crate') return heldItem ? 'Tangan penuh — kosongkan tangan dulu' : s.stock === 0 ? 'Peti kosong — dorong karung ke sini' : `Ambil ${s.label.toLowerCase()}${s.stock != null ? ` (sisa ${s.stock})` : ''}`;
     if (s.type === 'prep') {
       if (s.processing) return `Menguleni… ${Math.max(0,s.timer).toFixed(1)}s`;
       if (!s.item) return heldItem?.type === 'dough' ? 'Letakkan adonan di meja prep' : 'Meja prep kosong';
@@ -1352,6 +1374,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
       ctx.strokeStyle='#e9c28c';ctx.lineWidth=1*sc;ctx.beginPath();ctx.moveTo(p.x-w*.2,topY+h*.05);ctx.lineTo(p.x+w*.2,topY+h*.05);ctx.stroke();
     }
     ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`800 ${Math.max(7,9.5*sc)}px ui-sans-serif,system-ui,sans-serif`;if(showLabels){ctx.fillStyle='#2a3d53';ctx.fillText(s.name,p.x,p.y+depth+8*sc);}
+    if(s.stock!=null){const bx=p.x+22*sc,by=topY-24*sc,r=Math.max(7,8.5*sc);ctx.fillStyle=s.stock===0?'#c34f5a':'#243b5a';ctx.beginPath();ctx.arc(bx,by,r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fffaf2';ctx.lineWidth=1.5*sc;ctx.stroke();ctx.fillStyle='#fffaf2';ctx.font=`900 ${Math.max(9,11*sc)}px ui-sans-serif,system-ui,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(s.stock,bx,by+.5*sc);}
     if(s.type==='prep'&&s.processing)drawMiniBar(p.x,topY-24*sc,Math.max(0,1-s.timer/CONFIG.prepSeconds),'#2e8067',sc);
     if(s.type==='oven'&&s.status==='cooking')drawMiniBar(p.x,topY-24*sc,1-s.timer/CONFIG.cookSeconds,'#e2ad44',sc);
     if(s.type==='oven'&&s.status==='burnt'&&CONFIG.fire&&CONFIG.fire.enabled)drawMiniBar(p.x,topY-24*sc,s.readyTimer/CONFIG.fire.afterBurntSeconds,'#c34f5a',sc);
@@ -1465,20 +1488,63 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     const ik=sc*ITEM_SCALE, ia=artFor(itemKey(item),32,24,ik);
     if(ia){ctx.drawImage(ia,x-16*ik,y-12*ik,32*ik,24*ik);return;}
     if(['dough','prepared_dough'].includes(item.type)){ctx.fillStyle='#f1d5a2';ctx.beginPath();ctx.ellipse(x,y,7*sc,4.5*sc,-.2,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#c18d55';ctx.lineWidth=.8*sc;ctx.stroke();}
+    else if(item.type==='sack'){ctx.fillStyle='#c9a46b';roundRect(ctx,x-9*sc,y-8*sc,18*sc,15*sc,5*sc);ctx.fill();ctx.strokeStyle='#8a6a3a';ctx.lineWidth=1*sc;ctx.stroke();ctx.beginPath();ctx.moveTo(x-6*sc,y-4*sc);ctx.lineTo(x+6*sc,y-4*sc);ctx.stroke();}
     else if(item.type==='butter'){ctx.fillStyle='#f4c84e';roundRect(ctx,x-5*sc,y-4*sc,10*sc,7*sc,1.5*sc);ctx.fill();ctx.strokeStyle='#d7a62c';ctx.stroke();}
     else if(item.type==='salt'){ctx.fillStyle='#fffdf5';ctx.beginPath();ctx.moveTo(x-5*sc,y+3*sc);ctx.lineTo(x-3*sc,y-4*sc);ctx.lineTo(x+3*sc,y-4*sc);ctx.lineTo(x+5*sc,y+3*sc);ctx.closePath();ctx.fill();ctx.strokeStyle='#aebac3';ctx.stroke();}
     else {ctx.fillStyle=item.type==='burnt_bread'?'#4b3830':'#c98a43';ctx.beginPath();ctx.ellipse(x,y,7*sc,4.5*sc,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#8c5b32';ctx.stroke();}
   }
   function roundRect(c,x,y,w,h,r) { c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath(); }
+
+  // ---- dock, truk, karung (stage 3) ----
+  let THUMBDOCK = null;
+  const dockCfg = () => { const d = (THUMB ? THUMBDOCK : CONFIG.dock) || {}; return Object.assign({ x0:5.6, y0:4.6, arriveSeconds:1.6, unloadSeconds:1, leaveSeconds:1.4 }, d, { restock:Object.assign({ x:1, y:2, r:.8 }, d.restock) }); };
+  function isoBox(x0,y0,x1,y1,zb,zt,cTop,cE,cS) {   // balok isometrik; z dalam satuan peta (dikali mapScale)
+    const sc = mapScale, P = (x,y,z) => { const q = project(x,y); return [q.x, q.y - z*sc]; };
+    poly([P(x1,y0,zt),P(x1,y1,zt),P(x1,y1,zb),P(x1,y0,zb)], cE, '#243b5a66', .8*sc);
+    poly([P(x0,y1,zt),P(x1,y1,zt),P(x1,y1,zb),P(x0,y1,zb)], cS, '#243b5a66', .8*sc);
+    poly([P(x0,y0,zt),P(x1,y0,zt),P(x1,y1,zt),P(x0,y1,zt)], cTop, '#243b5a66', .8*sc);
+  }
+  function wallSeg(x0,y0,x1,y1) {
+    const sc = mapScale, h = 44*sc, a = project(x0,y0), b = project(x1,y1);
+    poly([[a.x,a.y],[b.x,b.y],[b.x,b.y-h],[a.x,a.y-h]], '#d9c3a3', '#6b5a45', 1.4*sc);
+    ctx.strokeStyle = '#8a7357'; ctx.lineWidth = 3*sc; ctx.beginPath(); ctx.moveTo(a.x,a.y-h); ctx.lineTo(b.x,b.y-h); ctx.stroke();
+  }
+  function drawDockFloor() {
+    const d = dockSt; if (!d || mode === 'lobby') return; const c = dockCfg(), R = mapRows() + .5, X = c.x0 + .06, Y = c.y0 + .06, sc = mapScale;
+    const q = [[X,Y],[7.5,Y],[7.5,R],[X,R]].map(([x,y]) => { const p = project(x,y); return [p.x,p.y]; });
+    poly(q, '#7a64501f', null);
+    if (d.open) { ctx.save(); ctx.strokeStyle = '#8a7357aa'; ctx.lineWidth = 2*sc; ctx.setLineDash([5*sc,4*sc]); ctx.beginPath(); ctx.moveTo(q[0][0],q[0][1]); ctx.lineTo(q[3][0],q[3][1]); ctx.stroke(); ctx.restore(); }
+    const rz = c.restock, pts = []; for (let i = 0; i < 28; i++) { const t = i/28*Math.PI*2, p = project(rz.x + Math.cos(t)*rz.r, rz.y + Math.sin(t)*rz.r); pts.push([p.x,p.y]); }
+    poly(pts, 'rgba(226,173,68,.14)', '#b9852d', 1.6*sc);
+    const lp = project(rz.x + .55, rz.y + .55); ctx.fillStyle = '#8b6124'; ctx.font = `900 ${Math.max(8, 9.5*sc)}px ui-sans-serif,system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('RESTOK', lp.x, lp.y);
+  }
+  function dockActors() {
+    const d = dockSt; if (!d || mode === 'lobby') return []; const c = dockCfg(), R = mapRows() + .5, X = c.x0 + .06, Y = c.y0 + .06, out = [];   // lobi: dapur tanpa dock (core lobi tidak memuat dock)
+    const seg = (x0,y0,x1,y1) => out.push({ depth:(x0+x1)/2 + (y0+y1)/2, kind:'dock', draw:() => wallSeg(x0,y0,x1,y1) });
+    seg(c.x0, Y, 6.6, Y); seg(6.6, Y, 7.5, Y);
+    if (!d.open) { seg(X, c.y0, X, 5.6); seg(X, 5.6, X, R); }
+    let off = null;
+    if (d.phase === 'arriving') off = 3.2 * Math.max(0, d.t / c.arriveSeconds); else if (d.phase === 'unloading') off = 0; else if (d.phase === 'leaving') off = 3.2 * (1 - Math.max(0, d.t / c.leaveSeconds));
+    if (off !== null) { const tx = 7.1 + off; out.push({ depth:tx + 5.1, kind:'dock', draw:() => {
+      isoBox(tx-.5, 4.82, tx+.25, 5.48, 4, 38, '#f3efe6', '#cfc7b8', '#b8b0a0'); isoBox(tx+.27, 4.9, tx+.7, 5.4, 4, 28, '#5a7ea6', '#3e6387', '#355577');
+    } }); }
+    const k = sackSt;
+    if (k && (k.mode === 'floor' || k.mode === 'drag')) out.push({ depth:k.x + k.y + .1, kind:'dock', draw:(target) => {
+      const sc = mapScale; isoBox(k.x-.3, k.y-.3, k.x+.3, k.y+.3, 0, 24, '#dbb97f', '#b58d52', '#9e7842');
+      const p = project(k.x, k.y); ctx.strokeStyle = '#6b4c2a'; ctx.lineWidth = 1.5*sc; ctx.beginPath(); ctx.moveTo(p.x-9*sc, p.y-20*sc); ctx.lineTo(p.x+9*sc, p.y-20*sc); ctx.stroke();
+      if (target && target.id === 'sack') { ctx.strokeStyle = '#238b69'; ctx.lineWidth = 2.4*sc; ctx.setLineDash([4*sc,3*sc]); ctx.beginPath(); ctx.ellipse(p.x, p.y-10*sc, 30*sc, 20*sc, 0, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]); }
+    } });
+    return out;
+  }
   function drawBackground() {}   // langit dan dinding digambar di cache shell (drawFloor)
   function render() {
-    ctx.clearRect(0,0,canvasW,canvasH);drawBackground();drawFloor();if(mode==='lobby')drawPad();drawHazards();
+    ctx.clearRect(0,0,canvasW,canvasH);drawBackground();drawFloor();if(mode==='lobby')drawPad();drawHazards();drawDockFloor();
     const target=mode==='running'?getTargetStation():null;
     // A small direction hint between the player and the active target.
     if(target){const p=project(player.x,player.y),q=project(target.x,target.y);ctx.strokeStyle='#2e806755';ctx.lineWidth=1.5*mapScale;ctx.setLineDash([3*mapScale,4*mapScale]);ctx.beginPath();ctx.moveTo(p.x,p.y-5*mapScale);ctx.lineTo(q.x,q.y-20*mapScale);ctx.stroke();ctx.setLineDash([]);}
     const views=playerViews();
-    const actors=[...stations.map(s=>({depth:s.x+s.y,kind:'station',s})),...views.map(v=>({depth:v.x+v.y,kind:'player',v}))].sort((a,b)=>a.depth-b.depth);
-    for(const a of actors){if(a.kind==='station'){const fk=a.s.bornAt==null?1:Math.min(1,(elapsed-a.s.bornAt)/.45);if(fk<1){ctx.save();ctx.globalAlpha=fk;}drawStation(a.s,a.s===target);if(fk<1)ctx.restore();if(guideIds.includes(a.s.id))drawGuide(a.s);}else drawPlayer(a.v);}
+    const actors=[...stations.map(s=>({depth:s.x+s.y,kind:'station',s})),...views.map(v=>({depth:v.x+v.y,kind:'player',v})),...dockActors()].sort((a,b)=>a.depth-b.depth);
+    for(const a of actors){if(a.kind==='station'){const fk=a.s.bornAt==null?1:Math.min(1,(elapsed-a.s.bornAt)/.45);if(fk<1){ctx.save();ctx.globalAlpha=fk;}drawStation(a.s,a.s===target);if(fk<1)ctx.restore();if(guideIds.includes(a.s.id))drawGuide(a.s);}else if(a.kind==='dock')a.draw(target);else drawPlayer(a.v);}
     for(const v of views) if(v.name) { drawNameTag(v); drawBubble(v); }
     drawFeedback();
     // On-screen fallback hint for desktop.
@@ -1696,7 +1762,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function applySnapshot(sn) {
     stations = sn.stations; stationById = Object.fromEntries(stations.map(st => [st.id, st]));
     for (const st of stations) Object.assign(st, viewOf(st));
-    orders = sn.orders; hazards = sn.hazards;
+    orders = sn.orders; hazards = sn.hazards; sackSt = sn.sack || null; dockSt = sn.dock || null;
     score = sn.score; ordersServed = sn.ordersServed; ordersExpired = sn.ordersExpired; burntCount = sn.burntCount; roundLeft = sn.roundLeft;
     const mine = sn.players.find(p => p.id === meId()); heldItem = mine ? mine.held : null;
   }
@@ -2025,12 +2091,12 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function stageThumb(st) {   // gambar dapur stage lewat renderer game yang sama (dipotret dari kanvas utama yang sedang tertutup layar stage), di-cache
     const n = Object.keys(ART.raw).length, c = thumbs.get(st.id);
     if (c && c.n === n && c.w === canvasW && c.h === canvasH) return c.url;
-    const keep = [stations, stationById, orders, hazards, guideIds, mode]; let url = '';
+    const keep = [stations, stationById, orders, hazards, guideIds, mode, sackSt, dockSt, THUMBDOCK]; let url = '';
     try {
       const tmp = BakeryCore.createGame({ seed, config:st.config }); stations = tmp.state.stations; for (const s2 of stations) Object.assign(s2, viewOf(s2));
-      stationById = Object.fromEntries(stations.map(s2 => [s2.id, s2])); orders = []; hazards = []; guideIds = []; mode = 'menu'; THUMB = true;
+      stationById = Object.fromEntries(stations.map(s2 => [s2.id, s2])); orders = []; hazards = []; guideIds = []; mode = 'menu'; THUMB = true; sackSt = tmp.state.sack; dockSt = tmp.state.dock; THUMBDOCK = st.config.dock || null;
       render(); url = canvas.toDataURL('image/jpeg', .72);
-    } catch (e) {} finally { THUMB = false; [stations, stationById, orders, hazards, guideIds, mode] = keep; }
+    } catch (e) {} finally { THUMB = false; [stations, stationById, orders, hazards, guideIds, mode, sackSt, dockSt, THUMBDOCK] = keep; }
     thumbs.set(st.id, { url, n, w:canvasW, h:canvasH }); return url;
   }
   const tutDone = () => { try { return localStorage.getItem('sbc_tutor') === '1'; } catch (e) { return false; } };

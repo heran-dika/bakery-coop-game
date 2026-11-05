@@ -46,6 +46,24 @@
           st('coffee', 'coffee', 1, 7), st('prep2', 'prep', 3, 7), st('oven2', 'oven', 5, 7), st('counter4', 'counter', 6, 4)
         ]
       }
+    },
+    // Stage 3 "karung berat": peti adonan berstok 5; restok = karung dari truk di dock (x6-7 y5-6) didorong/ditarik berdua atau diangkat sendiri (pelan)
+    // sampai zona restok (x1y2). Lantai 7x6 (tanpa override reachMaxY). Angka dock lihat DOCK_DEFAULTS di core.js.
+    3: {
+      id: 3, name: 'Stage 3', unlockAfter: 2,
+      config: {
+        hazard: { enabled: false },
+        dock: { restock: { crate: 'dough', x: 1, y: 2, r: 0.8 }, drop: { x: 6, y: 5 } },
+        orderMix: { plain_bread: 1, salt_bread: 1, coffee: 0.5 },
+        scoreByRecipe: { coffee: 40 },
+        coffeeBrewSeconds: 4.5,
+        fire: { enabled: true, afterBurntSeconds: 6, extinguishSeconds: 2, penalty: 30 },
+        stations: [
+          Object.assign(crate('dough', 1, 1), { stock: 5 }), st('prep', 'prep', 3, 1), st('oven', 'oven', 5, 1), st('serve', 'serve', 7, 1),
+          crate('butter', 2, 3), crate('salt', 2, 4), st('counter1', 'counter', 4, 3), st('counter2', 'counter', 6, 3), st('trash', 'trash', 7, 3),
+          st('coffee', 'coffee', 4, 4), crate('extinguisher', 3, 6)
+        ]
+      }
     }
   };
 

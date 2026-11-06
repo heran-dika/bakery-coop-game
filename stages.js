@@ -51,6 +51,8 @@
     // sampai zona restok (x1y2). Lantai 7x6 (tanpa override reachMaxY). Angka dock lihat DOCK_DEFAULTS di core.js.
     3: {
       id: 3, name: 'Stage 3', unlockAfter: 2,
+      // Tema lantai gudang: beton abu-abu, dinding bata, tanpa poster; ubin dock lebih gelap dengan garis tepi kuning. Hanya warna (dibaca index.html), bukan logika.
+      theme: { floorA:'#dcdfe1', floorB:'#d0d4d7', grout:'#f1f3f4', crack:'#8e979c40', base:'#4f535b', baseSide:'#666a72', wallL:'#c58f78', stripL:'#8f6a5c', wallR:'#d29d84', stripR:'#9b7464', stripLine:'#6d4f43', rail:'#6b6f78', posters:false, dockFloor:['#b8b1a4','#aea798'], dockEdge:'#e2ad44' },
       config: {
         hazard: { enabled: false },
         dock: { restock: { crate: 'dough', x: 1, y: 2, r: 0.8 }, drop: { x: 6, y: 5 } },

@@ -1270,15 +1270,19 @@ let shell = null;
 const WALL_UNITS = 58;                              // tinggi dinding (satuan peta). Stasiun ±50 unit tinggi: di bawah ±55 stasiun tampak 'berdiri di atas' dinding
 const wallH = () => WALL_UNITS;                    // dinding selalu tampil, termasuk HP landscape
 const mapRows = () => { const c = STAGE && STAGE.config && STAGE.config.collision; return c && c.reachMaxY ? Math.round(c.reachMaxY - .37) : 6; };   // baris lantai: 6 (bawaan core) atau 7 (stage)
-let shellRows = 6;
-function drawFloor() { if (mapRows() !== shellRows) { shellRows = mapRows(); resizeCanvas(); } if (!shell) buildShell(); ctx.drawImage(shell, 0, 0, canvasW, canvasH); }
+let shellRows = 6, shellStage = null;
+const dockGeom = () => { const d = (THUMB ? THUMBDOCK : STAGE && STAGE.config && STAGE.config.dock) || {}; return { x0:Math.round((d.x0 || 5.6) + .4), y0:Math.round((d.y0 || 4.6) + .4) }; };   // sel pertama dock
+const inDockCell = (x, y) => { if (!(THUMB ? THUMBDOCK : STAGE && STAGE.config && STAGE.config.dock)) return false; const g = dockGeom(); return x >= g.x0 && y >= g.y0; };
+function drawFloor() { const sk = THUMB ? 't' + THUMBID : STAGE ? STAGE.id : 0; if (sk !== shellStage) { shellStage = sk; shell = null; } if (mapRows() !== shellRows) { shellRows = mapRows(); resizeCanvas(); } if (!shell) buildShell(); ctx.drawImage(shell, 0, 0, canvasW, canvasH); }
 function buildShell() {
   shell = document.createElement('canvas');
   shell.width = Math.max(1, Math.ceil(canvasW * dpr)); shell.height = Math.max(1, Math.ceil(canvasH * dpr));
   const g = shell.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); paintSky(g); paintShell(g);
 }
+const THEME0 = { floorA:'#f4e6d4', floorB:'#efdfca', grout:'#fffaf0', crack:'#caa98a35', base:'#7d5238', baseSide:'#9a6a45', wallL:'#ecd3bd', stripL:'#a9cfc3', wallR:'#f6e3cf', stripR:'#b9ddd1', stripLine:'#7fb0a4', rail:'#c98e5a', posters:true, dockFloor:null, dockEdge:'#e2ad44' };
+const themeOf = () => Object.assign({}, THEME0, (THUMB ? THUMBTHEME : STAGE && STAGE.theme) || null);   // tema lantai dan dinding per stage (stages.js: theme); tanpa theme = tampilan lama
 function paintShell(g) {
-  const sc = mapScale, WH = wallH() * sc, SL = 14 * sc, INK = '#243b5a';
+  const T = themeOf(), sc = mapScale, WH = wallH() * sc, SL = 14 * sc, INK = '#243b5a';
   const pl = (pts, fill, stroke, lw) => {
     g.beginPath(); pts.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath();
     if (fill) { g.fillStyle = fill; g.fill(); }
@@ -1287,24 +1291,28 @@ function paintShell(g) {
   const P = (x, y) => { const p = project(x, y); return [p.x, p.y]; };
   const R = mapRows(), A = P(.5, .5), B = P(7.5, .5), C = P(7.5, R + .5), D = P(.5, R + .5);   // sudut lantai
   const dn = (q, h) => [q[0], q[1] + h], up = (q, h) => [q[0], q[1] - h];
-  pl([D, C, dn(C, SL), dn(D, SL)], '#7d5238', INK, 2 * sc);               // alas (tebal lantai)
-  pl([C, B, dn(B, SL), dn(C, SL)], '#9a6a45', INK, 2 * sc);
+  pl([D, C, dn(C, SL), dn(D, SL)], T.base, INK, 2 * sc);               // alas (tebal lantai)
+  pl([C, B, dn(B, SL), dn(C, SL)], T.baseSide, INK, 2 * sc);
   for (let x = 1; x <= 7; x++) for (let y = 1; y <= R; y++) {              // ubin
     const p = project(x, y), hw = tileW / 2, hh = tileH / 2;
-    pl([[p.x, p.y - hh], [p.x + hw, p.y], [p.x, p.y + hh], [p.x - hw, p.y]], (x + y) % 2 === 0 ? '#f4e6d4' : '#efdfca', '#fffaf0', .9 * sc);
-    if ((x * 3 + y) % 5 === 0) { g.strokeStyle = '#caa98a35'; g.lineWidth = .7 * sc; g.beginPath(); g.moveTo(p.x - tileW * .12, p.y - tileH * .02); g.lineTo(p.x - tileW * .03, p.y + tileH * .08); g.stroke(); }
+    pl([[p.x, p.y - hh], [p.x + hw, p.y], [p.x, p.y + hh], [p.x - hw, p.y]], inDockCell(x, y) && T.dockFloor ? T.dockFloor[(x + y) % 2] : (x + y) % 2 === 0 ? T.floorA : T.floorB, T.grout, .9 * sc);
+    if ((x * 3 + y) % 5 === 0) { g.strokeStyle = T.crack; g.lineWidth = .7 * sc; g.beginPath(); g.moveTo(p.x - tileW * .12, p.y - tileH * .02); g.lineTo(p.x - tileW * .03, p.y + tileH * .08); g.stroke(); }
+  }
+  if (T.dockFloor) {   // garis tepi dock (kuning): atas dan kiri, tempat dinding berdiri
+    const dk = dockGeom(), a = P(dk.x0 - .5 + .0, dk.y0 - .5), b = P(7.5, dk.y0 - .5), c = P(dk.x0 - .5, R + .5);
+    g.save(); g.strokeStyle = T.dockEdge; g.lineWidth = 3 * sc; g.setLineDash([8 * sc, 6 * sc]); g.beginPath(); g.moveTo(c[0], c[1]); g.lineTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); g.restore();
   }
   if (!WH) return;                                                          // mode compact: tanpa dinding
   const wall = (p0, p1, base, tile) => {
     const th = 16 * sc;
     pl([p0, p1, up(p1, WH), up(p0, WH)], base, INK, 2 * sc);                // dinding
     pl([p0, p1, up(p1, th), up(p0, th)], tile);                             // pita ubin
-    g.strokeStyle = '#7fb0a4'; g.lineWidth = .8 * sc;
+    g.strokeStyle = T.stripLine; g.lineWidth = .8 * sc;
     for (let k = 1; k < 14; k++) { const t = k / 14, x = p0[0] + (p1[0] - p0[0]) * t, y = p0[1] + (p1[1] - p0[1]) * t; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - th); g.stroke(); }
-    g.strokeStyle = '#c98e5a'; g.lineWidth = 2.5 * sc; g.beginPath(); g.moveTo(p0[0], p0[1] - th); g.lineTo(p1[0], p1[1] - th); g.stroke();
-    pl([up(p0, WH), up(p1, WH), up(p1, WH + 5 * sc), up(p0, WH + 5 * sc)], '#c98e5a', INK, 1.6 * sc);   // trim kayu
+    g.strokeStyle = T.rail; g.lineWidth = 2.5 * sc; g.beginPath(); g.moveTo(p0[0], p0[1] - th); g.lineTo(p1[0], p1[1] - th); g.stroke();
+    pl([up(p0, WH), up(p1, WH), up(p1, WH + 5 * sc), up(p0, WH + 5 * sc)], T.rail, INK, 1.6 * sc);   // trim
   };
-  wall(A, D, '#ecd3bd', '#a9cfc3'); wall(A, B, '#f6e3cf', '#b9ddd1');
+  wall(A, D, T.wallL, T.stripL); wall(A, B, T.wallR, T.stripR);
   const wl = (p0, p1, t, h) => [p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t - h * sc];
   const hTop = wallH() - 4;
   const frame = (p0, p1, t0, t1, fill) => {                                 // bingkai poster (abstrak, orisinal)
@@ -1312,6 +1320,7 @@ function paintShell(g) {
     pl([q(t0, 16), q(t1, 16), q(t1, hTop), q(t0, hTop)], '#c98e5a', INK, 1.5 * sc);
     pl([q(t0 + u * .12, 19), q(t1 - u * .12, 19), q(t1 - u * .12, hTop - 3), q(t0 + u * .12, hTop - 3)], fill, INK, sc);
   };
+  if (!T.posters) return;
   frame(A, D, .16, .30, '#fbe8c2'); frame(A, D, .58, .72, '#cfe3ee'); frame(A, B, .22, .36, '#f1c98a');
   const ck = wl(A, B, .80, 36);                                              // jam dinding
   g.beginPath(); g.arc(ck[0], ck[1], 7 * sc, 0, 7); g.fillStyle = '#fffaf2'; g.fill(); g.strokeStyle = INK; g.lineWidth = 1.6 * sc; g.stroke();
@@ -1496,7 +1505,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function roundRect(c,x,y,w,h,r) { c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath(); }
 
   // ---- dock, truk, karung (stage 3) ----
-  let THUMBDOCK = null;
+  let THUMBDOCK = null, THUMBTHEME = null, THUMBID = 0;
   const dockCfg = () => { const d = (THUMB ? THUMBDOCK : CONFIG.dock) || {}; return Object.assign({ x0:5.6, y0:4.6, arriveSeconds:1.6, unloadSeconds:1, leaveSeconds:1.4 }, d, { restock:Object.assign({ x:1, y:2, r:.8 }, d.restock) }); };
   function isoBox(x0,y0,x1,y1,zb,zt,cTop,cE,cS) {   // balok isometrik; z dalam satuan peta (dikali mapScale)
     const sc = mapScale, P = (x,y,z) => { const q = project(x,y); return [q.x, q.y - z*sc]; };
@@ -2091,12 +2100,12 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function stageThumb(st) {   // gambar dapur stage lewat renderer game yang sama (dipotret dari kanvas utama yang sedang tertutup layar stage), di-cache
     const n = Object.keys(ART.raw).length, c = thumbs.get(st.id);
     if (c && c.n === n && c.w === canvasW && c.h === canvasH) return c.url;
-    const keep = [stations, stationById, orders, hazards, guideIds, mode, sackSt, dockSt, THUMBDOCK]; let url = '';
+    const keep = [stations, stationById, orders, hazards, guideIds, mode, sackSt, dockSt, THUMBDOCK, THUMBTHEME, THUMBID]; let url = '';
     try {
       const tmp = BakeryCore.createGame({ seed, config:st.config }); stations = tmp.state.stations; for (const s2 of stations) Object.assign(s2, viewOf(s2));
-      stationById = Object.fromEntries(stations.map(s2 => [s2.id, s2])); orders = []; hazards = []; guideIds = []; mode = 'menu'; THUMB = true; sackSt = tmp.state.sack; dockSt = tmp.state.dock; THUMBDOCK = st.config.dock || null;
+      stationById = Object.fromEntries(stations.map(s2 => [s2.id, s2])); orders = []; hazards = []; guideIds = []; mode = 'menu'; THUMB = true; sackSt = tmp.state.sack; dockSt = tmp.state.dock; THUMBDOCK = st.config.dock || null; THUMBTHEME = st.theme || null; THUMBID = st.id;
       render(); url = canvas.toDataURL('image/jpeg', .72);
-    } catch (e) {} finally { THUMB = false; [stations, stationById, orders, hazards, guideIds, mode, sackSt, dockSt, THUMBDOCK] = keep; }
+    } catch (e) {} finally { THUMB = false; [stations, stationById, orders, hazards, guideIds, mode, sackSt, dockSt, THUMBDOCK, THUMBTHEME, THUMBID] = keep; }
     thumbs.set(st.id, { url, n, w:canvasW, h:canvasH }); return url;
   }
   const tutDone = () => { try { return localStorage.getItem('sbc_tutor') === '1'; } catch (e) { return false; } };

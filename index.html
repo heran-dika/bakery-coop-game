@@ -650,6 +650,7 @@
   // Bagian ini hanya input, render, HUD, toast, dan efek. Paksa seed lewat ?seed=123 untuk mengulang ronde yang sama.
   const urlSeed = (() => { try { const v = new URLSearchParams(location.search).get('seed'); const n = v === null || v === '' ? NaN : Number(v); return Number.isFinite(n) ? n >>> 0 : null; } catch (e) { return null; } })();
   const _qs = new URLSearchParams(location.search), ONLINE_LEGACY = _qs.get('online') === '1', NET_SERVER = _qs.get('server') || '';
+  const DEV = _qs.get('dev') === '1';   // ?dev=1: semua stage terbuka untuk uji. Progres, XP, dan skor tetap tercatat seperti biasa; server tidak pernah memeriksa unlock (progres hanya lokal, PRD §9.2)
   let ONLINE = ONLINE_LEGACY;   // true = sedang di room server. Alur baru (NEWFLOW) mulai dari lokal; ONLINE menyala saat room:state pertama tiba
   const NEWFLOW = !ONLINE_LEGACY;
   const NET = { sock:null, room:null, snap:null, events:[], appliedTick:-1, view:new Map(), sx:0, sy:0, sentAt:0, px:0, py:0, posAt:0, padIn:false, ping:null, wasConnected:false, offline:false, lastRejoin:null, chatCode:null };
@@ -1986,15 +1987,15 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   }
   const setHw = id => setSel('hw', id);
   function renderMenuProfile() {
-    const i = BakeryXP.info(xpTotal());
-    HWSEL = BakeryXP.cleanHeadwear(HWSEL, i.level); if (XPR) for (const k of Object.keys(COSKEY)) COS[k] = BakeryXP.cleanReward(k, COS[k], i.level); else for (const k of Object.keys(COSKEY)) COS[k] = COSDEF[k];
-    byId('mnLv').textContent = `Level ${i.level}`; byId('mnXp').textContent = i.max ? 'Maks' : `${i.into} / ${i.span} XP`; byId('mnBar').style.width = Math.round(i.frac * 100) + '%';
+    const i = BakeryXP.info(xpTotal()), gl = DEV ? BakeryXP.CFG.maxLevel : i.level;   // gl = level untuk membuka hadiah; ?dev=1 membuka semuanya (bar dan angka level tetap asli)
+    HWSEL = BakeryXP.cleanHeadwear(HWSEL, gl); if (XPR) for (const k of Object.keys(COSKEY)) COS[k] = BakeryXP.cleanReward(k, COS[k], gl); else for (const k of Object.keys(COSKEY)) COS[k] = COSDEF[k];
+    byId('mnLv').textContent = `Level ${i.level}` + (DEV ? ' · mode dev' : ''); byId('mnXp').textContent = i.max ? 'Maks' : `${i.into} / ${i.span} XP`; byId('mnBar').style.width = Math.round(i.frac * 100) + '%';
     const sc = byId('mnScroll'), keep = sc.scrollLeft, GL = { hw: 'Topi', ap: 'Celemek', nc: 'Nama', bd: 'Lencana' }; sc.textContent = '';
     for (const kind of ['hw', 'ap', 'nc', 'bd']) {   // semua kelompok selalu tampil; hadiah yang belum terbuka abu-abu "Lv N"; geser dengan panah atau sapuan jari
       const list = kind === 'hw' ? BakeryXP.HEADWEAR : (XPR ? BakeryXP.REWARDS[kind] : []), sel = selGet(kind); if (!list.length) continue;
       sc.appendChild(Object.assign(document.createElement('span'), { className: 'mn-gl', textContent: GL[kind] }));
       for (const h of list) {
-        const ok = h.level <= i.level, b = document.createElement('button'); b.type = 'button'; b.className = 'hw-chip' + (h.id === sel ? ' on' : '') + (ok ? '' : ' lock'); b.disabled = !ok; b.setAttribute('aria-pressed', String(h.id === sel));
+        const ok = h.level <= gl, b = document.createElement('button'); b.type = 'button'; b.className = 'hw-chip' + (h.id === sel ? ' on' : '') + (ok ? '' : ' lock'); b.disabled = !ok; b.setAttribute('aria-pressed', String(h.id === sel));
         b.title = ok ? h.name : `${h.name} · terbuka di Level ${h.level}`; b.append(chipPreview(kind, h), Object.assign(document.createElement('span'), { textContent: ok ? h.name : 'Lv ' + h.level }));
         b.onclick = () => setSel(kind, h.id); sc.appendChild(b);
       }
@@ -2021,7 +2022,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     try { localStorage.setItem(PROG_KEY, JSON.stringify(p)); } catch (e) {}
   }
   const stageList = () => (window.BakeryStages ? BakeryStages.list() : []);
-  const stageOpen = (st, prog) => st.unlockAfter == null || Number(prog[st.unlockAfter]) >= 1;
+  const stageOpen = (st, prog) => DEV || st.unlockAfter == null || Number(prog[st.unlockAfter]) >= 1;
   let stagePick = null;
 
   // ---- scoreboard lokal: top 3 per stage x jumlah pemain, simpan otomatis saat ronde selesai (PRD §9.6; logika di scoreboard.js) ----
@@ -2127,7 +2128,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
       const nm = document.createElement('b'), bd = document.createElement('span'); bd.className = 'st-badge';
       nm.textContent = st.name || `Stage ${st.id}`;
       const done = isTut ? tutDone() : prog[st.id] !== undefined && Number.isFinite(Number(prog[st.id])), stars = !isTut && done ? clamp(Number(prog[st.id]), 0, 3) : 0;
-      bd.textContent = !open ? 'Terkunci' : (sel ? 'Dipilih · ' : '') + (done ? (isTut ? 'Selesai ✓' : 'Selesai ' + '★'.repeat(stars) + '☆'.repeat(3 - stars)) : 'belum selesai');
+      bd.textContent = !open ? 'Terkunci' : (sel ? 'Dipilih · ' : '') + (done ? (isTut ? 'Selesai ✓' : 'Selesai ' + '★'.repeat(stars) + '☆'.repeat(3 - stars)) : (DEV && !isTut && st.unlockAfter != null && !(Number(prog[st.unlockAfter]) >= 1) ? 'belum selesai · mode dev' : 'belum selesai'));
       const head = document.createElement('div'), champ = !isTut && SB ? SB.champion(sbLevel(st.id)) : null; head.className = 'st-head'; head.appendChild(nm);
       if (champ) { const hi = document.createElement('span'); hi.className = 'st-hi'; hi.textContent = `🏆 ${champ.name} ${champ.score.toLocaleString('id-ID')} · ${champ.pc}P`; head.appendChild(hi); }
       card.append(pre, head, bd);

@@ -616,6 +616,7 @@
         <div class="st-list" id="stList"></div>
         <div class="st-side">
           <button class="scr-btn pri" id="stGo" type="button">Masuk lobi</button>
+          <button class="scr-btn" id="stIntro" type="button" hidden>Ulangi penjelasan awal</button>
         </div>
       </div>
     </div>
@@ -2136,6 +2137,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
       box.appendChild(card);
     }
     const cur = items.find(x => x.id === stagePick);
+    const bi = byId('stIntro'); if (bi) bi.hidden = !(cur && cur.intro && TUT_SETS[cur.intro]);   // stage dengan penjelasan awal (mis. Stage 2: kopi dan api) bisa diulang kapan saja
     byId('stGo').disabled = !cur; byId('stGo').textContent = !cur ? 'Masuk lobi' : cur.id === 'tutorial' ? 'Mulai tutorial' : `Masuk lobi: ${cur.name || 'Stage ' + cur.id}`;
   }
   function useStage(st) {   // ganti stage: core baru, kolisi lobi baru
@@ -2470,6 +2472,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     byId('mnSound').onclick = () => { BakeryAudio.setMuted(!BakeryAudio.isMuted()); syncSoundBtn(); };
     byId('tbRedo').onclick = tutRedo; byId('tbExit').onclick = () => exitTutorial(TUTOR && TUTOR.set && TUTOR.set.intro ? 'stage' : undefined); byId('tdMenu').onclick = () => exitTutorial(); byId('tdStage').onclick = () => exitTutorial('stage');
     byId('stBack').onclick = () => showScreen('menuScreen');
+    byId('stIntro').onclick = () => { const st = stageList().find(x => x.id === stagePick); if (st && st.intro && TUT_SETS[st.intro]) startTutorial(st.intro); };   // ulang penjelasan awal stage yang dipilih
     byId('stGo').onclick = () => {
       if (stagePick === 'tutorial') { startTutorial(); return; }
       const st = stageList().find(s => s.id === stagePick); if (!st) return;

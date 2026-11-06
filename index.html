@@ -1269,7 +1269,7 @@
 let shell = null;
 const WALL_UNITS = 58;                              // tinggi dinding (satuan peta). Stasiun ±50 unit tinggi: di bawah ±55 stasiun tampak 'berdiri di atas' dinding
 const wallH = () => WALL_UNITS;                    // dinding selalu tampil, termasuk HP landscape
-const mapRows = () => { const c = STAGE && STAGE.config && STAGE.config.collision; return c && c.reachMaxY ? Math.round(c.reachMaxY - .37) : 6; };   // baris lantai: 6 (bawaan core) atau 7 (stage)
+const mapRows = () => { const c = THUMB ? THUMBCOLL : STAGE && STAGE.config && STAGE.config.collision; return c && c.reachMaxY ? Math.round(c.reachMaxY - .37) : 6; };   // saat memotret kartu stage, jumlah baris mengikuti stage di kartu itu   // baris lantai: 6 (bawaan core) atau 7 (stage)
 let shellRows = 6, shellStage = null;
 const dockGeom = () => { const d = (THUMB ? THUMBDOCK : STAGE && STAGE.config && STAGE.config.dock) || {}; return { x0:Math.round((d.x0 || 5.6) + .4), y0:Math.round((d.y0 || 4.6) + .4) }; };   // sel pertama dock
 const inDockCell = (x, y) => { if (!(THUMB ? THUMBDOCK : STAGE && STAGE.config && STAGE.config.dock)) return false; const g = dockGeom(); return x >= g.x0 && y >= g.y0; };
@@ -1505,7 +1505,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function roundRect(c,x,y,w,h,r) { c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath(); }
 
   // ---- dock, truk, karung (stage 3) ----
-  let THUMBDOCK = null, THUMBTHEME = null, THUMBID = 0;
+  let THUMBDOCK = null, THUMBTHEME = null, THUMBID = 0, THUMBCOLL = null;
   const dockCfg = () => { const d = (THUMB ? THUMBDOCK : CONFIG.dock) || {}; return Object.assign({ x0:5.6, y0:4.6, arriveSeconds:1.6, unloadSeconds:1, leaveSeconds:1.4 }, d, { restock:Object.assign({ x:1, y:2, r:.8 }, d.restock) }); };
   function isoBox(x0,y0,x1,y1,zb,zt,cTop,cE,cS) {   // balok isometrik; z dalam satuan peta (dikali mapScale)
     const sc = mapScale, P = (x,y,z) => { const q = project(x,y); return [q.x, q.y - z*sc]; };
@@ -2100,12 +2100,12 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function stageThumb(st) {   // gambar dapur stage lewat renderer game yang sama (dipotret dari kanvas utama yang sedang tertutup layar stage), di-cache
     const n = Object.keys(ART.raw).length, c = thumbs.get(st.id);
     if (c && c.n === n && c.w === canvasW && c.h === canvasH) return c.url;
-    const keep = [stations, stationById, orders, hazards, guideIds, mode, sackSt, dockSt, THUMBDOCK, THUMBTHEME, THUMBID]; let url = '';
+    const keep = [stations, stationById, orders, hazards, guideIds, mode, sackSt, dockSt, THUMBDOCK, THUMBTHEME, THUMBID, THUMBCOLL]; let url = '';
     try {
       const tmp = BakeryCore.createGame({ seed, config:st.config }); stations = tmp.state.stations; for (const s2 of stations) Object.assign(s2, viewOf(s2));
-      stationById = Object.fromEntries(stations.map(s2 => [s2.id, s2])); orders = []; hazards = []; guideIds = []; mode = 'menu'; THUMB = true; sackSt = tmp.state.sack; dockSt = tmp.state.dock; THUMBDOCK = st.config.dock || null; THUMBTHEME = st.theme || null; THUMBID = st.id;
+      stationById = Object.fromEntries(stations.map(s2 => [s2.id, s2])); orders = []; hazards = []; guideIds = []; mode = 'menu'; THUMB = true; sackSt = tmp.state.sack; dockSt = tmp.state.dock; THUMBDOCK = st.config.dock || null; THUMBTHEME = st.theme || null; THUMBID = st.id; THUMBCOLL = st.config.collision || null;
       render(); url = canvas.toDataURL('image/jpeg', .72);
-    } catch (e) {} finally { THUMB = false; [stations, stationById, orders, hazards, guideIds, mode, sackSt, dockSt, THUMBDOCK, THUMBTHEME, THUMBID] = keep; }
+    } catch (e) {} finally { THUMB = false; [stations, stationById, orders, hazards, guideIds, mode, sackSt, dockSt, THUMBDOCK, THUMBTHEME, THUMBID, THUMBCOLL] = keep; }
     thumbs.set(st.id, { url, n, w:canvasW, h:canvasH }); return url;
   }
   const tutDone = () => { try { return localStorage.getItem('sbc_tutor') === '1'; } catch (e) { return false; } };

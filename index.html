@@ -515,7 +515,7 @@
           <div><b>Interaksi:</b> Space / tombol Aksi untuk mengambil, meletakkan, memulai proses, atau menyajikan.</div>
           <div><b>Shokupan:</b> adonan → prep → uleni → oven → counter output.</div>
           <div><b>Salt bread:</b> adonan → prep → uleni → ambil mentega lalu tambahkan di prep → ambil garam lalu tambahkan di prep → oven → counter output.</div>
-          <div><b>Karung (Stage 3):</b> peti adonan berstok 5; restok = karung dari dock. Aksi dekat karung = angkat sendiri (jalan pelan). Berdua: satu angkat, satu lagi berdiri segaris di seberangnya lalu Aksi, kemudian tarik atau dorong searah. Aksi lagi = lepas.</div>
+          <div><b>Karung (Stage 3):</b> peti adonan berstok 5; restok = karung dari dock. Berdiri di samping karung lalu Aksi = pegang; kamu terkunci di sisi itu dan hanya bisa menarik/mendorong lurus. Sendirian pelan, berdua dari sisi seberang searah = cepat, berlawanan = berhenti. Aksi lagi = lepas.</div>
           <div><b>Counter:</b> tempat taruh item sementara, satu item per slot.</div>
           <div><b>Kesalahan:</b> item yang salah atau gosong dapat dibuang ke Trash. Order kedaluwarsa memberi penalti skor.</div>
         </div>
@@ -638,9 +638,9 @@
   <div class="inventory-bar"><div>Di tangan: <span class="inventory" id="inventoryText">Kosong</span></div><div class="help-line">Dekati stasiun lalu tekan <b>Space</b> / <b>Aksi</b> · Hindari oven gosong.</div></div>
 </div>
 <!-- Vector-first P0: all gameplay art is procedural Canvas geometry; external image/font assets are intentionally avoided for offline and mobile performance. -->
-<script>window.BAKERY_BUILD='20261105-dock';</script>
-<script src="core.js?v=20261105-dock"></script>
-<script src="stages.js?v=20261105-dock"></script>
+<script>window.BAKERY_BUILD='20261106-seret';</script>
+<script src="core.js?v=20261106-seret"></script>
+<script src="stages.js?v=20261106-seret"></script>
 <script src="audio.js?v=20261102-s3"></script>
 <script src="xp.js?v=20261103-rw"></script>
 <script src="scoreboard.js?v=20261102-s3"></script>
@@ -675,6 +675,7 @@
   const HW_FRAMES = ['idle_0','idle_1','walk_0','walk_1','walk_2','walk_3','carry_idle_0','carry_idle_1','carry_walk_0','carry_walk_1','carry_walk_2','carry_walk_3'];
   ART_KEYS.push(...HW_FRAMES.map(f => 'char_baker_bare_dr_' + f));   // badan tanpa topi; pakaian kepala = lapisan terpisah (hw_<nama>_dr_<frame>), dimuat saat dibutuhkan
   ART_KEYS.push('station_coffee_idle','station_coffee_brewing','station_coffee_ready','item_coffee','station_oven_fire','station_oven_extinguishing','station_extinguisher_idle','item_extinguisher');   // mesin kopi dan api (Stage 2)
+  ART_KEYS.push('prop_truck','prop_sack','prop_sack_drag');   // truk dan karung berat (Stage 3); gagal dimuat = bentuk prosedural
   ART_KEYS.push('station_oven_fire_f1','station_oven_fire_f2','station_oven_burnt_f1','station_oven_burnt_f2','station_oven_burnt_f3');   // frame animasi api dan asap gosong
   const HW_LOADED = new Set();
   const COSKEY = { ap:'sbc_ap', nc:'sbc_nc', bd:'sbc_bd' }, COSDEF = { ap:'biasa', nc:'biasa', bd:'tanpa' }, COS = {};   // pilihan hadiah kosmetik (celemek, warna nama, lencana); topi tetap di HWSEL
@@ -825,9 +826,9 @@
   }
   // ---- bunyi ----
   const isMine = e => !e.player || e.player === (ONLINE ? meId() : 'p1');   // bunyi aksi pribadi hanya untuk pemain ini
-  const SFX_PICK = new Set(['picked', 'prep_took', 'counter_took', 'oven_took', 'coffee_took', 'sack_lifted']);
-  const SFX_PLACE = new Set(['prep_placed', 'counter_placed', 'mod_added', 'oven_started', 'coffee_started', 'fire_extinguishing', 'sack_dropped', 'sack_gripped', 'sack_released']);
-  const SFX_FAIL = new Set(['hands_full', 'too_far', 'need_dough', 'prep_busy', 'empty_hands_to_knead', 'mod_present', 'prep_in_use', 'oven_needs_prepared', 'oven_cooking', 'oven_empty_hands', 'counter_both_full', 'counter_empty', 'serve_need_bread', 'serve_no_order', 'trash_empty_hands', 'coffee_brewing', 'coffee_hands_full', 'oven_on_fire', 'oven_extinguishing', 'sack_align', 'sack_no_space', 'crate_empty']);
+  const SFX_PICK = new Set(['picked', 'prep_took', 'counter_took', 'oven_took', 'coffee_took', 'sack_gripped']);
+  const SFX_PLACE = new Set(['prep_placed', 'counter_placed', 'mod_added', 'oven_started', 'coffee_started', 'fire_extinguishing', 'sack_released']);
+  const SFX_FAIL = new Set(['hands_full', 'too_far', 'need_dough', 'prep_busy', 'empty_hands_to_knead', 'mod_present', 'prep_in_use', 'oven_needs_prepared', 'oven_cooking', 'oven_empty_hands', 'counter_both_full', 'counter_empty', 'serve_need_bread', 'serve_no_order', 'trash_empty_hands', 'coffee_brewing', 'coffee_hands_full', 'oven_on_fire', 'oven_extinguishing', 'sack_align', 'sack_no_space', 'sack_full', 'crate_empty']);
   function sfxForMsg(e) {
     if (SFX_PICK.has(e.code)) BakeryAudio.play('pick');
     else if (SFX_PLACE.has(e.code)) BakeryAudio.play('place');
@@ -907,7 +908,7 @@
         case 'oven:fire': BakeryAudio.play('ovenBurnt'); showToast('OVEN TERBAKAR! Ambil alat pemadam di peti, lalu padamkan.', 2600); break;
         case 'oven:fireOut': BakeryAudio.play('ovenReady'); showToast('Api padam. Oven bisa dipakai lagi.', 1800); break;
         case 'dock:truck': BakeryAudio.play('orderNew'); showToast('Truk datang membawa karung baru.', 1800); break;
-        case 'dock:door': BakeryAudio.play('ovenReady'); showToast(sackHinted ? 'Pintu dock terbuka. Karung siap diambil!' : 'Pintu dock terbuka! Karung berat: Aksi = angkat sendiri (pelan). Berdua: satu angkat, satu berdiri di seberangnya lalu Aksi, lalu tarik/dorong searah.', sackHinted ? 2000 : 5200); sackHinted = true; break;
+        case 'dock:door': BakeryAudio.play('ovenReady'); showToast(sackHinted ? 'Pintu dock terbuka. Karung siap diseret!' : 'Pintu dock terbuka! Karung berat: berdiri di sampingnya, Aksi = pegang, lalu tarik atau dorong lurus. Sendirian pelan; berdua searah cepat.', sackHinted ? 2000 : 5200); sackHinted = true; break;
         case 'dock:restock': BakeryAudio.play('orderDone', 2); showToast('Karung masuk! Stok adonan penuh lagi.', 2200); break;
         case 'coffee:ready': BakeryAudio.play('ovenReady'); showToast('Kopi sudah jadi! Ambil dari mesin.', 1600); break;
         case 'hazard:spawned': BakeryAudio.play('spill'); showToast('Awas! Ada tumpahan di lantai.', 1500); break;
@@ -926,12 +927,11 @@
       case 'hands_full': return ['Tangan kamu masih penuh. Letakkan atau buang item dulu.'];
       case 'picked': return [`${it(e.item)} diambil.${e.left != null ? ` Sisa ${e.left}.` : ''}`];
       case 'crate_empty': return ['Peti kosong! Dorong karung dari dock ke peti adonan.', 2200];
-      case 'sack_lifted': return ['Karung diangkat, jalan pelan. Berdua lebih cepat: teman berdiri di seberangmu lalu tekan Aksi.', 2600];
-      case 'sack_dropped': return ['Karung ditaruh.'];
-      case 'sack_gripped': return ['Karung dipegang berdua. Tarik atau dorong searah. Aksi = lepas.', 2400];
+      case 'sack_gripped': return ['Karung dipegang. Tarik atau dorong lurus. Sendirian pelan; berdua searah langsung cepat, berlawanan berhenti. Aksi = lepas.', 3000];
       case 'sack_released': return ['Karung dilepas.'];
-      case 'sack_align': return ['Berdirilah segaris di seberang pembawa karung, jarak ±2 petak.', 2200];
-      case 'sack_no_space': return ['Tidak ada ruang untuk karung di sini.'];
+      case 'sack_align': return ['Pegang dari sisi seberang pemegang pertama, segaris dengannya.', 2200];
+      case 'sack_full': return ['Karung sudah dipegang dua orang.'];
+      case 'sack_no_space': return ['Tidak ada ruang untuk berdiri di sisi itu.'];
       case 'prep_busy': return ['Adonan masih diuleni.'];
       case 'prep_placed': return ['Adonan diletakkan di meja prep. Tekan Aksi lagi untuk mulai uleni.'];
       case 'need_dough': return ['Ambil adonan mentah dari peti dulu.'];
@@ -1010,7 +1010,7 @@
   }
   const VERB_ICON = { AMBIL:'ambil', TARUH:'taruh', ULENI:'uleni', TAMBAH:'tambah', PANGGANG:'oven', SAJIKAN:'bell', BUANG:'trash', SEDUH:'oven', PADAM:'oven' };
   let actionIconName = 'ambil';
-  const VERBS = [[/^(Angkat|Bantu)/,'AMBIL'],[/^Lepas/,'TARUH'],[/^Ambil/,'AMBIL'],[/^(Letakkan|Taruh)/,'TARUH'],[/^Mulai uleni/,'ULENI'],[/^Tambahkan/,'TAMBAH'],[/^Masukkan/,'PANGGANG'],[/^Sajikan/,'SAJIKAN'],[/^Buang/,'BUANG'],[/^Mulai seduh/,'SEDUH'],[/^Padamkan/,'PADAM']];
+  const VERBS = [[/^Pegang/,'AMBIL'],[/^Lepas/,'TARUH'],[/^Ambil/,'AMBIL'],[/^(Letakkan|Taruh)/,'TARUH'],[/^Mulai uleni/,'ULENI'],[/^Tambahkan/,'TAMBAH'],[/^Masukkan/,'PANGGANG'],[/^Sajikan/,'SAJIKAN'],[/^Buang/,'BUANG'],[/^Mulai seduh/,'SEDUH'],[/^Padamkan/,'PADAM']];
   const byType = type => stations.filter(s => s.type === type);   // dipakai petunjuk: stage boleh punya beberapa prep/oven/counter/trash
   const freeCounter = () => (byType('counter').find(s => !s.item) || {}).id || null;
   const trashIds = () => byType('trash').map(s => s.id);
@@ -1053,9 +1053,8 @@
   function actionText(s) {
     if (!s) return 'Dekati stasiun lalu tekan Aksi';
     if (s.type === 'sack') {
-      if (heldItem && heldItem.type === 'sack') return 'Taruh karung';
-      const k = sackSt || {};
-      return k.mode === 'drag' ? 'Lepas karung' : k.mode === 'carry' ? 'Bantu angkat karung (seberang, segaris)' : 'Angkat karung';
+      const k = sackSt || {}, me = ONLINE && NET.room ? NET.room.you : 'p1';
+      return k.grip && k.grip.includes(me) ? 'Lepas karung' : k.grip && k.grip.length ? 'Pegang karung (sisi seberang)' : 'Pegang karung';
     }
     if (s.type === 'crate') return heldItem ? 'Tangan penuh — kosongkan tangan dulu' : s.stock === 0 ? 'Peti kosong — dorong karung ke sini' : `Ambil ${s.label.toLowerCase()}${s.stock != null ? ` (sisa ${s.stock})` : ''}`;
     if (s.type === 'prep') {
@@ -1537,12 +1536,15 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     let off = null;
     if (d.phase === 'arriving') off = 3.2 * Math.max(0, d.t / c.arriveSeconds); else if (d.phase === 'unloading') off = 0; else if (d.phase === 'leaving') off = 3.2 * (1 - Math.max(0, d.t / c.leaveSeconds));
     if (off !== null) { const tx = 7.1 + off; out.push({ depth:tx + 5.1, kind:'dock', draw:() => {
+      const sc = mapScale, a = artFor('prop_truck', 128, 96, sc);
+      if (a) { const p = project(tx, 5.1); ctx.drawImage(a, p.x - 64*sc, p.y - 62*sc, 128*sc, 96*sc); return; }
       isoBox(tx-.5, 4.82, tx+.25, 5.48, 4, 38, '#f3efe6', '#cfc7b8', '#b8b0a0'); isoBox(tx+.27, 4.9, tx+.7, 5.4, 4, 28, '#5a7ea6', '#3e6387', '#355577');
     } }); }
     const k = sackSt;
     if (k && (k.mode === 'floor' || k.mode === 'drag')) out.push({ depth:k.x + k.y + .1, kind:'dock', draw:(target) => {
-      const sc = mapScale; isoBox(k.x-.3, k.y-.3, k.x+.3, k.y+.3, 0, 24, '#dbb97f', '#b58d52', '#9e7842');
-      const p = project(k.x, k.y); ctx.strokeStyle = '#6b4c2a'; ctx.lineWidth = 1.5*sc; ctx.beginPath(); ctx.moveTo(p.x-9*sc, p.y-20*sc); ctx.lineTo(p.x+9*sc, p.y-20*sc); ctx.stroke();
+      const sc = mapScale, p = project(k.x, k.y), a = artFor(k.mode === 'drag' ? 'prop_sack_drag' : 'prop_sack', 80, 80, sc);
+      if (a) ctx.drawImage(a, p.x - 40*sc, p.y - 50*sc, 80*sc, 80*sc);
+      else { isoBox(k.x-.3, k.y-.3, k.x+.3, k.y+.3, 0, 24, '#dbb97f', '#b58d52', '#9e7842'); ctx.strokeStyle = '#6b4c2a'; ctx.lineWidth = 1.5*sc; ctx.beginPath(); ctx.moveTo(p.x-9*sc, p.y-20*sc); ctx.lineTo(p.x+9*sc, p.y-20*sc); ctx.stroke(); }
       if (target && target.id === 'sack') { ctx.strokeStyle = '#238b69'; ctx.lineWidth = 2.4*sc; ctx.setLineDash([4*sc,3*sc]); ctx.beginPath(); ctx.ellipse(p.x, p.y-10*sc, 30*sc, 20*sc, 0, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]); }
     } });
     return out;
@@ -1616,7 +1618,8 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   const byId = id => document.getElementById(id);
   const SLOT_COLORS = { p1:'#c34f5a', p2:'#2e8067', p3:'#e2ad44', p4:'#7c5caa' };
   const NET_ERR = { room_not_found:'Room tidak ditemukan (atau belum ada room terbuka).', room_full:'Room penuh (maks 4).', room_started:'Ronde sudah dimulai; tunggu ronde berikutnya.', kicked:'Kamu dikeluarkan dari room ini oleh host.', not_host:'Hanya host yang bisa mengeluarkan pemain.', kick_not_allowed:'Pemain hanya bisa dikeluarkan di lobi.', already_in_room:'Kamu sudah ada di room.', server_full:'Server penuh.' };
-  const PAD = { x:4.2, y:4.15, h:.75 };   // AREA SIAP di lobi [Menebak: posisi disetel di HP]
+  const PAD0 = { x:4.2, y:4.15, h:.75 }, padOf = () => Object.assign({}, PAD0, STAGE && STAGE.pad);   // stages.js: pad {x,y,h} memindahkan AREA SIAP bila tertimpa stasiun
+  const PAD = { get x() { return padOf().x; }, get y() { return padOf().y; }, get h() { return padOf().h; } };   // AREA SIAP di lobi [Menebak: posisi disetel di HP]
   // Lobi = dapur yang sama, jalan dengan kolisi core yang sama (core lokal tanpa order/hazard, hanya untuk gerak).
   function makeLobbyCore() {   // lobi = dapur yang sama (kolisi core, tanpa order/hazard); memakai tata letak stage terpilih
     const c = { roundSeconds:1e9, maxOrders:0, openingOrders:[], hazard:{ enabled:false } };
@@ -2163,8 +2166,15 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     { t:'Awas gosong', reveal:['oven', 'trash'], setup:S => Object.assign(S.oven, { status:'burnt', item:{ id:9001, type:'burnt_bread', mods:[] }, readyTimer:0 }), d:'Roti yang dibiarkan di oven jadi gosong. Di stage ini, gosong yang dibiarkan membuat oven TERBAKAR. [[ambil|Ambil]] roti gosong ini, lalu [[buang|buang]] ke tempat sampah.', done:e => e.type === 'item:trashed' },
     { t:'Oven terbakar!', reveal:['extinguisher'], setup:S => Object.assign(S.oven, { status:'fire', item:null, readyTimer:0, timer:0 }), d:'Kalau gosongnya dibiarkan, oven terbakar dan tidak bisa dipakai. Kosongkan tangan, [[ambil|ambil]] alat pemadam dari peti, lalu [[padam|padamkan]] api di oven (2 detik).', done:e => e.type === 'oven:fireOut' }
   ];
+  const TUT_STAGE3 = [   // penjelasan awal Stage 3: karung berat dan restok adonan
+    { t:'Truk datang', reveal:[], d:'Stage 3 punya dock berdinding (kotak di kanan bawah). Truk mengantar KARUNG BERAT ke sana. Tunggu pintu kiri dock terbuka (±4 detik).', done:e => e.type === 'dock:door' },
+    { t:'Pegang karung', reveal:[], d:'Masuk dock, berdiri di samping karung (kiri, kanan, atas, atau bawah), lalu [[ambil|pegang]]. Karung tidak pernah diangkat: kamu terkunci di sisi itu dan hanya bisa menarik atau mendorong lurus.', done:e => e.type === 'msg' && e.code === 'sack_gripped' },
+    { t:'Seret dan lepas', reveal:[], d:'Sendirian, karung jalan 1/4 kecepatan. Berdua dari sisi seberang: searah langsung cepat, berlawanan berhenti. Seret beberapa langkah, lalu [[taruh|lepas]] dengan Aksi lagi.', done:e => e.type === 'msg' && e.code === 'sack_released' },
+    { t:'Isi ulang adonan', reveal:['dough'], d:'Peti adonan cuma bisa diambil 5x (angkanya di atas peti). Seret karung ke lingkaran RESTOK di bawahnya untuk mengisi ulang. Sudut sempit: lepas, pindah ke sisi lain, pegang lagi.', done:e => e.type === 'dock:restock' }
+  ];
   const TUT_SETS = {
     dasar: { key:'sbc_tutor', stageId:1, steps:TUT_STEPS, start:['dough', 'prep'], config:{ openingOrders:['plain_bread', 'salt_bread'] }, doneText:'Kamu sudah bisa bikin Shokupan dan Salt bread. Ingat: Shokupan polos langsung ke oven tanpa mentega dan garam.' },
+    stage3: { key:'sbc_intro_stage3', stageId:3, intro:true, noXp:true, afterPick:3, steps:TUT_STAGE3, start:['butter', 'salt'], config:{ openingOrders:['plain_bread'], maxOrders:1 }, doneText:'Kamu sudah bisa menyeret karung berat dan mengisi ulang adonan. Peti kosong tidak bisa diambil, jadi jangan tunggu sampai stoknya habis.' },
     stage2: { key:'sbc_intro_stage2', stageId:2, intro:true, noXp:true, afterPick:2, steps:TUT_STAGE2, start:['coffee'], config:{ openingOrders:['coffee'], orderMix:{ coffee:1 }, scoreByRecipe:{ coffee:40 }, fire:{ enabled:true, afterBurntSeconds:1e9, extinguishSeconds:2, penalty:0 }, maxOrders:1 }, doneText:'Kamu sudah kenal mesin kopi dan bahaya api. Kopi tidak gosong; roti gosong yang dibiarkan membuat oven terbakar, dan hanya alat pemadam yang bisa memadamkannya.' }
   };
   const introSeen = n => { try { return localStorage.getItem(TUT_SETS[n].key) === '1'; } catch (e) { return false; } };
@@ -2174,7 +2184,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     const base = src.config, pick = id => base.stations.find(x => x.id === id);
     TUTOR = { i:0, prev:STAGE, pick, snap:null, finished:false, set, steps:set.steps };
     STAGE = src;   // lantai dan tema mengikuti stage tutorial, bukan stage yang terakhir dipilih (mis. Stage 3 yang barisnya 6); exitTutorial memulihkan lewat useStage(prev)
-    const cfg = Object.assign({ spawn:base.spawn, collision:base.collision, hazard:{ enabled:false }, roundSeconds:1e6, maxOrders:2, openingNextOrderAt:1e9, patienceSeconds:1e6, readyBeforeBurnSeconds:1e9, stations:set.start.map(pick) }, set.config);
+    const cfg = Object.assign({ spawn:base.spawn, collision:base.collision, dock:base.dock, hazard:{ enabled:false }, roundSeconds:1e6, maxOrders:2, openingNextOrderAt:1e9, patienceSeconds:1e6, readyBeforeBurnSeconds:1e9, stations:set.start.map(pick) }, set.config);
     game = BakeryCore.createGame({ seed, config:cfg }); CONFIG = Object.assign({ guideIdleSeconds:0 }, game.config);   // tanpa order yang kedaluwarsa, tanpa gosong, petunjuk langsung menyala
     showScreen(null); document.body.classList.add('tutorial'); resetGame(false); byId('tutBar').hidden = false;
     if (set.steps[0].setup) set.steps[0].setup(stationById);

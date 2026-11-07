@@ -2173,7 +2173,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     const src = stageFromId(set.stageId); if (!src) { showToast('Tutorial butuh data stage (stages.js).', 2400); return; }
     const base = src.config, pick = id => base.stations.find(x => x.id === id);
     TUTOR = { i:0, prev:STAGE, pick, snap:null, finished:false, set, steps:set.steps };
-    const cfg = Object.assign({ spawn:base.spawn, hazard:{ enabled:false }, roundSeconds:1e6, maxOrders:2, openingNextOrderAt:1e9, patienceSeconds:1e6, readyBeforeBurnSeconds:1e9, stations:set.start.map(pick) }, set.config);
+    const cfg = Object.assign({ spawn:base.spawn, collision:base.collision, hazard:{ enabled:false }, roundSeconds:1e6, maxOrders:2, openingNextOrderAt:1e9, patienceSeconds:1e6, readyBeforeBurnSeconds:1e9, stations:set.start.map(pick) }, set.config);
     game = BakeryCore.createGame({ seed, config:cfg }); CONFIG = Object.assign({ guideIdleSeconds:0 }, game.config);   // tanpa order yang kedaluwarsa, tanpa gosong, petunjuk langsung menyala
     showScreen(null); document.body.classList.add('tutorial'); resetGame(false); byId('tutBar').hidden = false;
     if (set.steps[0].setup) set.steps[0].setup(stationById);

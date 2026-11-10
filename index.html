@@ -672,7 +672,7 @@
   let dpr = 1, compact = false;   // compact = HUD melayang (landscape pendek): teks canvas di pojok kiri atas disembunyikan
   // Aset SVG (assets/*.svg, lihat ASSET_PLAN §6). Gagal dimuat = pakai gambar prosedural.
   const ART = { raw:{}, cache:new Map() };
-  const ART_KEYS = ['station_oven_empty','station_oven_cooking','station_oven_ready','station_oven_burnt','station_prep_empty','station_prep_dough','station_prep_prepared_plain','station_prep_prepared_salt','station_counter_idle','station_dough_idle','station_butter_idle','station_salt_idle','station_serve_down_idle','station_trash_idle','char_baker_dr_idle_0','char_baker_dr_idle_1','char_baker_dr_walk_0','char_baker_dr_walk_1','char_baker_dr_walk_2','char_baker_dr_walk_3','char_baker_dr_carry_idle_0','char_baker_dr_carry_idle_1','char_baker_dr_carry_walk_0','char_baker_dr_carry_walk_1','char_baker_dr_carry_walk_2','char_baker_dr_carry_walk_3','item_dough','item_prepared_dough','item_prepared_salt','item_butter','item_salt','item_plain_bread','item_salt_bread','item_burnt_bread','item_failed_bread'];
+  const ART_KEYS = ['station_oven_empty','station_oven_cooking','station_oven_ready','station_oven_burnt','station_prep_empty','station_prep_dough','station_prep_prepared_plain','station_prep_prepared_salt','station_counter_idle','station_dough_idle','station_butter_idle','station_salt_idle','station_serve_down_idle','station_trash_idle','station_button_idle','station_button_on','door_closed','char_baker_dr_idle_0','char_baker_dr_idle_1','char_baker_dr_walk_0','char_baker_dr_walk_1','char_baker_dr_walk_2','char_baker_dr_walk_3','char_baker_dr_carry_idle_0','char_baker_dr_carry_idle_1','char_baker_dr_carry_walk_0','char_baker_dr_carry_walk_1','char_baker_dr_carry_walk_2','char_baker_dr_carry_walk_3','item_dough','item_prepared_dough','item_prepared_salt','item_butter','item_salt','item_plain_bread','item_salt_bread','item_burnt_bread','item_failed_bread'];
   const HW_FRAMES = ['idle_0','idle_1','walk_0','walk_1','walk_2','walk_3','carry_idle_0','carry_idle_1','carry_walk_0','carry_walk_1','carry_walk_2','carry_walk_3'];
   ART_KEYS.push(...HW_FRAMES.map(f => 'char_baker_bare_dr_' + f));   // badan tanpa topi; pakaian kepala = lapisan terpisah (hw_<nama>_dr_<frame>), dimuat saat dibutuhkan
   ART_KEYS.push('station_coffee_idle','station_coffee_brewing','station_coffee_ready','item_coffee','station_oven_fire','station_oven_extinguishing','station_extinguisher_idle','item_extinguisher');   // mesin kopi dan api (Stage 2)
@@ -760,6 +760,7 @@
     if (s.type === 'serve') return 'station_serve_down_idle';
     if (s.type === 'trash') return 'station_trash_idle';
     if (s.type === 'counter') return 'station_counter_idle';
+    if (s.type === 'button') return doorSt && doorSt.open ? 'station_button_on' : 'station_button_idle';
     return `station_${s.id}_idle`;
   }
   const paused = () => !els.helpScreen.classList.contains('hidden');
@@ -1566,8 +1567,13 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
       const lo = Math.max(a, d.y0), hi = Math.min(b, d.y1), overlap = hi > lo;
       if (!overlap) { seg(a, b); continue; }
       seg(a, lo); seg(hi, b);                                   // dinding di kiri dan kanan celah
-      if (!d.open) seg(lo, hi, '#e2ad44', '#9a6a14');           // daun pintu tertutup
     }
+    if (!d.open) out.push({ depth:X + (d.y0 + d.y1) / 2, kind:'dock', draw:() => {   // daun pintu tertutup: sprite door_closed bila sudah termuat, jika tidak polygon kuning
+      const img = ART.raw['door_closed'];
+      if (!img) { wallSeg(X, d.y0, X, d.y1, '#e2ad44', '#9a6a14'); return; }
+      const sc = mapScale, h = 44*sc, a = project(X, d.y0), b = project(X, d.y1);
+      ctx.drawImage(img, b.x, a.y - h, a.x - b.x, h + (b.y - a.y));
+    } });
     if (d.open) out.push({ depth:X + (d.y0 + d.y1) / 2 + .2, kind:'dock', draw:() => {
       const sc = mapScale, q = [[d.x - .25, d.y0], [d.x + d.t0 + .25, d.y0], [d.x + d.t0 + .25, d.y1], [d.x - .25, d.y1]].map(([x, y]) => { const p = project(x, y); return [p.x, p.y]; });
       poly(q, 'rgba(46,128,103,.16)', '#2e806788', 1.4*sc);

@@ -516,6 +516,7 @@
           <div><b>Shokupan:</b> adonan → prep → uleni → oven → counter output.</div>
           <div><b>Salt bread:</b> adonan → prep → uleni → ambil mentega lalu tambahkan di prep → ambil garam lalu tambahkan di prep → oven → counter output.</div>
           <div><b>Karung (Stage 3):</b> peti adonan berstok 5; restok = karung dari dock. Berdiri di samping karung lalu Aksi = pegang; kamu terkunci di sisi itu dan hanya bisa menarik/mendorong lurus. Sendirian pelan, berdua dari sisi seberang searah = cepat, berlawanan = berhenti. Aksi lagi = lepas.</div>
+          <div><b>Pintu (Stage 4):</b> dinding membagi dapur jadi dua ruang. Dekati TOMBOL (merah) lalu Aksi: pintu kuning terbuka beberapa detik (ada bilah waktu). Roti dibuat di ruang kiri dan disajikan di ruang kanan, jadi harus lewat pintu. Kopi tidak. Tiap ruang punya tombolnya sendiri.</div>
           <div><b>Counter:</b> tempat taruh item sementara, satu item per slot.</div>
           <div><b>Kesalahan:</b> item yang salah atau gosong dapat dibuang ke Trash. Order kedaluwarsa memberi penalti skor.</div>
         </div>
@@ -638,9 +639,9 @@
   <div class="inventory-bar"><div>Di tangan: <span class="inventory" id="inventoryText">Kosong</span></div><div class="help-line">Dekati stasiun lalu tekan <b>Space</b> / <b>Aksi</b> · Hindari oven gosong.</div></div>
 </div>
 <!-- Vector-first P0: all gameplay art is procedural Canvas geometry; external image/font assets are intentionally avoided for offline and mobile performance. -->
-<script>window.BAKERY_BUILD='20261106-seret';</script>
-<script src="core.js?v=20261106-seret"></script>
-<script src="stages.js?v=20261106-seret"></script>
+<script>window.BAKERY_BUILD='20261109-pintu';</script>
+<script src="core.js?v=20261109-pintu"></script>
+<script src="stages.js?v=20261109-pintu"></script>
 <script src="audio.js?v=20261102-s3"></script>
 <script src="xp.js?v=20261103-rw"></script>
 <script src="scoreboard.js?v=20261102-s3"></script>
@@ -787,7 +788,7 @@
     extinguisher:{ name:'PEMADAM', label:'Alat pemadam', color:'#c34f5a' }
   };
   // Id stasiun di luar STATION_VIEW (mis. prep2, oven2, counter3, trash2) memakai tampilan menurut tipenya.
-  const VIEW_BY_TYPE = { prep:STATION_VIEW.prep, oven:STATION_VIEW.oven, counter:STATION_VIEW.counter1, trash:STATION_VIEW.trash, serve:STATION_VIEW.serve, coffee:STATION_VIEW.coffee };
+  const VIEW_BY_TYPE = { prep:STATION_VIEW.prep, oven:STATION_VIEW.oven, counter:STATION_VIEW.counter1, trash:STATION_VIEW.trash, serve:STATION_VIEW.serve, coffee:STATION_VIEW.coffee, button:{ name:'TOMBOL', label:'Tombol pintu', color:'#e2ad44' } };
   function viewOf(st) {
     if (STATION_VIEW[st.id]) return STATION_VIEW[st.id];
     const base = VIEW_BY_TYPE[st.type]; if (!base) return {};
@@ -795,12 +796,12 @@
     return Object.assign({}, base, num && st.type !== 'counter' ? { name: base.name + ' ' + num[1] } : {});
   }
   let stations = [], stationById = {}, reqSerial = 0;
-  let sackSt = null, dockSt = null, sackHinted = false;   // karung dan dock (stage 3); null bila stage tanpa dock
+  let sackSt = null, dockSt = null, doorSt = null, sackHinted = false;   // karung dan dock (stage 3); null bila stage tanpa dock
   function bindState() {   // dipanggil setiap core membuat state baru (reset/start)
     const s = game.state;
     stations = s.stations; stationById = Object.fromEntries(stations.map(st => [st.id, st]));
     for (const st of stations) Object.assign(st, viewOf(st));
-    orders = s.orders; hazards = s.hazards; sackSt = s.sack; dockSt = s.dock;
+    orders = s.orders; hazards = s.hazards; sackSt = s.sack; dockSt = s.dock; doorSt = s.door || null;
     syncFromCore();
   }
   function syncFromCore() {   // salin angka dari core ke variabel yang dibaca render dan HUD
@@ -909,6 +910,7 @@
         case 'oven:fireOut': BakeryAudio.play('ovenReady'); showToast('Api padam. Oven bisa dipakai lagi.', 1800); break;
         case 'dock:truck': BakeryAudio.play('orderNew'); showToast('Truk datang membawa karung baru.', 1800); break;
         case 'dock:door': BakeryAudio.play('ovenReady'); showToast(sackHinted ? 'Pintu dock terbuka. Karung siap diseret!' : 'Pintu dock terbuka! Karung berat: berdiri di sampingnya, Aksi = pegang, lalu tarik atau dorong lurus. Sendirian pelan; berdua searah cepat.', sackHinted ? 2000 : 5200); sackHinted = true; break;
+        case 'door:open': BakeryAudio.play('orderNew'); break;
         case 'dock:restock': BakeryAudio.play('orderDone', 2); showToast('Karung masuk! Stok adonan penuh lagi.', 2200); break;
         case 'coffee:ready': BakeryAudio.play('ovenReady'); showToast('Kopi sudah jadi! Ambil dari mesin.', 1600); break;
         case 'hazard:spawned': BakeryAudio.play('spill'); showToast('Awas! Ada tumpahan di lantai.', 1500); break;
@@ -929,6 +931,7 @@
       case 'crate_empty': return ['Peti kosong! Dorong karung dari dock ke peti adonan.', 2200];
       case 'sack_gripped': return ['Karung dipegang. Tarik atau dorong lurus. Sendirian pelan; berdua searah langsung cepat, berlawanan berhenti. Aksi = lepas.', 3000];
       case 'sack_released': return ['Karung dilepas.'];
+      case 'door_opened': return [`Pintu terbuka ${e.seconds} detik. Lewat sekarang!`, 1600];
       case 'sack_align': return ['Pegang dari sisi seberang pemegang pertama, segaris dengannya.', 2200];
       case 'sack_full': return ['Karung sudah dipegang dua orang.'];
       case 'sack_no_space': return ['Tidak ada ruang untuk berdiri di sisi itu.'];
@@ -1382,6 +1385,10 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
       ctx.fillStyle='#fff5df';roundRect(ctx,p.x-w*.27,topY-h*.11,w*.54,h*.18,3*sc);ctx.fill();ctx.strokeStyle='#cba879';ctx.stroke();
       ctx.fillStyle='#c58b4f';ctx.beginPath();ctx.ellipse(p.x,topY-h*.02,w*.10,h*.065,0,0,Math.PI*2);ctx.fill();
       ctx.strokeStyle='#e9c28c';ctx.lineWidth=1*sc;ctx.beginPath();ctx.moveTo(p.x-w*.2,topY+h*.05);ctx.lineTo(p.x+w*.2,topY+h*.05);ctx.stroke();
+    } else if(s.type==='button'){
+      // Tombol pintu: merah = pintu tertutup, hijau = terbuka.
+      const on=!!(doorSt&&doorSt.open);ctx.fillStyle=on?'#2e8067':'#c34f5a';ctx.beginPath();ctx.ellipse(p.x,topY-2*sc,w*.2,h*.14,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff7e9';ctx.lineWidth=1.6*sc;ctx.stroke();
+      ctx.fillStyle='#fff7e9';ctx.beginPath();ctx.ellipse(p.x-w*.05,topY-4*sc,w*.05,h*.04,0,0,Math.PI*2);ctx.fill();
     }
     ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`800 ${Math.max(7,9.5*sc)}px ui-sans-serif,system-ui,sans-serif`;if(showLabels){ctx.fillStyle='#2a3d53';ctx.fillText(s.name,p.x,p.y+depth+8*sc);}
     if(s.stock!=null){const bx=p.x+22*sc,by=topY-24*sc,r=Math.max(7,8.5*sc);ctx.fillStyle=s.stock===0?'#c34f5a':'#243b5a';ctx.beginPath();ctx.arc(bx,by,r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fffaf2';ctx.lineWidth=1.5*sc;ctx.stroke();ctx.fillStyle='#fffaf2';ctx.font=`900 ${Math.max(9,11*sc)}px ui-sans-serif,system-ui,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(s.stock,bx,by+.5*sc);}
@@ -1514,10 +1521,10 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     poly([P(x0,y1,zt),P(x1,y1,zt),P(x1,y1,zb),P(x0,y1,zb)], cS, '#243b5a66', .8*sc);
     poly([P(x0,y0,zt),P(x1,y0,zt),P(x1,y1,zt),P(x0,y1,zt)], cTop, '#243b5a66', .8*sc);
   }
-  function wallSeg(x0,y0,x1,y1) {
+  function wallSeg(x0,y0,x1,y1,fc,ec) {   // fc/ec opsional: warna muka dan garis atas (daun pintu stage 4)
     const sc = mapScale, h = 44*sc, a = project(x0,y0), b = project(x1,y1);
-    poly([[a.x,a.y],[b.x,b.y],[b.x,b.y-h],[a.x,a.y-h]], '#d9c3a3', '#6b5a45', 1.4*sc);
-    ctx.strokeStyle = '#8a7357'; ctx.lineWidth = 3*sc; ctx.beginPath(); ctx.moveTo(a.x,a.y-h); ctx.lineTo(b.x,b.y-h); ctx.stroke();
+    poly([[a.x,a.y],[b.x,b.y],[b.x,b.y-h],[a.x,a.y-h]], fc || '#d9c3a3', '#6b5a45', 1.4*sc);
+    ctx.strokeStyle = ec || '#8a7357'; ctx.lineWidth = 3*sc; ctx.beginPath(); ctx.moveTo(a.x,a.y-h); ctx.lineTo(b.x,b.y-h); ctx.stroke();
   }
   function drawDockFloor() {
     const d = dockSt; if (!d || mode === 'lobby') return; const c = dockCfg(), R = mapRows() + .5, X = c.x0 + .06, Y = c.y0 + .06, sc = mapScale;
@@ -1549,6 +1556,26 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     } });
     return out;
   }
+  // ---- pintu bertombol (stage 4): dinding vertikal dengan celah; daun pintu kuning saat tertutup, bilah waktu saat terbuka ----
+  function doorActors() {
+    const d = doorSt; if (!d || mode === 'lobby') return [];
+    const R = mapRows() + .5, X = d.x + d.t0 / 2, out = [];
+    const seg = (a, b, fc, ec) => { if (b - a < .02) return; out.push({ depth:X + (a + b) / 2, kind:'dock', draw:() => wallSeg(X, a, X, b, fc, ec) }); };
+    for (let a = .5; a < R - .01; a += 1) {
+      const b = Math.min(R, a + 1);
+      const lo = Math.max(a, d.y0), hi = Math.min(b, d.y1), overlap = hi > lo;
+      if (!overlap) { seg(a, b); continue; }
+      seg(a, lo); seg(hi, b);                                   // dinding di kiri dan kanan celah
+      if (!d.open) seg(lo, hi, '#e2ad44', '#9a6a14');           // daun pintu tertutup
+    }
+    if (d.open) out.push({ depth:X + (d.y0 + d.y1) / 2 + .2, kind:'dock', draw:() => {
+      const sc = mapScale, q = [[d.x - .25, d.y0], [d.x + d.t0 + .25, d.y0], [d.x + d.t0 + .25, d.y1], [d.x - .25, d.y1]].map(([x, y]) => { const p = project(x, y); return [p.x, p.y]; });
+      poly(q, 'rgba(46,128,103,.16)', '#2e806788', 1.4*sc);
+      const m = project(X, (d.y0 + d.y1) / 2), f = Math.max(0, Math.min(1, d.t / d.hold));
+      drawMiniBar(m.x, m.y - 52*sc, f, d.t < 1 ? '#c34f5a' : '#2e8067', sc);
+    } });
+    return out;
+  }
   function drawBackground() {}   // langit dan dinding digambar di cache shell (drawFloor)
   function render() {
     ctx.clearRect(0,0,canvasW,canvasH);drawBackground();drawFloor();if(mode==='lobby')drawPad();drawHazards();drawDockFloor();
@@ -1556,7 +1583,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
     // A small direction hint between the player and the active target.
     if(target){const p=project(player.x,player.y),q=project(target.x,target.y);ctx.strokeStyle='#2e806755';ctx.lineWidth=1.5*mapScale;ctx.setLineDash([3*mapScale,4*mapScale]);ctx.beginPath();ctx.moveTo(p.x,p.y-5*mapScale);ctx.lineTo(q.x,q.y-20*mapScale);ctx.stroke();ctx.setLineDash([]);}
     const views=playerViews();
-    const actors=[...stations.map(s=>({depth:s.x+s.y,kind:'station',s})),...views.map(v=>({depth:v.x+v.y,kind:'player',v})),...dockActors()].sort((a,b)=>a.depth-b.depth);
+    const actors=[...stations.map(s=>({depth:s.x+s.y,kind:'station',s})),...views.map(v=>({depth:v.x+v.y,kind:'player',v})),...dockActors(),...doorActors()].sort((a,b)=>a.depth-b.depth);
     for(const a of actors){if(a.kind==='station'){const fk=a.s.bornAt==null?1:Math.min(1,(elapsed-a.s.bornAt)/.45);if(fk<1){ctx.save();ctx.globalAlpha=fk;}drawStation(a.s,a.s===target);if(fk<1)ctx.restore();if(guideIds.includes(a.s.id))drawGuide(a.s);}else if(a.kind==='dock')a.draw(target);else drawPlayer(a.v);}
     for(const v of views) if(v.name) { drawNameTag(v); drawBubble(v); }
     drawFeedback();
@@ -1776,7 +1803,7 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function applySnapshot(sn) {
     stations = sn.stations; stationById = Object.fromEntries(stations.map(st => [st.id, st]));
     for (const st of stations) Object.assign(st, viewOf(st));
-    orders = sn.orders; hazards = sn.hazards; sackSt = sn.sack || null; dockSt = sn.dock || null;
+    orders = sn.orders; hazards = sn.hazards; sackSt = sn.sack || null; dockSt = sn.dock || null; doorSt = sn.door || null;
     score = sn.score; ordersServed = sn.ordersServed; ordersExpired = sn.ordersExpired; burntCount = sn.burntCount; roundLeft = sn.roundLeft;
     const mine = sn.players.find(p => p.id === meId()); heldItem = mine ? mine.held : null;
   }
@@ -2105,12 +2132,12 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function stageThumb(st) {   // gambar dapur stage lewat renderer game yang sama (dipotret dari kanvas utama yang sedang tertutup layar stage), di-cache
     const n = Object.keys(ART.raw).length, c = thumbs.get(st.id);
     if (c && c.n === n && c.w === canvasW && c.h === canvasH) return c.url;
-    const keep = [stations, stationById, orders, hazards, guideIds, mode, sackSt, dockSt, THUMBDOCK, THUMBTHEME, THUMBID, THUMBCOLL]; let url = '';
+    const keep = [stations, stationById, orders, hazards, guideIds, mode, sackSt, dockSt, doorSt, THUMBDOCK, THUMBTHEME, THUMBID, THUMBCOLL]; let url = '';
     try {
       const tmp = BakeryCore.createGame({ seed, config:st.config }); stations = tmp.state.stations; for (const s2 of stations) Object.assign(s2, viewOf(s2));
-      stationById = Object.fromEntries(stations.map(s2 => [s2.id, s2])); orders = []; hazards = []; guideIds = []; mode = 'menu'; THUMB = true; sackSt = tmp.state.sack; dockSt = tmp.state.dock; THUMBDOCK = st.config.dock || null; THUMBTHEME = st.theme || null; THUMBID = st.id; THUMBCOLL = st.config.collision || null;
+      stationById = Object.fromEntries(stations.map(s2 => [s2.id, s2])); orders = []; hazards = []; guideIds = []; mode = 'menu'; THUMB = true; sackSt = tmp.state.sack; dockSt = tmp.state.dock; doorSt = tmp.state.door || null; THUMBDOCK = st.config.dock || null; THUMBTHEME = st.theme || null; THUMBID = st.id; THUMBCOLL = st.config.collision || null;
       render(); url = canvas.toDataURL('image/jpeg', .72);
-    } catch (e) {} finally { THUMB = false; [stations, stationById, orders, hazards, guideIds, mode, sackSt, dockSt, THUMBDOCK, THUMBTHEME, THUMBID, THUMBCOLL] = keep; }
+    } catch (e) {} finally { THUMB = false; [stations, stationById, orders, hazards, guideIds, mode, sackSt, dockSt, doorSt, THUMBDOCK, THUMBTHEME, THUMBID, THUMBCOLL] = keep; }
     thumbs.set(st.id, { url, n, w:canvasW, h:canvasH }); return url;
   }
   const tutDone = () => { try { return localStorage.getItem('sbc_tutor') === '1'; } catch (e) { return false; } };

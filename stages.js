@@ -67,6 +67,27 @@
           st('coffee', 'coffee', 4, 4), crate('extinguisher', 3, 6)
         ]
       }
+    },
+    // Stage 4 "pintu bertombol": dinding antara kolom x4 dan x5 dengan satu pintu di baris y4 (celah y3,6-4,7). Ruang A (x1-4): bahan, 2 prep, 2 oven, trash, apar.
+    // Ruang B (x5-7): kopi dan serve. Tombol (btnA di A, btnB di B) membuka pintu door.openSeconds detik. Roti harus lewat pintu; kopi tidak. Lantai 7x7 (reachMaxY 7.37).
+    // Semua angka (letak, durasi pintu, ambang bintang bawaan) [Menebak]; belum dimainkan di perangkat nyata.
+    4: {
+      id: 4, name: 'Stage 4', unlockAfter: 3,
+      config: {
+        spawn: { x: 2.0, y: 2.15 }, collision: { reachMaxY: 7.37 },
+        hazard: { enabled: false },
+        door: { x: 4.6, gapY0: 3.6, gapY1: 4.7, openSeconds: 4 },
+        orderMix: { plain_bread: 1, salt_bread: 1, coffee: 0.5 },
+        scoreByRecipe: { coffee: 40 },
+        coffeeBrewSeconds: 4.5,
+        fire: { enabled: true, afterBurntSeconds: 6, extinguishSeconds: 2, penalty: 30 },
+        stations: [
+          crate('dough', 1, 1), crate('butter', 2, 1), crate('salt', 3, 1),
+          st('prep', 'prep', 1, 3), st('oven', 'oven', 3, 3), st('btnA', 'button', 3, 4), st('prep2', 'prep', 1, 5), st('oven2', 'oven', 3, 5),
+          st('trash', 'trash', 1, 7), crate('extinguisher', 3, 7),
+          st('btnB', 'button', 5, 3), st('counter1', 'counter', 5, 6), st('coffee', 'coffee', 7, 2), st('serve', 'serve', 7, 4), st('counter2', 'counter', 7, 6)
+        ]
+      }
     }
   };
 

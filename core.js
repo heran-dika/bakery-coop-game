@@ -39,6 +39,7 @@
     isoRatio: 0.5,            // tileH / tileW
     heavyCarrySlow: 0.94,
     dock: null,               // stage karung berat: lihat DOCK_DEFAULTS; null = tanpa dock/karung
+    door: null,               // stage pintu bertombol: lihat DOOR_DEFAULTS; null = tanpa pintu
     maxStep: 0.05,            // dt dipecah per langkah ini supaya hasil sama di tick berapa pun
     // Kolisi: lingkaran badan vs persegi jejak alas kubus (sama dengan resolveStations di index.html 2026-10-23).
     // Semua angka [Menebak], disetel di HP: bodyR, footOffset, footHalf, reach*.
@@ -71,6 +72,9 @@
     soloSlow: 0.25, span: 1.9, gripReach: 1.35,         // sendirian menyeret = 1/4 kecepatan; berdua searah = normal
     arriveSeconds: 1.6, unloadSeconds: 1.0, leaveSeconds: 1.4, truckDelay: 2.5
   };
+  // Pintu bertombol (stage 4): dinding vertikal di x (koordinat dunia, sama dengan dinding dock) dengan celah y0..y1 yang terbuka
+  // openSeconds detik setelah tombol (stasiun bertipe 'button') ditekan. Pintu menunggu selama masih ada pemain di celah. Semua angka [Menebak].
+  const DOOR_DEFAULTS = { x: 4.6, t: 0.12, gapY0: 3.6, gapY1: 4.7, openSeconds: 4 };
   const SERVABLE = ['plain_bread', 'salt_bread', 'coffee'];
 
   function mulberry32(seed) {
@@ -121,6 +125,8 @@
       restock: Object.assign({}, DOCK_DEFAULTS.restock, cfg.dock.restock), drop: Object.assign({}, DOCK_DEFAULTS.drop, cfg.dock.drop)
     }) : null;
 
+    const DR = cfg.door ? Object.assign({}, DOOR_DEFAULTS, cfg.door) : null;
+
     function makeStation(def) {
       const st = { id: def.id, type: def.type, x: def.x, y: def.y };
       if (def.gives) st.gives = def.gives;
@@ -147,7 +153,8 @@
         hazards: [], nextHazardAt: cfg.hazard.firstAt, nextHazardId: 1,
         stations, players,
         sack: DK ? { mode: 'none', x: 0, y: 0, carrier: null, grip: [], side: [], axis: null } : null,
-        dock: DK ? { phase: 'idle', t: 0, open: false } : null
+        dock: DK ? { phase: 'idle', t: 0, open: false } : null,
+        door: DR ? { open: false, t: 0, x: DR.x, t0: DR.t, y0: DR.gapY0, y1: DR.gapY1, hold: DR.openSeconds } : null   // geometri ikut state supaya client (dan kartu stage) tidak perlu membaca config
       };
     }
 
@@ -208,10 +215,16 @@
     // Tanpa tolak per-sumbu: karakter didorong keluar dari persegi jejak kubus, jadi bisa memutari sudut tanpa nyangkut.
     const footRect = (x, y) => { const c = cfg.collision, cx = x + c.footOffset, cy = y + c.footOffset; return [cx - c.footHalf, cy - c.footHalf, cx + c.footHalf, cy + c.footHalf]; };
     const overlap = (a, b) => a[0] < b[2] - 1e-6 && a[2] > b[0] + 1e-6 && a[1] < b[3] - 1e-6 && a[3] > b[1] + 1e-6;
-    function wallRects() {   // dinding dock: atas selalu ada, kiri hanya selama pintu tertutup
-      if (!DK) return [];
-      const t = 0.12, r = [[DK.x0, DK.y0, DK.x0 + 9, DK.y0 + t]];
-      if (!s.dock.open) r.push([DK.x0, DK.y0, DK.x0 + t, DK.y0 + 9]);
+    function wallRects() {   // dinding dock: atas selalu ada, kiri hanya selama pintu tertutup; dinding pintu stage 4: utuh bila tertutup, bercelah bila terbuka
+      const r = [];
+      if (DK) {
+        const t = 0.12; r.push([DK.x0, DK.y0, DK.x0 + 9, DK.y0 + t]);
+        if (!s.dock.open) r.push([DK.x0, DK.y0, DK.x0 + t, DK.y0 + 9]);
+      }
+      if (DR) {
+        const d = s.door, x1 = d.x + d.t0;
+        if (d.open) { r.push([d.x, -1, x1, d.y0]); r.push([d.x, d.y1, x1, 12]); } else r.push([d.x, -1, x1, 12]);
+      }
       return r;
     }
     function resolveStations(x, y, ignoreSack) {
@@ -413,6 +426,14 @@
       }
     }
 
+    // ---------- pintu bertombol (stage 4) ----------
+    const inDoor = p => { const d = s.door; return p.x > d.x - 0.14 && p.x < d.x + d.t0 + 0.14 && p.y > d.y0 - 0.2 && p.y < d.y1 + 0.2; };
+    function updateDoor(dt, ev) {   // terbuka sampai hitung mundur habis dan celah kosong (pintu tidak menutup di atas pemain)
+      const d = s.door; if (!d.open) return;
+      d.t = Math.max(0, d.t - dt);
+      if (d.t <= 0 && !s.players.some(inDoor)) { d.open = false; ev.push({ type: 'door:close' }); }
+    }
+
     // ---------- interaksi ----------
     function interact(p, requestId, ev) {
       if (s.mode !== 'running') return;
@@ -425,6 +446,13 @@
       const st = targetStation(p);
       if (!st) return msg('too_far');
       const held = p.held;
+
+      if (st.type === 'button') {   // tombol pintu: buka (atau perpanjang) selama openSeconds; boleh dengan tangan penuh
+        if (!DR) return;
+        const d = s.door, was = d.open; d.open = true; d.t = DR.openSeconds;
+        if (!was) ev.push({ type: 'door:open' });
+        return msg('door_opened', { seconds: DR.openSeconds });
+      }
 
       if (st.type === 'crate') {
         if (held) return msg('hands_full');
@@ -590,6 +618,7 @@
       if (DK && s.sack.mode === 'drag') updateDrag(inputs, dt);
       for (const p of s.players) { if (DK && s.sack.mode === 'drag' && s.sack.grip.includes(p.id)) continue; movePlayer(p, inputs[p.id], dt, ev); }
       if (DK) updateDock(dt, ev);
+      if (DR) updateDoor(dt, ev);
       if (s.roundLeft <= 0) finishRound(ev);
     }
 
@@ -640,5 +669,5 @@
     return game;
   }
 
-  return { createGame, DEFAULT_CONFIG, mulberry32 };
+  return { createGame, DEFAULT_CONFIG, DOOR_DEFAULTS, mulberry32 };
 });

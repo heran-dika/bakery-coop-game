@@ -797,7 +797,7 @@
     return Object.assign({}, base, num && st.type !== 'counter' ? { name: base.name + ' ' + num[1] } : {});
   }
   let stations = [], stationById = {}, reqSerial = 0;
-  let sackSt = null, dockSt = null, doorSt = null, sackHinted = false;   // karung dan dock (stage 3); null bila stage tanpa dock
+  let sackSt = null, dockSt = null, doorSt = null, doorViews = [], sackHinted = false;   // karung dan dock (stage 3); null bila stage tanpa dock
   function bindState() {   // dipanggil setiap core membuat state baru (reset/start)
     const s = game.state;
     stations = s.stations; stationById = Object.fromEntries(stations.map(st => [st.id, st]));
@@ -1561,36 +1561,54 @@ function paintSky(g) {   // suasana malam: gradasi navy, cahaya hangat di sekita
   function doorActors() {
     const d = doorSt; if (!d || mode === 'lobby') return [];
     const R = mapRows() + .5, X = d.x + d.t0 / 2, out = [];
-    const seg = (a, b, fc, ec) => { if (b - a < .02) return; out.push({ depth:X + (a + b) / 2, kind:'dock', draw:() => wallSeg(X, a, X, b, fc, ec) }); };
+    // Pemain di sisi A (x < X) yang tampil di balik potongan dinding membuat potongan itu memudar supaya dia tetap kelihatan.
+    const behind = (a, b) => doorViews.some(v => v.x < X && v.x > X - 1.8 && v.y > a - 1.8 && v.y < b + .3);
+    const faded = draw => () => { const f = draw.fade(); if (f) { ctx.save(); ctx.globalAlpha = .32; } draw.run(); if (f) ctx.restore(); };
+    const seg = (a, b, fc, ec) => { if (b - a < .02) return; out.push({ depth:X + (a + b) / 2, kind:'dock', draw:faded({ fade:() => behind(a, b), run:() => wallSeg(X, a, X, b, fc, ec) }) }); };
     for (let a = .5; a < R - .01; a += 1) {
       const b = Math.min(R, a + 1);
       const lo = Math.max(a, d.y0), hi = Math.min(b, d.y1), overlap = hi > lo;
       if (!overlap) { seg(a, b); continue; }
       seg(a, lo); seg(hi, b);                                   // dinding di kiri dan kanan celah
     }
-    if (!d.open) out.push({ depth:X + (d.y0 + d.y1) / 2, kind:'dock', draw:() => {   // daun pintu tertutup: sprite door_closed bila sudah termuat, jika tidak polygon kuning
+    if (!d.open) out.push({ depth:X + (d.y0 + d.y1) / 2, kind:'dock', draw:faded({ fade:() => behind(d.y0, d.y1), run:() => {   // daun pintu tertutup: sprite door_closed bila sudah termuat, jika tidak polygon kuning
       const img = ART.raw['door_closed'];
       if (!img) { wallSeg(X, d.y0, X, d.y1, '#e2ad44', '#9a6a14'); return; }
       const sc = mapScale, h = 44*sc, a = project(X, d.y0), b = project(X, d.y1);
       ctx.drawImage(img, b.x, a.y - h, a.x - b.x, h + (b.y - a.y));
-    } });
-    if (d.open) out.push({ depth:X + (d.y0 + d.y1) / 2 + .2, kind:'dock', draw:() => {
-      const sc = mapScale, q = [[d.x - .25, d.y0], [d.x + d.t0 + .25, d.y0], [d.x + d.t0 + .25, d.y1], [d.x - .25, d.y1]].map(([x, y]) => { const p = project(x, y); return [p.x, p.y]; });
-      poly(q, 'rgba(46,128,103,.16)', '#2e806788', 1.4*sc);
-      const m = project(X, (d.y0 + d.y1) / 2), f = Math.max(0, Math.min(1, d.t / d.hold));
-      drawMiniBar(m.x, m.y - 52*sc, f, d.t < 1 ? '#c34f5a' : '#2e8067', sc);
-    } });
+    } }) });
     return out;
+  }
+  // Alas hijau di celah dan bilah waktu pintu: digambar terpisah dari dinding (alas di lantai, bilah paling atas)
+  function drawDoorFloor() {
+    const d = doorSt; if (!d || mode === 'lobby' || !d.open) return;
+    const sc = mapScale, q = [[d.x - .25, d.y0], [d.x + d.t0 + .25, d.y0], [d.x + d.t0 + .25, d.y1], [d.x - .25, d.y1]].map(([x, y]) => { const p = project(x, y); return [p.x, p.y]; });
+    poly(q, 'rgba(46,128,103,.16)', '#2e806788', 1.4*sc);
+  }
+  function drawDoorBar() {
+    const d = doorSt; if (!d || mode === 'lobby' || !d.open) return;
+    const sc = mapScale, m = project(d.x + d.t0 / 2, (d.y0 + d.y1) / 2), f = Math.max(0, Math.min(1, d.t / d.hold));
+    drawMiniBar(m.x, m.y - 52*sc, f, d.t < 1 ? '#c34f5a' : '#2e8067', sc);
+  }
+  // Urutan gambar dinding pintu: dinding berdiri tegak lurus sumbu x, jadi yang menentukan cuma sisi mana benda berada.
+  // Benda dengan x < X (ruang A, di belakang dinding) digambar dulu, lalu dinding, lalu benda dengan x >= X (ruang B, di depan dinding).
+  // Dulu dinding diurutkan lewat x+y bagian tengahnya, sehingga pemain di depan dinding bisa tertutup (bug dilaporkan pemilik 2026-11-10).
+  function orderWithDoor(list, walls) {
+    if (!walls.length) return list;
+    const X = doorSt.x + doorSt.t0 / 2, ax = a => a.kind === 'station' ? a.s.x : a.kind === 'player' ? a.v.x : Infinity;
+    return [...list.filter(a => ax(a) < X), ...walls.sort((a, b) => a.depth - b.depth), ...list.filter(a => !(ax(a) < X))];
   }
   function drawBackground() {}   // langit dan dinding digambar di cache shell (drawFloor)
   function render() {
-    ctx.clearRect(0,0,canvasW,canvasH);drawBackground();drawFloor();if(mode==='lobby')drawPad();drawHazards();drawDockFloor();
+    ctx.clearRect(0,0,canvasW,canvasH);drawBackground();drawFloor();if(mode==='lobby')drawPad();drawHazards();drawDockFloor();drawDoorFloor();
     const target=mode==='running'?getTargetStation():null;
     // A small direction hint between the player and the active target.
     if(target){const p=project(player.x,player.y),q=project(target.x,target.y);ctx.strokeStyle='#2e806755';ctx.lineWidth=1.5*mapScale;ctx.setLineDash([3*mapScale,4*mapScale]);ctx.beginPath();ctx.moveTo(p.x,p.y-5*mapScale);ctx.lineTo(q.x,q.y-20*mapScale);ctx.stroke();ctx.setLineDash([]);}
-    const views=playerViews();
-    const actors=[...stations.map(s=>({depth:s.x+s.y,kind:'station',s})),...views.map(v=>({depth:v.x+v.y,kind:'player',v})),...dockActors(),...doorActors()].sort((a,b)=>a.depth-b.depth);
+    const views=playerViews();doorViews=views;
+    const actors0=[...stations.map(s=>({depth:s.x+s.y,kind:'station',s})),...views.map(v=>({depth:v.x+v.y,kind:'player',v})),...dockActors()].sort((a,b)=>a.depth-b.depth);
+    const actors=orderWithDoor(actors0,doorActors());
     for(const a of actors){if(a.kind==='station'){const fk=a.s.bornAt==null?1:Math.min(1,(elapsed-a.s.bornAt)/.45);if(fk<1){ctx.save();ctx.globalAlpha=fk;}drawStation(a.s,a.s===target);if(fk<1)ctx.restore();if(guideIds.includes(a.s.id))drawGuide(a.s);}else if(a.kind==='dock')a.draw(target);else drawPlayer(a.v);}
+    drawDoorBar();
     for(const v of views) if(v.name) { drawNameTag(v); drawBubble(v); }
     drawFeedback();
     // On-screen fallback hint for desktop.
